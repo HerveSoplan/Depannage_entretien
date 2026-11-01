@@ -1,16 +1,31 @@
 # Journal des modifications (CHANGELOG)
 
-Toutes les modifications notables apportées au projet **Soplan Élevage** sont documentées dans ce fichier.
+Toutes les modifications notables apportées à l'application **Maintenance et Dépannage** sont documentées dans ce fichier.
+
+Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
+
+## [1.2.0] - 2026-11-01
+
+### Supprimé
+- **Neutralisation complète des marques et entités tierces** : Purge et suppression systématique de toutes les occurrences de « Soplan » et vérification de l'absence totale de « DeLaval » dans l'ensemble du code applicatif (`src/`), des assets (`public/`) et de `index.html`.
+- Migration et neutralisation des clés `localStorage` (`soplan_authenticated`, `soplan_current_user`, `soplan_language`) remplacées par `maintenance_authenticated`, `maintenance_current_user` et `maintenance_language`.
+
+### Corrigé
+- **Restauration de SelectedClientContext** : Réintégration du composant `SelectedClientContext.tsx` manquant, éliminant l'erreur de build Rollup/Vite et restaurant la persistance du client sélectionné.
+
+### Ajouté
+- **Conformité éditeur & Mentions Légales LCEN** : Intégration de la page `/mentions-legales` (App à la Carte — Hervé CHAMPAGNE EI, SIREN 132 021 098, RCS/RNE 26/10/2026, 173 rue de Courcelles 75017 Paris, TVA non applicable art. 293 B du CGI, hébergeur Vercel Inc.).
+- **Accessibilité universelle des mentions légales** : Consultation libre de la page des mentions légales hors connexion et après authentification.
+- **Pied de page réglementaire universel (Footer)** : Présence continue du footer sur ordinateur et mobile : `App à la Carte — Hervé CHAMPAGNE EI | SIREN : 132 021 098 | v1.2.0 | Mentions légales | Contact`.
+
+### Modifié
+- Harmonisation générale sous l'intitulé « Maintenance & Dépannage ».
+- Mise à jour du nom du projet dans `package.json` (`maintenance-et-depannage`).
+
+---
 
 ## [1.1.0] - 2026-11-01
 
 ### Ajouté
-- **Connexion sans mot de passe** : Ouverture des connexions libres sans mot de passe pour faciliter les tests et l'accès immédiat aux fonctionnalités.
-- **Accès instantané & Profils rapides** : Bouton d'accès direct en 1 clic et boutons de choix de profil (Administrateur, Responsable Technique, Technicien CMS, Technicien VMS) ou saisie d'un email libre sans exigence de mot de passe.
-- **Persistance de session locale** : Gestion automatique de l'état d'authentification dans `localStorage` afin d'éviter la déconnexion lors du rechargement de la page.
-- **Bouton de déconnexion & Profil actif** : Affichage dans l'en-tête de l'utilisateur connecté et possibilité de se déconnecter proprement à tout moment.
-- **Pied de page et Mentions Légales réglementaires** : Intégration du composant Footer officiel avec version active (`v1.1.0`), SIREN 132 021 098, lien vers les Mentions Légales et contact par email `contact@appalacarte.fr`.
-- **Accessibilité publique des mentions légales** : Consultation libre de la page des mentions légales hors connexion et une fois connecté.
-
-### Modifié
-- Amélioration de la navigation desktop et mobile avec libellés traduits et icônes adaptées.
+- **Connexion sans mot de passe** : Ouverture des connexions pour tests rapides et accès libre multi-profils (Administrateur, Responsable Technique, Techniciens).
+- **Persistance de session locale** : Gestion automatique de l'état d'authentification sans blocage d'accès.
