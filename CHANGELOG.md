@@ -4,6 +4,20 @@ Toutes les modifications notables apportées à l'application **Maintenance et D
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.6.1] - 2026-11-01
+
+### Ajouté & Corrigé
+- **Authentification par compte Google OAuth (`signInWithOAuth`)** :
+  - Intégration du bouton officiel « Continuer avec le compte Google » sur l'écran de connexion.
+  - Redirection et retour sécurisé vers l'application (`window.location.origin`).
+- **Authentification par adresse email validée & Lien magique (OTP)** :
+  - Bouton « Lien par email (OTP) » pour se connecter directement sans mot de passe via un lien de connexion envoyé sur l'email validé.
+  - Reconnaissance immédiate de l'administrateur maître `contact@appalacarte.fr` (App à la Carte — Hervé CHAMPAGNE EI).
+- **Écoute dynamique des sessions Supabase Auth (`onAuthStateChange` dans `App.tsx`)** :
+  - Détection automatique et instantanée du retour de connexion Google OAuth (`#access_token=...` ou tokens de session).
+  - Validation automatique du compte `contact@appalacarte.fr` en tant qu'administrateur maître avec tous les privilèges.
+  - Détection des comptes Google autorisés validés ou mise en attente sécurisée avec notification explicite.
+
 ## [1.6.0] - 2026-11-01
 
 ### Ajouté & Amélioré

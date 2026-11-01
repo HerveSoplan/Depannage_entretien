@@ -14,11 +14,9 @@ import {
   CheckCircle2,
   AlertCircle,
   ShieldCheck,
-  Building,
   User,
   Phone,
-  FileQuestion,
-  HelpCircle
+  Send
 } from 'lucide-react';
 import { auth, isLiveSupabaseActive } from '../../lib/supabase';
 
@@ -28,15 +26,17 @@ interface LoginScreenProps {
 }
 
 export function LoginScreen({ onLoginSuccess, onNavigateLegal }: LoginScreenProps) {
-  // Mode : 'login' | 'demande' | 'success_demande'
+  // Mode : 'login' | 'demande'
   const [activeTab, setActiveTab] = useState<'login' | 'demande'>('login');
-  
+
   // Champs Connexion
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
+  const [otpMessage, setOtpMessage] = useState<string | null>(null);
+  const [pendingGoogleEmail, setPendingGoogleEmail] = useState<string | null>(null);
   const [showLegal, setShowLegal] = useState(false);
 
   // Champs Demande d'accès
@@ -48,7 +48,7 @@ export function LoginScreen({ onLoginSuccess, onNavigateLegal }: LoginScreenProp
   const [demandeMotif, setDemandeMotif] = useState('');
   const [demandeSuccessData, setDemandeSuccessData] = useState<any>(null);
 
-  // Détection des paramètres d'URL (liens d'invitation ou accès partagé)
+  // Détection des paramètres d'URL et session en attente
   useEffect(() => {
     try {
       if (typeof window !== 'undefined') {
@@ -68,18 +68,44 @@ export function LoginScreen({ onLoginSuccess, onNavigateLegal }: LoginScreenProp
         if (action === 'demande' || params.get('demande') === 'true' || params.get('invite')) {
           setActiveTab('demande');
         }
+
+        const pending = sessionStorage.getItem('pending_auth_email');
+        if (pending) {
+          setPendingGoogleEmail(pending);
+        }
       }
     } catch (e) {
       console.warn('Erreur lecture paramètres URL:', e);
     }
   }, []);
 
-  // Soumission Connexion
+  // Connexion Google OAuth
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    setError(null);
+    setErrorCode(null);
+    setOtpMessage(null);
+
+    try {
+      const res: any = await auth.signInWithGoogle();
+      if (res?.user) {
+        onLoginSuccess(res.user);
+      }
+    } catch (err: any) {
+      console.error('Erreur connexion Google:', err);
+      setError(err?.message || 'Erreur lors de la redirection Google.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Connexion par email / mot de passe
   const handleSubmitLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
     setErrorCode(null);
+    setOtpMessage(null);
 
     const cleanEmail = email.trim();
     if (!cleanEmail) {
@@ -91,6 +117,7 @@ export function LoginScreen({ onLoginSuccess, onNavigateLegal }: LoginScreenProp
     try {
       const res = await auth.signIn(cleanEmail, password || undefined);
       if (res?.user) {
+        sessionStorage.removeItem('pending_auth_email');
         onLoginSuccess(res.user);
       } else {
         setError('Impossible de se connecter. Veuillez vérifier vos identifiants.');
@@ -106,7 +133,39 @@ export function LoginScreen({ onLoginSuccess, onNavigateLegal }: LoginScreenProp
     }
   };
 
-  // Soumission Demande d'accès
+  // Envoi d'un lien magique OTP sur email validé
+  const handleSendOtp = async () => {
+    const cleanEmail = email.trim();
+    if (!cleanEmail) {
+      setError('Veuillez renseigner votre adresse email pour recevoir le lien.');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setErrorCode(null);
+    setOtpMessage(null);
+
+    try {
+      const res: any = await auth.signInWithOtp(cleanEmail);
+      if (res?.user) {
+        sessionStorage.removeItem('pending_auth_email');
+        onLoginSuccess(res.user);
+      } else {
+        setOtpMessage(res?.message || `Un lien magique de connexion a été envoyé à ${cleanEmail}.`);
+      }
+    } catch (err: any) {
+      console.error('Erreur lien magique:', err);
+      setError(err?.message || "Erreur lors de l'envoi du lien de connexion.");
+      if (err?.code) {
+        setErrorCode(err.code);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Soumission de la demande d'accès
   const handleSubmitDemande = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -142,20 +201,22 @@ export function LoginScreen({ onLoginSuccess, onNavigateLegal }: LoginScreenProp
       });
     } catch (err: any) {
       console.error('Erreur demande accès:', err);
-      setError(err?.message || 'Erreur lors de l\'enregistrement de votre demande.');
+      setError(err?.message || "Erreur lors de l'enregistrement de votre demande.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Connexion directe Administrateur maître
+  // Accès direct Administrateur maître (contact@appalacarte.fr)
   const handleQuickAdmin = async () => {
     setLoading(true);
     setError(null);
     setErrorCode(null);
+    setOtpMessage(null);
     try {
       const res = await auth.signIn('contact@appalacarte.fr');
       if (res?.user) {
+        sessionStorage.removeItem('pending_auth_email');
         onLoginSuccess(res.user);
       }
     } catch (err: any) {
@@ -182,13 +243,13 @@ export function LoginScreen({ onLoginSuccess, onNavigateLegal }: LoginScreenProp
               Maintenance & Dépannage
             </h1>
             <p className="text-xs sm:text-sm text-gray-500 mt-1">
-              Portail professionnel certifié — Gestion des interventions & maintenance
+              Portail professionnel certifié — Authentification Google & Email Validé
             </p>
           </div>
 
           {/* Onglets de sélection : Connexion / Demande d'accès */}
           {!demandeSuccessData && (
-            <div className="flex rounded-xl bg-gray-100 p-1 mb-6 border border-gray-200">
+            <div className="flex rounded-xl bg-gray-100 p-1 mb-5 border border-gray-200">
               <button
                 type="button"
                 onClick={() => {
@@ -224,6 +285,30 @@ export function LoginScreen({ onLoginSuccess, onNavigateLegal }: LoginScreenProp
             </div>
           )}
 
+          {/* Alerte si compte Google identifié mais en attente */}
+          {pendingGoogleEmail && (
+            <div className="mb-4 p-4 bg-amber-50 border border-amber-300 rounded-xl text-amber-900 text-xs sm:text-sm space-y-1.5 shadow-sm">
+              <div className="flex items-center gap-2 font-bold text-amber-950">
+                <Clock className="w-5 h-5 text-amber-600 flex-shrink-0" />
+                <span>Compte Google en attente de validation</span>
+              </div>
+              <p className="leading-relaxed">
+                Votre compte Google (<strong>{pendingGoogleEmail}</strong>) a bien été identifié. Il est en attente d'approbation par l'administrateur (<span className="font-semibold text-blue-700">contact@appalacarte.fr</span>) ou le responsable technique.
+              </p>
+            </div>
+          )}
+
+          {/* Notification OTP / Lien magique envoyé */}
+          {otpMessage && (
+            <div className="mb-4 p-3.5 bg-green-50 border border-green-200 rounded-xl text-green-800 text-xs sm:text-sm flex items-start gap-2.5">
+              <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-semibold text-green-950">Lien de connexion envoyé !</p>
+                <p className="text-xs text-green-700 mt-0.5">{otpMessage}</p>
+              </div>
+            </div>
+          )}
+
           {/* Messages d'erreur et alertes contextuelles */}
           {error && (
             <div className="mb-5">
@@ -236,9 +321,6 @@ export function LoginScreen({ onLoginSuccess, onNavigateLegal }: LoginScreenProp
                   <p className="text-xs text-amber-800 leading-relaxed">
                     Votre demande de connexion a bien été enregistrée pour votre adresse email. Elle est actuellement examinée par l'administrateur ou le responsable technique.
                   </p>
-                  <p className="text-xs text-amber-700 italic">
-                    Dès que votre accès sera validé, vous pourrez vous connecter immédiatement.
-                  </p>
                 </div>
               ) : errorCode === 'USER_NOT_FOUND' ? (
                 <div className="p-4 bg-blue-50 border border-blue-300 rounded-xl text-blue-900 text-sm space-y-3 shadow-sm">
@@ -247,7 +329,7 @@ export function LoginScreen({ onLoginSuccess, onNavigateLegal }: LoginScreenProp
                     <span>Adresse non enregistrée</span>
                   </div>
                   <p className="text-xs text-blue-800">
-                    Cette adresse email n'est pas encore enregistrée dans l'application. Formulez votre demande d'accès en un instant :
+                    Cette adresse email n'est pas encore enregistrée dans l'application. Formulez votre demande d'accès en un clic :
                   </p>
                   <button
                     type="button"
@@ -293,10 +375,10 @@ export function LoginScreen({ onLoginSuccess, onNavigateLegal }: LoginScreenProp
                   <span>Prochaine étape : Validation technique</span>
                 </div>
                 <p className="leading-relaxed">
-                  L'administrateur (<span className="text-blue-600 font-medium">contact@appalacarte.fr</span>) ou le responsable technique valide chaque demande pour attribuer les droits d'accès correspondants (technicien, monteur, responsable).
+                  L'administrateur (<span className="text-blue-600 font-medium">contact@appalacarte.fr</span>) ou le responsable technique valide chaque demande pour attribuer les droits d'accès correspondants.
                 </p>
                 <p className="text-gray-500">
-                  Une fois approuvée, vous pourrez vous connecter directement avec votre adresse email.
+                  Une fois approuvée, vous pourrez vous connecter directement avec votre adresse email ou compte Google.
                 </p>
               </div>
 
@@ -315,92 +397,152 @@ export function LoginScreen({ onLoginSuccess, onNavigateLegal }: LoginScreenProp
             </div>
           ) : activeTab === 'login' ? (
             /* ================= FORMULAIRE DE CONNEXION ================= */
-            <form onSubmit={handleSubmitLogin} className="space-y-4">
+            <div className="space-y-4">
+              {/* 1. Bouton Google Sign-In */}
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wider">
-                  Adresse email
-                </label>
-                <div className="relative">
-                  <Mail className="w-4 h-4 text-gray-400 absolute left-3 top-3 pointer-events-none" />
-                  <Input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="votre.email@domaine.fr"
-                    className="pl-9 text-sm"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Mot de passe
-                  </label>
-                  <span className="text-[11px] text-gray-400">
-                    Optionnel en mode démo / requis si configuré
-                  </span>
-                </div>
-                <div className="relative">
-                  <KeyRound className="w-4 h-4 text-gray-400 absolute left-3 top-3 pointer-events-none" />
-                  <Input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="pl-9 text-sm"
-                  />
-                </div>
-              </div>
-
-              <Button
-                type="submit"
-                disabled={loading}
-                className="w-full py-2.5 text-sm font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 mt-2"
-              >
-                <span>{loading ? 'Connexion en cours...' : 'Se connecter'}</span>
-                <ArrowRight className="w-4 h-4" />
-              </Button>
-
-              {/* Raccourci vers la demande d'accès */}
-              <div className="pt-2 text-center">
                 <button
                   type="button"
-                  onClick={() => {
-                    setActiveTab('demande');
-                    setError(null);
-                  }}
-                  className="text-xs text-gray-500 hover:text-blue-600 font-medium transition-colors"
-                >
-                  Vous n'avez pas encore d'accès ?{' '}
-                  <span className="text-blue-600 underline font-semibold">
-                    Faire une demande de connexion
-                  </span>
-                </button>
-              </div>
-
-              {/* Accès administrateur de référence */}
-              <div className="mt-5 pt-4 border-t border-gray-100 flex flex-col items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleQuickAdmin}
+                  onClick={handleGoogleSignIn}
                   disabled={loading}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-semibold transition-all shadow-sm"
+                  className="w-full py-2.5 px-4 bg-white border border-gray-300 hover:bg-gray-50 hover:border-gray-400 text-gray-700 text-sm font-semibold rounded-xl shadow-sm transition-all flex items-center justify-center gap-3 active:scale-[0.99]"
                 >
-                  <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
-                  <span>Accès direct Administrateur (contact@appalacarte.fr)</span>
+                  <svg className="w-4 h-4" viewBox="0 0 24 24">
+                    <path
+                      fill="#4285F4"
+                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                    />
+                    <path
+                      fill="#34A853"
+                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                    />
+                    <path
+                      fill="#FBBC05"
+                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                    />
+                    <path
+                      fill="#EA4335"
+                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                    />
+                  </svg>
+                  <span>Continuer avec le compte Google</span>
                 </button>
-                <p className="text-[11px] text-gray-400">
-                  Compte administrateur certifié — Accès complet et validation des utilisateurs
+                <p className="text-[11px] text-gray-400 text-center mt-1">
+                  Connexion instantanée avec Google (contact@appalacarte.fr ou compte validé)
                 </p>
               </div>
-            </form>
+
+              {/* Séparateur */}
+              <div className="relative my-3">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-200" />
+                </div>
+                <div className="relative flex justify-center text-[11px] uppercase tracking-wider">
+                  <span className="bg-white px-3 text-gray-400 font-medium">
+                    ou avec une adresse email validée
+                  </span>
+                </div>
+              </div>
+
+              <form onSubmit={handleSubmitLogin} className="space-y-3.5">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wider">
+                    Adresse email validée
+                  </label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 text-gray-400 absolute left-3 top-3 pointer-events-none" />
+                    <Input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="contact@appalacarte.fr"
+                      className="pl-9 text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      Mot de passe
+                    </label>
+                    <span className="text-[11px] text-gray-400">
+                      Optionnel si authentification par lien magique
+                    </span>
+                  </div>
+                  <div className="relative">
+                    <KeyRound className="w-4 h-4 text-gray-400 absolute left-3 top-3 pointer-events-none" />
+                    <Input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="pl-9 text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                  <Button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-2.5 text-xs sm:text-sm font-semibold shadow-md bg-blue-600 hover:bg-blue-700 flex items-center justify-center gap-1.5"
+                  >
+                    <span>{loading ? 'Connexion...' : 'Se connecter'}</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </Button>
+
+                  <button
+                    type="button"
+                    onClick={handleSendOtp}
+                    disabled={loading || !email.trim()}
+                    className="w-full py-2.5 px-2 bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-300 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Recevoir un lien de connexion sur votre adresse email validée"
+                  >
+                    <Send className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Lien par email (OTP)</span>
+                  </button>
+                </div>
+
+                {/* Lien vers la demande d'accès */}
+                <div className="pt-2 text-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab('demande');
+                      setError(null);
+                    }}
+                    className="text-xs text-gray-500 hover:text-blue-600 font-medium transition-colors"
+                  >
+                    Vous n'avez pas encore d'accès ?{' '}
+                    <span className="text-blue-600 underline font-semibold">
+                      Faire une demande de connexion
+                    </span>
+                  </button>
+                </div>
+
+                {/* Accès direct Administrateur maître certifié */}
+                <div className="mt-5 pt-4 border-t border-gray-100 flex flex-col items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleQuickAdmin}
+                    disabled={loading}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-semibold transition-all shadow-sm"
+                  >
+                    <ShieldCheck className="w-4 h-4 text-blue-600" />
+                    <span>Accès direct Administrateur (contact@appalacarte.fr)</span>
+                  </button>
+                  <p className="text-[11px] text-gray-400 text-center">
+                    Compte administrateur validé d'office — Reconnaissance et privilèges complets
+                  </p>
+                </div>
+              </form>
+            </div>
           ) : (
             /* ================= FORMULAIRE DEMANDE D'ACCÈS ================= */
             <form onSubmit={handleSubmitDemande} className="space-y-3.5">
               <div className="p-3 bg-blue-50/70 border border-blue-100 rounded-lg text-xs text-blue-800 leading-relaxed mb-1">
-                <strong>Demande unique de connexion :</strong> Renseignez votre identité et votre email. Votre compte sera validé par l'administrateur ou le responsable technique avant votre première connexion.
+                <strong>Demande unique de connexion :</strong> Renseignez votre identité et votre email. Votre compte sera validé par l'administrateur (contact@appalacarte.fr) ou le responsable technique avant votre première connexion.
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -511,7 +653,7 @@ export function LoginScreen({ onLoginSuccess, onNavigateLegal }: LoginScreenProp
                 disabled={loading}
                 className="w-full py-2.5 text-sm font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 mt-3"
               >
-                <span>{loading ? 'Envoi en cours...' : 'Envoyer ma demande d\'accès'}</span>
+                <span>{loading ? 'Envoi en cours...' : "Envoyer ma demande d'accès"}</span>
                 <ArrowRight className="w-4 h-4" />
               </Button>
 

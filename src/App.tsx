@@ -59,28 +59,116 @@ export default function App() {
   const location = useLocation();
 
   useEffect(() => {
+    let mounted = true;
+
+    // 1. Écoute dynamique des événements d'authentification Supabase (OAuth Google, OTP, Session)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('🔄 Événement Auth Supabase:', event, session?.user?.email);
+
+      if (session?.user) {
+        const userEmail = session.user.email?.toLowerCase();
+
+        // Si l'utilisateur connecté est contact@appalacarte.fr -> Administrateur maître validé d'office
+        if (userEmail === 'contact@appalacarte.fr') {
+          const masterAdmin = {
+            id: session.user.id || 'usr-admin',
+            _id: session.user.id || 'usr-admin',
+            nom: 'CHAMPAGNE',
+            prenom: 'Hervé',
+            email: 'contact@appalacarte.fr',
+            role: 'ADMINISTRATEUR',
+            roles: ['ADMINISTRATEUR'],
+            numeroTechnicien: '001',
+            actif: true,
+            statut: 'VALIDE',
+            permissions: [
+              'admin_access',
+              'manage_users',
+              'view_all_data',
+              'view_clients',
+              'edit_clients',
+              'view_machines',
+              'edit_machines',
+              'view_interventions',
+              'edit_interventions',
+              'view_spare_parts',
+              'edit_spare_parts'
+            ]
+          };
+          localStorage.setItem('maintenance_authenticated', 'true');
+          localStorage.setItem('maintenance_current_user', JSON.stringify(masterAdmin));
+          sessionStorage.removeItem('pending_auth_email');
+          if (mounted) setIsAuthenticated(true);
+          return;
+        }
+
+        // Pour tout autre compte : vérifier si validé dans la table des utilisateurs
+        try {
+          const existing = await db.users.findByEmail(userEmail || '');
+          if (existing && (existing.statut === 'VALIDE' || (existing.actif && existing.statut !== 'REFUSE'))) {
+            const merged = { ...existing, ...session.user };
+            localStorage.setItem('maintenance_authenticated', 'true');
+            localStorage.setItem('maintenance_current_user', JSON.stringify(merged));
+            sessionStorage.removeItem('pending_auth_email');
+            if (mounted) setIsAuthenticated(true);
+          } else {
+            // Utilisateur Google ou Email authentifié mais en attente d'approbation
+            if (!existing) {
+              const meta = session.user.user_metadata || {};
+              await db.users.requestAccess({
+                email: userEmail || '',
+                nom: meta.family_name || meta.full_name || meta.name || 'Utilisateur',
+                prenom: meta.given_name || 'Nouveau',
+                role: 'TECHNICIEN_CMS',
+                motifDemande: 'Connexion Google OAuth en attente de validation'
+              });
+            }
+            sessionStorage.setItem('pending_auth_email', userEmail || '');
+            localStorage.removeItem('maintenance_authenticated');
+            localStorage.removeItem('maintenance_current_user');
+            if (mounted) setIsAuthenticated(false);
+          }
+        } catch (e) {
+          console.warn('Erreur vérification profil après auth:', e);
+          if (mounted) setIsAuthenticated(false);
+        }
+      } else if (event === 'SIGNED_OUT') {
+        localStorage.removeItem('maintenance_authenticated');
+        localStorage.removeItem('maintenance_current_user');
+        if (mounted) setIsAuthenticated(false);
+      }
+    });
+
+    // 2. Vérification initiale du stockage local et de la session active
     const checkAuth = async () => {
       const storedAuth = localStorage.getItem('maintenance_authenticated');
-      if (storedAuth === 'true') {
-        setIsAuthenticated(true);
+      const storedUser = localStorage.getItem('maintenance_current_user');
+      if (storedAuth === 'true' && storedUser) {
+        if (mounted) setIsAuthenticated(true);
         return;
       }
 
-      // Si le mode direct Supabase n'est pas activé, affichage immédiat de l'écran de login démo
-      if (!isLiveSupabaseActive()) {
-        setIsAuthenticated(false);
-        return;
+      if (isLiveSupabaseActive()) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user) {
+            // Sera capté par onAuthStateChange
+            return;
+          }
+        } catch (error) {
+          console.warn("Vérification session Supabase indisponible:", error);
+        }
       }
 
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        setIsAuthenticated(!!user);
-      } catch (error) {
-        console.warn("Vérification authentification distante indisponible, repli local:", error);
-        setIsAuthenticated(false);
-      }
+      if (mounted) setIsAuthenticated(false);
     };
+
     checkAuth();
+
+    return () => {
+      mounted = false;
+      subscription?.unsubscribe();
+    };
   }, []);
 
   // Fonction de compatibilité pour l'ancien système de navigation
