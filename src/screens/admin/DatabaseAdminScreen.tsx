@@ -7,7 +7,7 @@ import { TextArea } from '../../components/common/TextArea';
 import { DataTable } from '../../components/admin/DataTable';
 import { CSVImporter } from '../../components/admin/CSVImporter';
 import { MaintenanceKitImporter } from '../../components/admin/MaintenanceKitImporter';
-import { Database, Upload, Plus, X, Save, BarChart3 } from 'lucide-react';
+import { Database, Upload, Plus, X, Save, BarChart3, Wifi, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { useClients } from '../../hooks/useClients';
 import { useUsers } from '../../hooks/useUsers';
 import { useMachines } from '../../hooks/useMachines';
@@ -17,7 +17,7 @@ import { useErrorCodes } from '../../hooks/useErrorCodes';
 import { useTachesEntretien } from '../../hooks/useTachesEntretien';
 import { useMachineFields } from '../../hooks/useMachineFields';
 import { useMachineFieldOptions } from '../../hooks/useMachineFieldOptions';
-import { db } from '../../lib/supabase';
+import { db, checkSupabaseConnection, isLiveSupabaseActive } from '../../lib/supabase';
 
 
 interface DatabaseAdminScreenProps {
@@ -38,13 +38,14 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
   const [editingItem, setEditingItem] = useState<any>(null);
   const [formData, setFormData] = useState<any>({});
   const [loading, setLoading] = useState(false);
+  const [supabaseHealth, setSupabaseHealth] = useState<{ connected: boolean; error?: string; url: string } | null>(null);
 
 
   const { machines, fetchMachines } = useMachines();
   const { clients, fetchClients, deleteClient } = useClients();
   const { users, fetchUsers } = useUsers();
   const { spareParts, fetchSpareParts, deleteSparePart } = useSpareParts();
-  const { maintenanceKits, fetchMaintenanceKits } = useMaintenanceKits();
+  const { maintenanceKits, fetchMaintenanceKits, deleteMaintenanceKit } = useMaintenanceKits();
   const { errorCodes, fetchErrorCodes } = useErrorCodes();
   const { tachesEntretien, fetchTachesEntretien, deleteTacheEntretien } = useTachesEntretien();
   const { machineFields, fetchMachineFields, deleteMachineField } = useMachineFields();
@@ -52,6 +53,7 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
 
 
   useEffect(() => {
+    checkSupabaseConnection().then(setSupabaseHealth);
     fetchClients();
     fetchUsers();
     fetchSpareParts();
@@ -113,6 +115,64 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
                 label="Ville"
                 value={formData.ville || ''}
                 onChange={(e) => setFormData({ ...formData, ville: e.target.value })}
+              />
+            </div>
+            <div className="flex justify-end gap-3 mt-4">
+              <Button variant="ghost" onClick={() => setShowAddForm(false)}>Annuler</Button>
+              <Button onClick={handleAdd} disabled={loading}>
+                <Save size={18} className="mr-2" />
+                Enregistrer
+              </Button>
+            </div>
+          </Card>
+        );
+
+      case 'maintenance_kits':
+        return (
+          <Card className="mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold">Ajouter un kit d'entretien</h2>
+              <Button variant="ghost" size="sm" onClick={() => setShowAddForm(false)}>
+                <X size={20} />
+              </Button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Input
+                label="Type de machine"
+                value={formData.machineType || ''}
+                onChange={(e) => setFormData({ ...formData, machineType: e.target.value })}
+                required
+                placeholder="Ex: V 300, AMS, VMS2014"
+              />
+              <Input
+                label="N° Kit"
+                value={formData.kitNumber || ''}
+                onChange={(e) => setFormData({ ...formData, kitNumber: e.target.value })}
+                required
+                placeholder="Ex: 2150025306"
+              />
+              <Input
+                label="Numéro de service"
+                type="number"
+                value={formData.serviceNumber ?? 1}
+                onChange={(e) => setFormData({ ...formData, serviceNumber: parseInt(e.target.value) || 1 })}
+                required
+                placeholder="Ex: 1"
+              />
+              <Input
+                label="Nom du kit"
+                value={formData.nom || ''}
+                onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
+                placeholder="Ex: Kit Entretien V300 (généré auto si vide)"
+              />
+            </div>
+            <div className="mt-4">
+              <TextArea
+                label="Description"
+                value={formData.description || ''}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                rows={3}
+                placeholder="Description optionnelle du kit..."
               />
             </div>
             <div className="flex justify-end gap-3 mt-4">
@@ -572,6 +632,29 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
           await (db as any).clients.create(data);
           await fetchClients();
           break;
+        case 'maintenance_kits': {
+          const kitNumber = typeof formData.kitNumber === 'string' && /^\d+$/.test(formData.kitNumber)
+            ? parseInt(formData.kitNumber, 10)
+            : (formData.kitNumber || 0);
+          const serviceNumber = parseInt(formData.serviceNumber, 10) || 1;
+          const machineType = (formData.machineType || '').trim();
+          const autoNom = formData.nom?.trim() || `Kit Entretien ${machineType}-${kitNumber}-Service (${serviceNumber})`;
+          const autoKitId = formData.kitId || `kit_${machineType.toLowerCase().replace(/\s+/g, '')}_${kitNumber}_${serviceNumber}`;
+
+          const kitPayload = {
+            ...data,
+            kitId: autoKitId,
+            machineType,
+            kitNumber,
+            serviceNumber,
+            nom: autoNom,
+            description: formData.description || '',
+            pieces: formData.pieces || []
+          };
+          await (db as any).maintenance_kits.create(kitPayload);
+          await fetchMaintenanceKits();
+          break;
+        }
         case 'spare_parts':
           await (db as any).spare_parts.create(data);
           await fetchSpareParts();
@@ -1036,6 +1119,32 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
             </div>
           </div>
         </div>
+
+                {/* Statut de connexion Supabase */}
+        {supabaseHealth && !supabaseHealth.connected && (
+          <Card className="p-4 bg-amber-50 border-amber-200">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="text-amber-600 mt-0.5 flex-shrink-0" size={20} />
+              <div className="text-sm">
+                <p className="font-semibold text-amber-900">
+                  Supabase non joignable — Les données ne montent pas dans Supabase
+                </p>
+                <p className="text-amber-700 mt-1">
+                  Détail : <span className="font-mono text-xs">{supabaseHealth.error}</span>
+                </p>
+                <p className="text-xs text-amber-600 mt-1">
+                  Vérifiez sur <a href="https://supabase.com/dashboard" target="_blank" rel="noreferrer" className="underline font-medium">supabase.com/dashboard</a> si le projet est en pause (Paused) ou si l'URL configurée (<span className="font-mono">{supabaseHealth.url}</span>) est correcte.
+                </p>
+              </div>
+            </div>
+          </Card>
+        )}
+        {supabaseHealth && supabaseHealth.connected && (
+          <div className="flex items-center gap-2 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5 w-fit">
+            <CheckCircle2 size={16} className="text-emerald-600" />
+            <span>Supabase en ligne et opérationnel</span>
+          </div>
+        )}
 
         {/* ✅ NOUVEAU : Statistiques */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">

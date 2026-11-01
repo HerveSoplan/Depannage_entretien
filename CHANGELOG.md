@@ -4,6 +4,21 @@ Toutes les modifications notables apportées à l'application **Maintenance et D
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.5.2] - 2026-11-01
+
+### Corrigé & Amélioré
+- **Formulaire d'ajout direct de kits d'entretien (`DatabaseAdminScreen.tsx`)** : Ajout du formulaire complet d'ajout unitaire de kits d'entretien (`getAddForm` et `handleAdd`) qui était absent, permettant la création manuelle (machine, N° de kit, service, nom et description).
+- **Suppression des kits d'entretien** : Intégration de l'action `onDelete` avec `deleteMaintenanceKit` sur la table des kits d'entretien.
+- **Fin du masquage silencieux des erreurs Supabase (`src/lib/supabase.ts`)** :
+  - `db.maintenance_kits.create` et `db.taches_entretien.create` remontent désormais l'erreur exacte renvoyée par Supabase au lieu de basculer silencieusement en base locale sans prévenir.
+  - Normalisation et typage sécurisé des champs numériques (`kit_number` et `service_number`).
+- **Détection et indicateur en temps réel de l'état de connexion Supabase** :
+  - Ajout de la fonction `checkSupabaseConnection()` interrogeant la disponibilité réelle de l'instance Supabase.
+  - Affichage d'un bandeau explicite dans l'interface d'administration en cas de projet Supabase injoignable, en pause (*paused*) ou d'URL inexistante.
+- **Schéma SQL et politiques RLS (`supabase_schema_complet.sql`, `supabase_securite_rls.sql`)** :
+  - Élargissement de la colonne `kit_number` de `INTEGER` à `BIGINT` pour accepter les numéros de kit à 10 chiffres (ex: 2150025306) sans erreur de dépassement de capacité (*out of range integer*).
+  - Autorisation d'accès aux kits d'entretien et tâches d'entretien pour le rôle `anon` en plus de `authenticated`.
+
 ## [1.5.1] - 2026-11-01
 
 ### Ajouté & Amélioré

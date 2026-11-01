@@ -27,6 +27,23 @@ export const setLiveSupabaseActive = (active: boolean) => {
   }
 };
 
+// Vérification de l'état de la connexion Supabase en temps réel
+export const checkSupabaseConnection = async (): Promise<{ connected: boolean; error?: string; url: string }> => {
+  const url = import.meta.env.VITE_SUPABASE_URL || '';
+  if (!isLiveSupabaseActive()) {
+    return { connected: false, error: 'Supabase n\'est pas configuré (clés manquantes ou mode démo forcé)', url };
+  }
+  try {
+    const { error } = await supabase.from('maintenance_kits').select('count', { count: 'exact', head: true });
+    if (error) {
+      return { connected: false, error: `${error.message} (${error.code || 'code'})`, url };
+    }
+    return { connected: true, url };
+  } catch (err: any) {
+    return { connected: false, error: err?.message || 'Projet Supabase injoignable ou en pause (paused)', url };
+  }
+};
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Helper pour convertir les noms de colonnes snake_case vers camelCase
@@ -909,11 +926,23 @@ export const db = {
 
     create: async (taskData: any) => {
       if (isLiveSupabaseActive()) {
+        const payload = toSnakeCase(taskData);
+        if (payload.kit_number !== undefined && typeof payload.kit_number === 'string' && /^\d+$/.test(payload.kit_number)) {
+          payload.kit_number = parseInt(payload.kit_number, 10);
+        }
+        if (payload.service_number !== undefined && typeof payload.service_number === 'string') {
+          payload.service_number = parseInt(payload.service_number, 10) || 1;
+        }
         try {
-          const { data, error } = await supabase.from('taches_entretien').insert(toSnakeCase(taskData)).select().single();
-          if (!error && data) return toCamelCase(data);
-        } catch (e) {
-          // Fallback démo
+          const { data, error } = await supabase.from('taches_entretien').insert(payload).select().single();
+          if (error) {
+            console.error('❌ Erreur Supabase taches_entretien.create:', error);
+            throw new Error(`Supabase: ${error.message} (${error.code || 'code'})`);
+          }
+          if (data) return toCamelCase(data);
+        } catch (e: any) {
+          console.error('Échec insertion Supabase taches_entretien:', e);
+          throw e;
         }
       }
       return demoDb.insert('tachesEntretien', taskData);
@@ -981,11 +1010,23 @@ export const db = {
 
     create: async (kitData: any) => {
       if (isLiveSupabaseActive()) {
+        const payload = toSnakeCase(kitData);
+        if (payload.kit_number !== undefined && typeof payload.kit_number === 'string' && /^\d+$/.test(payload.kit_number)) {
+          payload.kit_number = parseInt(payload.kit_number, 10);
+        }
+        if (payload.service_number !== undefined && typeof payload.service_number === 'string') {
+          payload.service_number = parseInt(payload.service_number, 10) || 1;
+        }
         try {
-          const { data, error } = await supabase.from('maintenance_kits').insert(toSnakeCase(kitData)).select().single();
-          if (!error && data) return toCamelCase(data);
-        } catch (e) {
-          // Fallback démo
+          const { data, error } = await supabase.from('maintenance_kits').insert(payload).select().single();
+          if (error) {
+            console.error('❌ Erreur Supabase maintenance_kits.create:', error);
+            throw new Error(`Supabase: ${error.message} (${error.code || 'code'})`);
+          }
+          if (data) return toCamelCase(data);
+        } catch (e: any) {
+          console.error('Échec insertion Supabase maintenance_kits:', e);
+          throw e;
         }
       }
       return demoDb.insert('maintenanceKits', kitData);

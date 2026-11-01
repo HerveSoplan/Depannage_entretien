@@ -85,12 +85,14 @@ CREATE POLICY "Accès utilisateurs authentifiés profil" ON public.utilisateurs
   FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Accès tâches entretien authentifiés" ON public.taches_entretien;
-CREATE POLICY "Accès tâches entretien authentifiés" ON public.taches_entretien
-  FOR ALL TO authenticated USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Accès tâches entretien complet" ON public.taches_entretien;
+CREATE POLICY "Accès tâches entretien complet" ON public.taches_entretien
+  FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Accès kits maintenance authentifiés" ON public.maintenance_kits;
-CREATE POLICY "Accès kits maintenance authentifiés" ON public.maintenance_kits
-  FOR ALL TO authenticated USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Accès kits maintenance complet" ON public.maintenance_kits;
+CREATE POLICY "Accès kits maintenance complet" ON public.maintenance_kits
+  FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Accès messages clients authentifiés" ON public.client_messages;
 CREATE POLICY "Accès messages clients authentifiés" ON public.client_messages
