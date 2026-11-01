@@ -1,0 +1,205 @@
+===============================================================
+                                                               
+   SOPLAN - MIGRATION LUMI vers SUPABASE                      
+                                                               
+   Package de migration complet                               
+   Version 1.0 - 07/02/2026                                   
+                                                               
+===============================================================
+
+CONTENU DU PACKAGE
+===============================================================
+
+>> Configuration et dependances
+   - package.json          -> Dependances npm
+   - vite.config.ts        -> Configuration Vite
+   - tsconfig.json         -> Configuration TypeScript
+   - .env.example          -> Template variables d'environnement
+   - .gitignore            -> Fichiers a ignorer
+
+>> Code source
+   - src/lib/supabase.ts   -> Client Supabase (remplace Lumi)
+   - src/main.tsx          -> Point d'entree
+   - src/index.css         -> Styles globaux
+
+>> Base de donnees
+   - supabase/config.toml  -> Configuration Supabase
+   - supabase/migrations/  -> Migrations SQL
+
+>> Documentation
+   - README.md             -> Documentation generale
+   - DEPLOYMENT_GUIDE.md   -> Guide de deploiement complet
+   - MIGRATION_CHECKLIST.md -> Checklist etape par etape
+   - TROUBLESHOOTING.md    -> Depannage rapide
+
+>> Scripts
+   - migrate-to-supabase.sh -> Migration automatique du code
+
+
+DEMARRAGE RAPIDE (5 MINUTES)
+===============================================================
+
+ETAPE 1 : COPIER VOS FICHIERS
+---------------------------------------------------------------
+Copiez tous vos fichiers depuis Lumi dans ce dossier :
+   
+   - src/components/  -> Vos composants
+   - src/screens/     -> Vos ecrans
+   - src/hooks/       -> Vos hooks
+   - src/services/    -> Vos services
+   
+ATTENTION : NE PAS ecraser les fichiers deja presents !
+
+
+ETAPE 2 : CREER PROJET SUPABASE
+---------------------------------------------------------------
+-> Aller sur https://supabase.com
+-> Se connecter / Creer un compte
+-> New Project
+   • Nom : soplan-maintenance
+   • Password : (choisir un mot de passe fort)
+   • Region : Europe (Paris)
+-> Attendre 2-3 minutes
+
+
+ETAPE 3 : CONFIGURER LA BASE DE DONNEES
+---------------------------------------------------------------
+Dans Supabase :
+   
+-> SQL Editor
+-> New Query
+-> Copier le contenu de :
+   supabase/migrations/20260207_initial_schema.sql
+-> Run
+-> Verifier qu'il n'y a pas d'erreurs
+
+
+ETAPE 4 : RECUPERER LES CLES
+---------------------------------------------------------------
+Dans Supabase :
+   
+-> Settings -> API
+-> Copier :
+   • Project URL
+   • anon public key
+
+
+ETAPE 5 : CONFIGURER L'APPLICATION
+---------------------------------------------------------------
+Dans votre terminal :
+   
+$ cd soplan-app
+$ cp .env.example .env
+$ nano .env    (ou ouvrir avec un editeur)
+   
+Remplir :
+VITE_SUPABASE_URL=https://xxxxx.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJxxx...
+
+
+ETAPE 6 : INSTALLER ET MIGRER
+---------------------------------------------------------------
+$ npm install
+$ ./migrate-to-supabase.sh
+   
+Le script va :
+[OK] Faire un backup de votre code
+[OK] Remplacer les imports Lumi -> Supabase
+[OK] Verifier la configuration
+
+
+ETAPE 7 : LANCER L'APPLICATION
+---------------------------------------------------------------
+$ npm run dev
+   
+-> Ouvrir http://localhost:3000
+-> Se connecter avec admin@soplanelevage.fr
+
+
+DOCUMENTATION COMPLETE
+===============================================================
+
+Pour un guide detaille etape par etape :
+-> Ouvrir DEPLOYMENT_GUIDE.md
+
+Pour une checklist complete :
+-> Ouvrir MIGRATION_CHECKLIST.md
+
+En cas de probleme :
+-> Ouvrir TROUBLESHOOTING.md
+
+
+ORDRE DE LECTURE RECOMMANDE
+===============================================================
+
+1. LISEZMOI.txt           <- Vous etes ici
+2. README.md              <- Vue d'ensemble du projet
+3. DEPLOYMENT_GUIDE.md    <- Guide complet (a lire en entier!)
+4. MIGRATION_CHECKLIST.md <- Pour suivre votre progression
+5. TROUBLESHOOTING.md     <- A garder sous la main
+
+
+POINTS D'ATTENTION
+===============================================================
+
+ATTENTION : Ne JAMAIS commiter le fichier .env dans Git
+ATTENTION : Sauvegarder vos cles Supabase dans un endroit sur
+ATTENTION : Faire un backup complet de Lumi avant de migrer
+ATTENTION : Tester en LOCAL avant de deployer en PRODUCTION
+ATTENTION : Creer un utilisateur admin dans Supabase
+
+
+SECURITE
+===============================================================
+
+Fichiers sensibles (NE PAS partager) :
+- .env
+- Cles Supabase
+- Mots de passe de base de donnees
+
+Fichiers a commiter dans Git :
+- Tout sauf .env et node_modules
+- .env.example (sans les vraies cles)
+
+
+BESOIN D'AIDE ?
+===============================================================
+
+1. Consulter TROUBLESHOOTING.md
+2. Verifier les logs :
+   - Console du navigateur (F12)
+   - Terminal de developpement
+   - Supabase Dashboard -> Logs
+3. Contacter le support :
+   - Email : support@soplanelevage.fr
+
+
+CHECKLIST DE DEPART
+===============================================================
+
+Avant de commencer, verifier que vous avez :
+
+[ ] Node.js 18+ installe (node --version)
+[ ] npm installe (npm --version)
+[ ] Compte Supabase cree
+[ ] Acces a votre code Lumi
+[ ] VSCode ou editeur de code
+[ ] Connexion internet stable
+[ ] 2-3 heures devant vous
+
+
+PRET A COMMENCER ?
+===============================================================
+
+Suivez les etapes du DEMARRAGE RAPIDE ci-dessus, puis :
+
+-> Ouvrir DEPLOYMENT_GUIDE.md pour les instructions detaillees
+-> Utiliser MIGRATION_CHECKLIST.md pour suivre votre progression
+
+Bon courage !
+
+
+===============================================================
+Soplan Elevage - 2026
+Package cree le 07/02/2026
+===============================================================

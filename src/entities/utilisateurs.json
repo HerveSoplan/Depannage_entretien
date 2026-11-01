@@ -1,0 +1,109 @@
+{
+  "name": "utilisateurs",
+  "type": "object",
+  "required": [
+    "nom",
+    "prenom",
+    "email",
+    "role",
+    "creator",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "nom": {
+      "bsonType": "string",
+      "description": "Nom de famille de l'utilisateur"
+    },
+    "prenom": {
+      "bsonType": "string",
+      "description": "Prénom de l'utilisateur"
+    },
+    "email": {
+      "bsonType": "string",
+      "description": "Adresse email de l'utilisateur"
+    },
+    "telephone": {
+      "bsonType": "string",
+      "description": "Numéro de téléphone de l'utilisateur"
+    },
+    "numeroTechnicien": {
+      "bsonType": "string",
+      "description": "Numéro unique du technicien"
+    },
+    "role": {
+      "bsonType": "string",
+      "description": "Rôle de l'utilisateur dans l'application",
+      "enum": [
+        "ADMINISTRATEUR",
+        "DIRECTEUR",
+        "RESPONSABLE_TECHNIQUE",
+        "RESPONSABLE",
+        "CHEF_TECHNICIEN_CMS",
+        "CHEF_TECHNICIEN_VMS",
+        "TECHNICIEN_CMS",
+        "TECHNICIEN_VMS",
+        "CHEF_MONTEUR",
+        "MONTEUR",
+        "MAGASINIER",
+        "CLIENT"
+      ]
+    },
+    "actif": {
+      "bsonType": "bool",
+      "description": "Indique si le compte est actif"
+    },
+    "permissions": {
+      "bsonType": "object",
+      "description": "Permissions granulaires de l'utilisateur",
+      "properties": {
+        "canValidateSections": {
+          "bsonType": "bool",
+          "description": "Peut valider des sections entières d'entretien"
+        },
+        "canValidateMaintenanceSections": {
+          "bsonType": "bool",
+          "description": "Peut valider directement des sections de maintenance depuis le formulaire d'intervention"
+        },
+        "canCreateInterventions": {
+          "bsonType": "bool",
+          "description": "Peut créer des interventions"
+        },
+        "canEditClients": {
+          "bsonType": "bool",
+          "description": "Peut modifier les clients"
+        },
+        "canManageUsers": {
+          "bsonType": "bool",
+          "description": "Peut gérer les utilisateurs"
+        },
+        "canAccessReports": {
+          "bsonType": "bool",
+          "description": "Peut accéder aux rapports"
+        },
+        "canManageMachines": {
+          "bsonType": "bool",
+          "description": "Peut gérer les machines"
+        }
+      }
+    },
+    "creator": {
+      "bsonType": "string",
+      "description": "Créateur de l'enregistrement"
+    },
+    "createdAt": {
+      "bsonType": "string",
+      "title": "datetime",
+      "description": "Date de création ISO 8601"
+    },
+    "updatedAt": {
+      "bsonType": "string",
+      "title": "datetime",
+      "description": "Date de dernière mise à jour ISO 8601"
+    },
+    "creatorEmail": {
+      "bsonType": "string",
+      "description": "Creator user email"
+    }
+  }
+}
