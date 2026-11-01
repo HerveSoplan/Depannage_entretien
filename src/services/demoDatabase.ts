@@ -32,7 +32,20 @@ const INITIAL_CLEAN_DATA: DemoDatabaseState = {
       role: 'ADMINISTRATEUR',
       numeroTechnicien: '001',
       actif: true,
-      permissions: ['admin_access', 'manage_users', 'view_all_data']
+      statut: 'VALIDE',
+      permissions: [
+        'admin_access',
+        'manage_users',
+        'view_all_data',
+        'view_clients',
+        'edit_clients',
+        'view_machines',
+        'edit_machines',
+        'view_interventions',
+        'edit_interventions',
+        'view_spare_parts',
+        'edit_spare_parts'
+      ]
     }
   ],
   clients: [],
@@ -76,7 +89,33 @@ class DemoDatabaseManager {
     try {
       const stored = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null;
       if (stored) {
-        return JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+        if (!parsed.utilisateurs) parsed.utilisateurs = [];
+        
+        // S'assurer que contact@appalacarte.fr est toujours présent et administrateur actif
+        const adminIndex = parsed.utilisateurs.findIndex((u: any) => u.email?.toLowerCase() === 'contact@appalacarte.fr');
+        if (adminIndex === -1) {
+          parsed.utilisateurs.unshift(INITIAL_CLEAN_DATA.utilisateurs[0]);
+        } else {
+          parsed.utilisateurs[adminIndex] = {
+            ...parsed.utilisateurs[adminIndex],
+            nom: 'CHAMPAGNE',
+            prenom: 'Hervé',
+            email: 'contact@appalacarte.fr',
+            role: 'ADMINISTRATEUR',
+            actif: true,
+            statut: 'VALIDE'
+          };
+        }
+
+        // Harmonisation des statuts pour tous les utilisateurs
+        parsed.utilisateurs = parsed.utilisateurs.map((u: any) => ({
+          ...u,
+          statut: u.statut || (u.actif !== false ? 'VALIDE' : 'EN_ATTENTE')
+        }));
+
+        this.saveState(parsed);
+        return parsed;
       }
     } catch (e) {
       console.warn('Impossible de lire la base locale:', e);

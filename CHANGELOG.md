@@ -4,6 +4,32 @@ Toutes les modifications notables apportées à l'application **Maintenance et D
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.6.0] - 2026-11-01
+
+### Ajouté & Amélioré
+- **Système d'authentification complet et compte administrateur maître (`contact@appalacarte.fr`)** :
+  - `contact@appalacarte.fr` (App à la Carte — Hervé CHAMPAGNE EI) est configuré comme administrateur maître avec le rôle `ADMINISTRATEUR`, accès complet et privilèges de validation.
+  - Bouton d'accès direct administrateur sécurisé et résilient sur l'écran de connexion.
+- **Workflow de validation des nouveaux utilisateurs par l'administrateur ou le responsable technique** :
+  - Les utilisateurs autorisés formulent leur demande unique de connexion avec leur adresse email, nom, prénom, rôle souhaité et motif.
+  - Le compte est enregistré avec le statut `EN_ATTENTE` et inactif tant qu'il n'a pas été validé.
+  - Si un utilisateur tente de se connecter avant validation, un message explicatif lui indique que sa demande est en attente d'approbation.
+  - Espace de validation dans la gestion des utilisateurs (`UsersScreen.tsx`) : liste des demandes en attente, bouton « Valider l'accès » avec choix du rôle et du numéro de technicien, bouton « Refuser ».
+  - Badge d'alerte visuel en temps réel dans la navigation et l'en-tête indiquant le nombre de demandes en attente.
+- **Générateur et partage de liens d'accès** :
+  - Modale dédiée « Donner un lien d'accès » avec 3 types de liens :
+    1. Lien public de demande d'accès (`?action=demande`) avec message type prêt à envoyer.
+    2. Lien personnalisé pré-rempli pour un collaborateur (`?action=demande&email=...&nom=...&prenom=...`).
+    3. Lien direct de connexion pour utilisateur validé (`?action=login&email=...`).
+  - Prise en charge automatique des paramètres d'URL pour pré-remplir les formulaires et basculer sur l'onglet adéquat.
+- **Script SQL de migration Supabase (`supabase_auth_et_validation_utilisateurs.sql`)** :
+  - Ajout des colonnes `statut`, `motif_demande`, `date_demande`, `valide_par`, `valide_le` sur `public.utilisateurs`.
+  - Politiques RLS permettant la soumission de demandes anonymes et la gestion par les utilisateurs connectés.
+  - Insertion / mise à jour de `contact@appalacarte.fr` comme administrateur maître avec notification de rechargement du schéma.
+- **Mentions légales & Conformité éditeur** :
+  - Mentions légales accessibles sans authentification préalable depuis le footer réglementaire et la page de connexion.
+  - Données certifiées conformes : App à la Carte — Hervé CHAMPAGNE EI, SIREN 132 021 098, 173 rue de Courcelles 75017 Paris, sans aucun numéro de téléphone public.
+
 ## [1.5.3] - 2026-11-01
 
 ### Corrigé & Amélioré

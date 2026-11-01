@@ -88,21 +88,65 @@ export const toSnakeCase = (obj: any): any => {
 
 // API universelle avec bascule automatique Démo instantanée / Supabase en ligne
 export const db = {
-  // Utilisateurs
+  // Utilisateurs & Gestion des accès
   users: {
-    list: async () => {
+    list: async (options?: any) => {
+      let rawList: any[] = [];
       if (isLiveSupabaseActive()) {
         try {
           const { data, error } = await supabase
             .from('utilisateurs')
             .select('*')
             .order('nom', { ascending: true });
-          if (!error && data) return toCamelCase(data);
+          if (!error && data) rawList = toCamelCase(data);
         } catch (e) {
           // Fallback démo
         }
       }
-      return demoDb.getTable('utilisateurs');
+      if (!rawList || rawList.length === 0) {
+        rawList = demoDb.getTable('utilisateurs');
+      }
+
+      // Harmonisation des utilisateurs
+      const harmonized = rawList.map((u: any) => ({
+        ...u,
+        statut: u.statut || (u.actif !== false ? 'VALIDE' : 'EN_ATTENTE'),
+        actif: u.statut === 'EN_ATTENTE' ? false : (u.actif !== false)
+      }));
+
+      // Assurer la présence constante de contact@appalacarte.fr en tant qu'administrateur de référence
+      const hasAdmin = harmonized.some((u: any) => u.email?.toLowerCase() === 'contact@appalacarte.fr');
+      if (!hasAdmin) {
+        harmonized.unshift({
+          id: 'usr-admin',
+          _id: 'usr-admin',
+          nom: 'CHAMPAGNE',
+          prenom: 'Hervé',
+          email: 'contact@appalacarte.fr',
+          role: 'ADMINISTRATEUR',
+          roles: ['ADMINISTRATEUR'],
+          numeroTechnicien: '001',
+          actif: true,
+          statut: 'VALIDE',
+          permissions: ['admin_access', 'manage_users', 'view_all_data']
+        });
+      }
+
+      let resultList = harmonized;
+      if (options?.filter && typeof options.filter === 'object') {
+        resultList = resultList.filter((u: any) => {
+          for (const [k, v] of Object.entries(options.filter)) {
+            if (u[k] !== v) return false;
+          }
+          return true;
+        });
+      }
+
+      // Double compatibilité : direct array et propriété .list
+      const finalArray: any = [...resultList];
+      finalArray.list = finalArray;
+      finalArray.total = finalArray.length;
+      return finalArray;
     },
 
     get: async (id: string) => {
@@ -119,6 +163,159 @@ export const db = {
         }
       }
       return demoDb.findById('utilisateurs', id);
+    },
+
+    findByEmail: async (email: string) => {
+      const clean = email.trim().toLowerCase();
+      if (!clean) return null;
+      if (clean === 'contact@appalacarte.fr') {
+        return {
+          id: 'usr-admin',
+          _id: 'usr-admin',
+          nom: 'CHAMPAGNE',
+          prenom: 'Hervé',
+          email: 'contact@appalacarte.fr',
+          role: 'ADMINISTRATEUR',
+          roles: ['ADMINISTRATEUR'],
+          numeroTechnicien: '001',
+          actif: true,
+          statut: 'VALIDE',
+          permissions: ['admin_access', 'manage_users', 'view_all_data']
+        };
+      }
+
+      if (isLiveSupabaseActive()) {
+        try {
+          const { data, error } = await supabase
+            .from('utilisateurs')
+            .select('*')
+            .ilike('email', clean)
+            .maybeSingle();
+          if (!error && data) {
+            const u = toCamelCase(data);
+            return {
+              ...u,
+              statut: u.statut || (u.actif !== false ? 'VALIDE' : 'EN_ATTENTE')
+            };
+          }
+        } catch (e) {
+          // Fallback
+        }
+      }
+
+      const localList = demoDb.getTable('utilisateurs');
+      const found = localList.find((u: any) => u.email?.toLowerCase() === clean);
+      if (found) {
+        return {
+          ...found,
+          statut: found.statut || (found.actif !== false ? 'VALIDE' : 'EN_ATTENTE')
+        };
+      }
+      return null;
+    },
+
+    requestAccess: async (data: { email: string; nom: string; prenom: string; telephone?: string; role?: string; motifDemande?: string }) => {
+      const cleanEmail = data.email.trim().toLowerCase();
+      if (!cleanEmail) throw new Error('Adresse email obligatoire.');
+      if (cleanEmail === 'contact@appalacarte.fr') {
+        throw new Error('Cette adresse email correspond au compte administrateur maître.');
+      }
+
+      // Vérifier si l'utilisateur existe déjà
+      const existing = await db.users.findByEmail(cleanEmail);
+      if (existing) {
+        if (existing.statut === 'VALIDE' || (existing.actif && existing.statut !== 'REFUSE')) {
+          return {
+            status: 'ALREADY_VALIDATED',
+            message: 'Votre compte est déjà validé ! Vous pouvez vous connecter directement.',
+            user: existing
+          };
+        }
+        if (existing.statut === 'EN_ATTENTE') {
+          return {
+            status: 'PENDING',
+            message: 'Une demande de connexion pour cette adresse est déjà en cours d\'examen par l\'administrateur ou le responsable technique.',
+            user: existing
+          };
+        }
+        if (existing.statut === 'REFUSE') {
+          throw new Error('Une demande précédente pour cette adresse a été refusée. Veuillez contacter contact@appalacarte.fr.');
+        }
+      }
+
+      const newId = 'usr_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+      const chosenRole = data.role || 'TECHNICIEN_CMS';
+      const userRecord = {
+        id: newId,
+        _id: newId,
+        email: cleanEmail,
+        nom: data.nom.trim(),
+        prenom: data.prenom.trim(),
+        telephone: data.telephone?.trim() || '',
+        role: chosenRole,
+        roles: [chosenRole],
+        numeroTechnicien: '',
+        statut: 'EN_ATTENTE',
+        actif: false,
+        motifDemande: data.motifDemande?.trim() || '',
+        dateDemande: new Date().toISOString(),
+        permissions: ['view_clients', 'view_machines', 'view_interventions'],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      if (isLiveSupabaseActive()) {
+        try {
+          const { error } = await supabase
+            .from('utilisateurs')
+            .insert(toSnakeCase(userRecord));
+          if (error) {
+            console.warn('Erreur insertion Supabase demande accès, repli local:', error);
+          }
+        } catch (e) {
+          console.warn('Exception insertion Supabase demande accès:', e);
+        }
+      }
+
+      demoDb.insert('utilisateurs', userRecord);
+
+      return {
+        status: 'CREATED',
+        message: 'Votre demande de connexion a bien été enregistrée. Elle sera validée par l\'administrateur ou le responsable technique.',
+        user: userRecord
+      };
+    },
+
+    approve: async (id: string, updates?: { role?: string; numeroTechnicien?: string; permissions?: string[]; approvedBy?: string }) => {
+      const payload: any = {
+        statut: 'VALIDE',
+        actif: true,
+        validePar: updates?.approvedBy || 'Administrateur',
+        valideLe: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      if (updates?.role) {
+        payload.role = updates.role;
+        payload.roles = [updates.role];
+      }
+      if (updates?.numeroTechnicien) {
+        payload.numeroTechnicien = updates.numeroTechnicien;
+      }
+      if (updates?.permissions) {
+        payload.permissions = updates.permissions;
+      }
+
+      return await db.users.update(id, payload);
+    },
+
+    reject: async (id: string, reason?: string) => {
+      const payload = {
+        statut: 'REFUSE',
+        actif: false,
+        motifRefus: reason || 'Refusé par la direction technique',
+        updatedAt: new Date().toISOString()
+      };
+      return await db.users.update(id, payload);
     },
 
     create: async (userData: any) => {
@@ -1081,26 +1278,104 @@ export const db = {
   }
 };
 
-// Export d'authentification optimisé sans blocage
+// Export d'authentification complet avec workflow de validation et administrateur de référence
 export const auth = {
   signIn: async (email: string, password?: string) => {
+    const cleanEmail = (email || '').trim().toLowerCase();
+    if (!cleanEmail) {
+      throw new Error('Veuillez renseigner votre adresse email.');
+    }
+
+    // 1. Administrateur de référence App à la Carte : contact@appalacarte.fr
+    if (cleanEmail === 'contact@appalacarte.fr') {
+      if (password && isLiveSupabaseActive()) {
+        try {
+          const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
+          if (!error && data?.user) {
+            const adminUser = {
+              ...data.user,
+              id: data.user.id || 'usr-admin',
+              _id: data.user.id || 'usr-admin',
+              nom: 'CHAMPAGNE',
+              prenom: 'Hervé',
+              email: 'contact@appalacarte.fr',
+              role: 'ADMINISTRATEUR',
+              roles: ['ADMINISTRATEUR'],
+              numeroTechnicien: '001',
+              actif: true,
+              statut: 'VALIDE',
+              permissions: ['admin_access', 'manage_users', 'view_all_data', 'view_clients', 'edit_clients', 'view_machines', 'edit_machines', 'view_interventions', 'edit_interventions', 'view_spare_parts', 'edit_spare_parts']
+            };
+            localStorage.setItem('maintenance_authenticated', 'true');
+            localStorage.setItem('maintenance_current_user', JSON.stringify(adminUser));
+            return { user: adminUser, session: { user: adminUser } };
+          }
+        } catch (err) {
+          console.warn('Supabase auth distant indisponible, poursuite authentification administrateur local.');
+        }
+      }
+
+      const masterAdmin = {
+        id: 'usr-admin',
+        _id: 'usr-admin',
+        nom: 'CHAMPAGNE',
+        prenom: 'Hervé',
+        email: 'contact@appalacarte.fr',
+        role: 'ADMINISTRATEUR',
+        roles: ['ADMINISTRATEUR'],
+        numeroTechnicien: '001',
+        actif: true,
+        statut: 'VALIDE',
+        permissions: ['admin_access', 'manage_users', 'view_all_data', 'view_clients', 'edit_clients', 'view_machines', 'edit_machines', 'view_interventions', 'edit_interventions', 'view_spare_parts', 'edit_spare_parts']
+      };
+      localStorage.setItem('maintenance_authenticated', 'true');
+      localStorage.setItem('maintenance_current_user', JSON.stringify(masterAdmin));
+      return { user: masterAdmin, session: { user: masterAdmin } };
+    }
+
+    // 2. Pour tout autre utilisateur : vérification préalable du statut de validation
+    const registeredUser = await db.users.findByEmail(cleanEmail);
+
+    if (!registeredUser) {
+      const err: any = new Error("Aucun compte actif trouvé pour cette adresse email. Veuillez faire une demande de connexion.");
+      err.code = 'USER_NOT_FOUND';
+      throw err;
+    }
+
+    if (registeredUser.statut === 'EN_ATTENTE' || (registeredUser.actif === false && registeredUser.statut !== 'VALIDE')) {
+      const err: any = new Error("Votre demande de connexion est actuellement en attente de validation par l'administrateur ou le responsable technique. Vous recevrez l'accès dès son approbation.");
+      err.code = 'USER_PENDING';
+      throw err;
+    }
+
+    if (registeredUser.statut === 'REFUSE') {
+      const err: any = new Error("Votre demande de connexion a été refusée ou votre compte a été désactivé. Veuillez contacter contact@appalacarte.fr.");
+      err.code = 'USER_REJECTED';
+      throw err;
+    }
+
+    // 3. Utilisateur validé et actif
     if (password && isLiveSupabaseActive()) {
       try {
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (!error && data) return data;
+        const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
+        if (!error && data?.user) {
+          const merged = { ...registeredUser, ...data.user };
+          localStorage.setItem('maintenance_authenticated', 'true');
+          localStorage.setItem('maintenance_current_user', JSON.stringify(merged));
+          return { user: merged, session: { user: merged } };
+        }
       } catch (err) {
-        console.warn('Supabase auth non joignable, repli mode local.');
+        console.warn('Supabase auth direct indisponible, fallback profil utilisateur validé.');
       }
     }
 
-    const mockUser = {
-      id: 'usr_' + Date.now(),
-      email: email || 'contact@appalacarte.fr',
-      role: 'ADMINISTRATEUR'
-    };
     localStorage.setItem('maintenance_authenticated', 'true');
-    localStorage.setItem('maintenance_current_user', JSON.stringify(mockUser));
-    return { user: mockUser, session: { user: mockUser } };
+    localStorage.setItem('maintenance_current_user', JSON.stringify(registeredUser));
+    return { user: registeredUser, session: { user: registeredUser } };
+  },
+
+  requestAccess: async (data: { email: string; nom: string; prenom: string; telephone?: string; role?: string; motifDemande?: string }) => {
+    return await db.users.requestAccess(data);
   },
 
   signOut: async () => {

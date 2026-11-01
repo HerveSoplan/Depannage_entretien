@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { LayoutDashboard, Users, Wrench, FileText, Package, HelpCircle, Settings, Database, Menu, X, ShieldAlert } from 'lucide-react';
 import { useTranslation } from '../../hooks/useTranslation';
+import { db } from '../../lib/supabase';
 
 interface NavigationProps {
   onNavigate?: (screen: string) => void;
@@ -9,7 +10,28 @@ interface NavigationProps {
 
 export function Navigation({ onNavigate, currentScreen }: NavigationProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
   const { t } = useTranslation();
+
+  useEffect(() => {
+    const checkPending = async () => {
+      try {
+        const res: any = await db.users.list();
+        const list = Array.isArray(res) ? res : (res?.list || []);
+        const count = list.filter(
+          (u: any) =>
+            u.statut === 'EN_ATTENTE' ||
+            (u.actif === false && u.statut !== 'REFUSE' && u.email !== 'contact@appalacarte.fr')
+        ).length;
+        setPendingCount(count);
+      } catch {
+        // ignore
+      }
+    };
+    checkPending();
+    const interval = setInterval(checkPending, 20000);
+    return () => clearInterval(interval);
+  }, []);
 
   const menuItems = [
     { id: 'dashboard', labelKey: 'dashboard.title', label: 'Tableau de bord', icon: LayoutDashboard },
@@ -60,7 +82,12 @@ export function Navigation({ onNavigate, currentScreen }: NavigationProps) {
                   `}
                 >
                   <Icon className={`mr-3 h-5 w-5 ${isActive ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'}`} />
-                  {getLabel(item)}
+                  <span className="flex-1 text-left">{getLabel(item)}</span>
+                  {item.id === 'users' && pendingCount > 0 && (
+                    <span className="bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full ml-2">
+                      {pendingCount}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -122,7 +149,12 @@ export function Navigation({ onNavigate, currentScreen }: NavigationProps) {
                       `}
                     >
                       <Icon className={`mr-3 h-5 w-5 ${isActive ? 'text-blue-600' : 'text-gray-400'}`} />
-                      {getLabel(item)}
+                      <span className="flex-1 text-left">{getLabel(item)}</span>
+                      {item.id === 'users' && pendingCount > 0 && (
+                        <span className="bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full ml-2">
+                          {pendingCount}
+                        </span>
+                      )}
                     </button>
                   );
                 })}
