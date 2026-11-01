@@ -1,11 +1,11 @@
 // src/lib/supabase.ts
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://roeozqwfvwgwqvchuwgo.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_MKmYLQkGR1IpjRfEAKDrpQ_SmIwid8r';
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
+  console.warn("⚠️ Variables d'environnement Supabase absentes, utilisation des clés de secours.");
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
