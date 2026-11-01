@@ -1,7 +1,7 @@
 //App.tsx
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import { supabase } from './lib/supabase';
+import { supabase, isLiveSupabaseActive } from './lib/supabase';
 import { SelectedClientProvider } from './contexts/SelectedClientContext';
 import { LoginScreen } from './components/auth/LoginScreen';
 import { Layout } from './components/common/Layout';
@@ -60,18 +60,24 @@ export default function App() {
 
   useEffect(() => {
     const checkAuth = async () => {
+      const storedAuth = localStorage.getItem('maintenance_authenticated');
+      if (storedAuth === 'true') {
+        setIsAuthenticated(true);
+        return;
+      }
+
+      // Si le mode direct Supabase n'est pas activé, affichage immédiat de l'écran de login démo
+      if (!isLiveSupabaseActive()) {
+        setIsAuthenticated(false);
+        return;
+      }
+
       try {
-        const storedAuth = localStorage.getItem('maintenance_authenticated');
-        if (storedAuth === 'true') {
-          setIsAuthenticated(true);
-          return;
-        }
         const { data: { user } } = await supabase.auth.getUser();
         setIsAuthenticated(!!user);
       } catch (error) {
         console.warn("Vérification authentification distante indisponible, repli local:", error);
-        const storedAuth = localStorage.getItem('maintenance_authenticated');
-        setIsAuthenticated(storedAuth === 'true');
+        setIsAuthenticated(false);
       }
     };
     checkAuth();

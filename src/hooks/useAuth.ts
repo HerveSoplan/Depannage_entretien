@@ -1,6 +1,6 @@
 // useAuth.ts
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, isLiveSupabaseActive } from '../lib/supabase';
 
 export function useAuth() {
   const [user, setUser] = useState<any>(null);
@@ -11,7 +11,18 @@ export function useAuth() {
       try {
         const storedUser = localStorage.getItem('maintenance_current_user');
         if (storedUser) {
-          setUser(JSON.parse(storedUser));
+          try {
+            setUser(JSON.parse(storedUser));
+          } catch (e) {
+            setUser(null);
+          }
+          setLoading(false);
+          return;
+        }
+
+        // Si le mode en ligne Supabase n'est pas activé, on évite tout timeout réseau
+        if (!isLiveSupabaseActive()) {
+          setUser(null);
           setLoading(false);
           return;
         }
@@ -20,16 +31,7 @@ export function useAuth() {
         setUser(currentUser);
       } catch (error) {
         console.warn('Erreur vérification auth (mode local actif):', error);
-        const storedUser = localStorage.getItem('maintenance_current_user');
-        if (storedUser) {
-          try {
-            setUser(JSON.parse(storedUser));
-          } catch (e) {
-            setUser(null);
-          }
-        } else {
-          setUser(null);
-        }
+        setUser(null);
       } finally {
         setLoading(false);
       }
@@ -39,8 +41,8 @@ export function useAuth() {
 
   const signIn = async (email: string, password?: string) => {
     try {
-      // Si mot de passe fourni, tenter Supabase Auth
-      if (password) {
+      // Si mot de passe fourni et mode en ligne activé, tenter Supabase Auth
+      if (password && isLiveSupabaseActive()) {
         try {
           const { data, error } = await supabase.auth.signInWithPassword({
             email,
@@ -57,14 +59,14 @@ export function useAuth() {
         }
       }
 
-      // Connexion sans mot de passe (mode développement / test ouvert)
-      const cleanEmail = email?.trim() || 'herve@appalacarte.fr';
+      // Connexion instantanée (mode autonome / démonstration acquéreurs)
+      const cleanEmail = email?.trim() || 'contact@appalacarte.fr';
       const mockUser = {
         id: 'usr_' + Date.now(),
         _id: 'usr_' + Date.now(),
         email: cleanEmail,
-        nom: cleanEmail.includes('@') ? cleanEmail.split('@')[0] : 'CHAMPAGNE',
-        prenom: 'Hervé',
+        nom: cleanEmail.includes('@') ? cleanEmail.split('@')[0].toUpperCase() : 'UTILISATEUR',
+        prenom: 'Démo',
         role: 'ADMINISTRATEUR',
         numeroTechnicien: '001',
         actif: true
@@ -84,10 +86,12 @@ export function useAuth() {
     try {
       localStorage.removeItem('maintenance_authenticated');
       localStorage.removeItem('maintenance_current_user');
-      try {
-        await supabase.auth.signOut();
-      } catch (e) {
-        // ignore
+      if (isLiveSupabaseActive()) {
+        try {
+          await supabase.auth.signOut();
+        } catch (e) {
+          // ignore
+        }
       }
       setUser(null);
     } catch (error) {
@@ -103,8 +107,10 @@ export function useAuth() {
         setUser(JSON.parse(stored));
         return;
       }
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      setUser(currentUser);
+      if (isLiveSupabaseActive()) {
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        setUser(currentUser);
+      }
     } catch (error) {
       console.error('Erreur rafraîchissement user:', error);
     }
