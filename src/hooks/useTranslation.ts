@@ -16,6 +16,22 @@ export interface Translation {
 const STORAGE_KEY = 'maintenance_language';
 const DEFAULT_LANGUAGE = 'fr';
 
+// Dictionnaire français de base par défaut pour éviter les warnings en console
+const DEFAULT_FR_TRANSLATIONS: Record<string, string> = {
+  'dashboard.title': 'Tableau de bord',
+  'dashboard.overview': 'Vue d\'ensemble',
+  'clients.title': 'Clients',
+  'machines.title': 'Machines',
+  'interventions.title': 'Interventions',
+  'spare_parts.title': 'Pièces détachées',
+  'maintenance.title': 'Maintenance',
+  'troubleshooting.title': 'Dépannage',
+  'users.title': 'Utilisateurs',
+  'administration.title': 'Administration',
+  'button.add': 'Ajouter',
+  'button.search': 'Rechercher'
+};
+
 export function useTranslation() {
   const [currentLanguage, setCurrentLanguage] = useState<string>(() => {
     return localStorage.getItem(STORAGE_KEY) || DEFAULT_LANGUAGE;

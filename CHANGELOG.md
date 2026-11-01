@@ -4,6 +4,18 @@ Toutes les modifications notables apportées à l'application **Maintenance et D
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.5.3] - 2026-11-01
+
+### Corrigé & Amélioré
+- **Script de réparation et d'alignement Supabase (`supabase_reparation_kits_et_taches.sql`)** :
+  - Résolution de l'erreur `Could not find the 'kit_id' column of 'maintenance_kits' in the schema cache (PGRST204)`.
+  - Ajout systématique via `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` de l'ensemble des colonnes attendues (`kit_id`, `machine_type`, `kit_number`, `service_number`, `pieces`, `task_id`, `section_id`, etc.).
+  - Notification `NOTIFY pgrst, 'reload schema'` pour actualiser immédiatement le cache PostgREST de Supabase.
+  - Politiques RLS permissives pour les rôles `anon` et `authenticated` pour les référentiels de kits et tâches d'entretien.
+- **Suppression des alertes de traductions manquantes (`useTranslation.ts`)** :
+  - Intégration d'un dictionnaire français par défaut (`DEFAULT_FR_TRANSLATIONS`) pour les libellés de navigation et boutons standards (`dashboard.title`, `clients.title`, `button.add`, etc.).
+  - Élimination des warnings parasites en console lorsque la traduction ou le libellé de repli est disponible.
+
 ## [1.5.2] - 2026-11-01
 
 ### Corrigé & Amélioré
