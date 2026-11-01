@@ -4,21 +4,22 @@ import { demoDb } from '../services/demoDatabase';
 
 export { demoDb };
 
-const DEFAULT_SUPABASE_URL = 'https://roeozqwfvwgwqvchuwgo.supabase.co';
-const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_MKmYLQkGR1IpjRfEAKDrpQ_SmIwid8r';
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
+// Récupération stricte depuis les variables d'environnement (aucun secret ni clé en dur dans le code source)
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-anon-key';
 
 // Détection intelligente du mode live Supabase vs mode autonome instantané (local/démo)
-// Par défaut pour les acquéreurs et tests : mode autonome instantané (0 latence, aucune attente réseau)
+// Par défaut pour les tests et démonstrations : mode autonome (0 latence, données isolées en local)
+// Pour activer la base de données Supabase en direct, définir VITE_USE_LIVE_SUPABASE=true dans Vercel / .env
 export const isLiveSupabaseActive = (): boolean => {
   if (typeof window !== 'undefined') {
     const forced = localStorage.getItem('soplan_use_live_supabase');
     if (forced === 'true') return true;
     if (forced === 'false') return false;
   }
-  return import.meta.env.VITE_USE_LIVE_SUPABASE === 'true';
+  return import.meta.env.VITE_USE_LIVE_SUPABASE === 'true' && 
+         !!import.meta.env.VITE_SUPABASE_URL && 
+         !!import.meta.env.VITE_SUPABASE_ANON_KEY;
 };
 
 export const setLiveSupabaseActive = (active: boolean) => {
