@@ -146,7 +146,12 @@ export default function App() {
 
   // La page mentions légales est toujours accessible sans authentification
   if (location.pathname === '/mentions-legales') {
-    return <MentionsLegalesScreen onBack={() => navigate('/')} />;
+    return (
+      <>
+        <MentionsLegalesScreen onBack={() => navigate('/')} />
+        <DebugFileOverlay currentScreen="mentions-legales" />
+      </>
+    );
   }
 
   if (isAuthenticated === null) {
@@ -158,7 +163,12 @@ export default function App() {
   }
 
   if (!isAuthenticated) {
-    return <LoginScreen onLoginSuccess={handleLoginSuccess} onNavigateLegal={() => navigate('/mentions-legales')} />;
+    return (
+      <>
+        <LoginScreen onLoginSuccess={handleLoginSuccess} onNavigateLegal={() => navigate('/mentions-legales')} />
+        <DebugFileOverlay currentScreen="login" />
+      </>
+    );
   }
 
   // Détermine le currentScreen pour Layout basé sur le pathname

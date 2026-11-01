@@ -4,6 +4,17 @@ Toutes les modifications notables apportées à l'application **Maintenance et D
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.5.1] - 2026-11-01
+
+### Ajouté & Amélioré
+- **Activation de la copie du chemin de fichier pour la remontée d'erreurs (`DebugFileOverlay.tsx`)** :
+  - Suppression du blocage `pointerEvents: 'none'` qui empêchait tout clic ou sélection sur la barre de débogage verte en bas d'écran.
+  - Ajout d'un bouton d'action dédié « Copier le chemin » avec icône et retour visuel immédiat (« Copié ! » et message de confirmation).
+  - Rendu cliquable de l'ensemble du chemin de fichier affiché pour une copie instantanée en un seul clic.
+  - Résolution dynamique et ultra-précise des fichiers sources selon les routes et sous-routes actives (`location.pathname`).
+  - Système de copie résilient avec API `navigator.clipboard` et mécanisme de repli compatible tous navigateurs.
+  - Disponibilité de la barre d'aide au débogage sur l'ensemble des écrans (y compris authentification et mentions légales).
+
 ## [1.5.0] - 2026-11-01
 
 ### Modifié & Nettoyé
