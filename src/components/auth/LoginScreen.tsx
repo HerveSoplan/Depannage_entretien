@@ -4,106 +4,61 @@ import { Card } from '../common/Card';
 import { Input } from '../common/Input';
 import { Footer } from '../common/Footer';
 import { MentionsLegalesScreen } from '../../screens/legal/MentionsLegalesScreen';
-import { Shield, Wrench, User, Zap, Mail, KeyRound, CheckCircle2 } from 'lucide-react';
+import { Wrench, Mail, KeyRound, ArrowRight } from 'lucide-react';
+import { auth, isLiveSupabaseActive } from '../../lib/supabase';
 
 interface LoginScreenProps {
   onLoginSuccess: (userData?: any) => void;
+  onNavigateLegal?: () => void;
 }
 
-const PRESET_PROFILES = [
-  {
-    id: 'user_admin',
-    _id: 'user_admin',
-    nom: 'CHAMPAGNE',
-    prenom: 'Hervé',
-    email: 'herve@appalacarte.fr',
-    role: 'ADMINISTRATEUR',
-    numeroTechnicien: '001',
-    label: 'Administrateur',
-    description: 'Accès complet et gestion du système',
-    icon: Shield,
-    color: 'text-indigo-600 bg-indigo-50 border-indigo-200'
-  },
-  {
-    id: 'user_resp',
-    _id: 'user_resp',
-    nom: 'Dupont',
-    prenom: 'Jean',
-    email: 'resp.technique@appalacarte.fr',
-    role: 'RESPONSABLE_TECHNIQUE',
-    numeroTechnicien: '002',
-    label: 'Responsable Technique',
-    description: 'Supervision technique & validation',
-    icon: Wrench,
-    color: 'text-blue-600 bg-blue-50 border-blue-200'
-  },
-  {
-    id: 'user_cms',
-    _id: 'user_cms',
-    nom: 'Martin',
-    prenom: 'Marc',
-    email: 'tech.cms@appalacarte.fr',
-    role: 'TECHNICIEN_CMS',
-    numeroTechnicien: '010',
-    label: 'Technicien CMS',
-    description: 'Interventions CMS & protocoles',
-    icon: User,
-    color: 'text-teal-600 bg-teal-50 border-teal-200'
-  },
-  {
-    id: 'user_vms',
-    _id: 'user_vms',
-    nom: 'Durand',
-    prenom: 'Pierre',
-    email: 'tech.vms@appalacarte.fr',
-    role: 'TECHNICIEN_VMS',
-    numeroTechnicien: '020',
-    label: 'Technicien VMS',
-    description: 'Interventions VMS & maintenance',
-    icon: User,
-    color: 'text-emerald-600 bg-emerald-50 border-emerald-200'
-  }
-];
-
-export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
+export function LoginScreen({ onLoginSuccess, onNavigateLegal }: LoginScreenProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showLegal, setShowLegal] = useState(false);
 
-  const connectWithUser = (user: any) => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setLoading(true);
     setError(null);
+
+    const cleanEmail = email.trim();
+    if (!cleanEmail) {
+      setError('Veuillez renseigner votre adresse email.');
+      setLoading(false);
+      return;
+    }
+
     try {
-      localStorage.setItem('maintenance_authenticated', 'true');
-      localStorage.setItem('maintenance_current_user', JSON.stringify(user));
-      onLoginSuccess(user);
+      const res = await auth.signIn(cleanEmail, password || undefined);
+      if (res?.user) {
+        onLoginSuccess(res.user);
+      } else {
+        setError('Impossible de se connecter. Veuillez vérifier vos identifiants.');
+      }
     } catch (err: any) {
       console.error('Erreur connexion:', err);
-      setError('Erreur lors de la connexion. Veuillez réessayer.');
+      setError(err?.message || 'Erreur lors de la connexion.');
+    } finally {
       setLoading(false);
     }
   };
 
-  const handleQuickConnect = () => {
-    connectWithUser(PRESET_PROFILES[0]);
-  };
-
-  const handleCustomSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const cleanEmail = email.trim() || 'utilisateur@appalacarte.fr';
-    const customUser = {
-      id: 'usr_' + Date.now(),
-      _id: 'usr_' + Date.now(),
-      nom: cleanEmail.split('@')[0],
-      prenom: 'Utilisateur',
-      email: cleanEmail,
-      role: 'ADMINISTRATEUR',
-      numeroTechnicien: '099',
-      actif: true
-    };
-    connectWithUser(customUser);
+  const handleQuickAdmin = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await auth.signIn('contact@appalacarte.fr');
+      if (res?.user) {
+        onLoginSuccess(res.user);
+      }
+    } catch (err: any) {
+      setError('Erreur lors de la connexion.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (showLegal) {
@@ -111,31 +66,20 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-slate-100 flex flex-col justify-between">
-      <div className="flex-1 flex items-center justify-center p-4 py-8">
-        <Card className="w-full max-w-lg shadow-xl border-blue-100 bg-white/95 backdrop-blur-sm p-6 sm:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex flex-col justify-between">
+      <div className="flex-1 flex items-center justify-center p-4 py-12">
+        <Card className="w-full max-w-md shadow-xl border-blue-100 bg-white/95 backdrop-blur-sm p-6 sm:p-8">
           {/* Logo et en-tête */}
-          <div className="text-center mb-6">
+          <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-14 h-14 bg-blue-600 text-white rounded-2xl shadow-md mb-3">
               <Wrench className="w-7 h-7" />
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">
               Maintenance & Dépannage
             </h1>
-            <p className="text-sm text-gray-600 mt-1">
-              Plateforme professionnelle de maintenance et d'interventions
+            <p className="text-sm text-gray-500 mt-1">
+              Portail professionnel de gestion d'interventions
             </p>
-          </div>
-
-          {/* Bandeau d'information Mode sans mot de passe */}
-          <div className="mb-6 p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-3">
-            <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
-            <div className="text-xs text-emerald-900 leading-relaxed">
-              <strong className="font-semibold block text-emerald-800">
-                Connexion sans mot de passe ouverte
-              </strong>
-              L'accès à l'application est ouvert directement sans mot de passe. Vous pouvez vous connecter en 1 clic ci-dessous.
-            </div>
           </div>
 
           {error && (
@@ -144,105 +88,67 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
             </div>
           )}
 
-          {/* Bouton principal : Connexion instantanée */}
-          <Button
-            type="button"
-            onClick={handleQuickConnect}
-            disabled={loading}
-            className="w-full py-3 text-base font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700"
-          >
-            <Zap className="w-5 h-5" />
-            {loading ? 'Connexion en cours...' : 'Accès instantané sans mot de passe'}
-          </Button>
-
-          {/* Sélecteur de profils rapides */}
-          <div className="my-6">
-            <div className="relative flex py-2 items-center">
-              <div className="flex-grow border-t border-gray-200"></div>
-              <span className="flex-shrink mx-3 text-xs uppercase tracking-wider text-gray-400 font-medium">
-                Ou choisissez un profil
-              </span>
-              <div className="flex-grow border-t border-gray-200"></div>
+          {/* Formulaire de connexion standard */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wider">
+                Adresse email
+              </label>
+              <div className="relative">
+                <Mail className="w-4 h-4 text-gray-400 absolute left-3 top-3 pointer-events-none" />
+                <Input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="contact@appalacarte.fr"
+                  className="pl-9 text-sm"
+                />
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-2">
-              {PRESET_PROFILES.map((profile) => {
-                const Icon = profile.icon;
-                return (
-                  <button
-                    key={profile.id}
-                    type="button"
-                    onClick={() => connectWithUser(profile)}
-                    disabled={loading}
-                    className="p-3 text-left border rounded-xl hover:border-blue-400 hover:bg-blue-50/50 transition-all group flex flex-col justify-between"
-                  >
-                    <div className="flex items-center gap-2.5 mb-1">
-                      <div className={`p-1.5 rounded-lg border ${profile.color}`}>
-                        <Icon className="w-4 h-4" />
-                      </div>
-                      <div className="font-semibold text-xs text-gray-900 group-hover:text-blue-600">
-                        {profile.label}
-                      </div>
-                    </div>
-                    <div className="text-[11px] text-gray-500 truncate">
-                      {profile.prenom} {profile.nom}
-                    </div>
-                  </button>
-                );
-              })}
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wider">
+                Mot de passe
+              </label>
+              <div className="relative">
+                <KeyRound className="w-4 h-4 text-gray-400 absolute left-3 top-3 pointer-events-none" />
+                <Input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="pl-9 text-sm"
+                />
+              </div>
             </div>
-          </div>
 
-          {/* Connexion avec email libre */}
-          <div className="border-t border-gray-100 pt-5">
-            <p className="text-xs font-medium text-gray-700 mb-3">
-              Ou connectez-vous avec votre adresse email :
-            </p>
-            <form onSubmit={handleCustomSubmit} className="space-y-3">
-              <div>
-                <div className="relative">
-                  <Mail className="w-4 h-4 text-gray-400 absolute left-3 top-3 pointer-events-none" />
-                  <Input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="votre.email@domaine.com"
-                    className="pl-9 text-sm"
-                  />
-                </div>
-              </div>
+            <Button
+              type="submit"
+              disabled={loading}
+              className="w-full py-2.5 text-sm font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 mt-2"
+            >
+              <span>{loading ? 'Connexion en cours...' : 'Se connecter'}</span>
+              <ArrowRight className="w-4 h-4" />
+            </Button>
+          </form>
 
-              <div>
-                <div className="relative">
-                  <KeyRound className="w-4 h-4 text-gray-400 absolute left-3 top-3 pointer-events-none" />
-                  <Input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Mot de passe (optionnel)"
-                    className="pl-9 text-sm text-gray-400"
-                  />
-                </div>
-                <p className="text-[10px] text-gray-500 mt-1 pl-1">
-                  Non requis : aucun mot de passe n'est exigé actuellement.
-                </p>
-              </div>
-
-              <Button
-                type="submit"
-                variant="secondary"
-                disabled={loading}
-                className="w-full text-sm font-medium mt-1"
-              >
-                Se connecter avec cet email
-              </Button>
-            </form>
+          {/* Accès rapide administrateur */}
+          <div className="mt-6 pt-5 border-t border-gray-100 text-center">
+            <button
+              type="button"
+              onClick={handleQuickAdmin}
+              disabled={loading}
+              className="text-xs text-blue-600 hover:text-blue-800 hover:underline font-medium"
+            >
+              Accès direct Administrateur (contact@appalacarte.fr)
+            </button>
           </div>
         </Card>
       </div>
 
       {/* Footer réglementaire visible hors connexion */}
-      <Footer onNavigateLegal={() => setShowLegal(true)} />
+      <Footer onNavigateLegal={() => (onNavigateLegal ? onNavigateLegal() : setShowLegal(true))} />
     </div>
   );
 }

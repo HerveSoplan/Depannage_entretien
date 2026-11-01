@@ -4,6 +4,15 @@ Toutes les modifications notables apportées à l'application **Maintenance et D
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.5.0] - 2026-11-01
+
+### Modifié & Nettoyé
+- **Suppression intégrale des données de démonstration en dur** : Élimination des 600 lignes de fausses données (clients fictifs, machines de test, interventions et profils simulés) dans `src/services/demoDatabase.ts`.
+- **Respect absolu des retours Supabase** : Si une table Supabase connectée est vide, l'application affiche désormais fidèlement une liste vide (`[]`) sans injecter de données factices.
+- **Détection automatique transparente de Supabase** : Dès que `VITE_SUPABASE_URL` et `VITE_SUPABASE_ANON_KEY` sont configurées (sur Vercel ou localement), le mode direct Supabase est activé automatiquement sans variable supplémentaire.
+- **Refonte et épuration de l'écran de connexion (`LoginScreen.tsx`)** : Retrait des faux profils fictifs, formulaire d'authentification professionnel et accès rapide propre pour l'administrateur.
+- **Épuration de la barre de navigation (`Layout.tsx`)** : Retrait du bouton de réinitialisation démo et du badge de test.
+
 ## [1.4.2] - 2026-11-01
 
 ### Sécurité & Protection des données

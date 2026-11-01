@@ -8,18 +8,17 @@ export { demoDb };
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-anon-key';
 
-// Détection intelligente du mode live Supabase vs mode autonome instantané (local/démo)
-// Par défaut pour les tests et démonstrations : mode autonome (0 latence, données isolées en local)
-// Pour activer la base de données Supabase en direct, définir VITE_USE_LIVE_SUPABASE=true dans Vercel / .env
+// Détection intelligente du mode live Supabase
+// Si les clés Supabase sont configurées dans l'environnement (Vercel ou .env), la connexion Supabase en direct est active.
 export const isLiveSupabaseActive = (): boolean => {
   if (typeof window !== 'undefined') {
     const forced = localStorage.getItem('soplan_use_live_supabase');
     if (forced === 'true') return true;
     if (forced === 'false') return false;
   }
-  return import.meta.env.VITE_USE_LIVE_SUPABASE === 'true' && 
-         !!import.meta.env.VITE_SUPABASE_URL && 
-         !!import.meta.env.VITE_SUPABASE_ANON_KEY;
+  const hasValidUrl = !!import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('placeholder');
+  const hasValidKey = !!import.meta.env.VITE_SUPABASE_ANON_KEY && !import.meta.env.VITE_SUPABASE_ANON_KEY.includes('placeholder');
+  return hasValidUrl && hasValidKey;
 };
 
 export const setLiveSupabaseActive = (active: boolean) => {
@@ -81,7 +80,7 @@ export const db = {
             .from('utilisateurs')
             .select('*')
             .order('nom', { ascending: true });
-          if (!error && data && data.length > 0) return toCamelCase(data);
+          if (!error && data) return toCamelCase(data);
         } catch (e) {
           // Fallback démo
         }
@@ -159,7 +158,7 @@ export const db = {
             .from('clients')
             .select('*')
             .order('nom', { ascending: true });
-          if (!error && data && data.length > 0) return toCamelCase(data);
+          if (!error && data) return toCamelCase(data);
         } catch (e) {
           // Fallback démo
         }
@@ -253,7 +252,7 @@ export const db = {
           }
           if (options.limit) query = query.limit(options.limit);
           const { data, error, count } = await query;
-          if (!error && data && data.length > 0) return { list: toCamelCase(data), count };
+          if (!error && data) return { list: toCamelCase(data), count: count ?? data.length };
         } catch (e) {
           // Fallback démo
         }
@@ -273,7 +272,7 @@ export const db = {
             .select('*')
             .eq('client_id', clientId)
             .order('created_at', { ascending: false });
-          if (!error && data && data.length > 0) return toCamelCase(data);
+          if (!error && data) return toCamelCase(data);
         } catch (e) {
           // Fallback démo
         }
@@ -351,7 +350,7 @@ export const db = {
             .from('v_interventions_details')
             .select('*')
             .order('date_prevue', { ascending: false });
-          if (!error && data && data.length > 0) return toCamelCase(data);
+          if (!error && data) return toCamelCase(data);
         } catch (e) {
           // Fallback démo
         }
@@ -532,7 +531,7 @@ export const db = {
             .from('spare_parts')
             .select('*')
             .order('designation', { ascending: true });
-          if (!error && data && data.length > 0) return toCamelCase(data);
+          if (!error && data) return toCamelCase(data);
         } catch (e) {
           // Fallback démo
         }
@@ -594,7 +593,7 @@ export const db = {
       if (isLiveSupabaseActive()) {
         try {
           const { data, error } = await supabase.from('error_codes').select('*').order('alarme', { ascending: true });
-          if (!error && data && data.length > 0) return { list: toCamelCase(data) };
+          if (!error && data) return { list: toCamelCase(data) };
         } catch (e) {
           // Fallback démo
         }
@@ -610,7 +609,7 @@ export const db = {
             .select('*')
             .or(`alarme.ilike.%${query}%,titre.ilike.%${query}%,description.ilike.%${query}%`)
             .limit(10);
-          if (!error && data && data.length > 0) return toCamelCase(data);
+          if (!error && data) return toCamelCase(data);
         } catch (e) {
           // Fallback démo
         }
@@ -641,7 +640,7 @@ export const db = {
       if (isLiveSupabaseActive()) {
         try {
           const { data, error } = await supabase.from('machine_fields').select('*').order('order', { ascending: true });
-          if (!error && data && data.length > 0) return { list: toCamelCase(data) };
+          if (!error && data) return { list: toCamelCase(data) };
         } catch (e) {
           // Fallback démo
         }
@@ -679,7 +678,7 @@ export const db = {
       if (isLiveSupabaseActive()) {
         try {
           const { data, error } = await supabase.from('machine_field_options').select('*').order('order', { ascending: true });
-          if (!error && data && data.length > 0) return { list: toCamelCase(data) };
+          if (!error && data) return { list: toCamelCase(data) };
         } catch (e) {
           // Fallback démo
         }
@@ -691,7 +690,7 @@ export const db = {
       if (isLiveSupabaseActive()) {
         try {
           const { data, error } = await supabase.from('machine_field_options').select('*').eq('field_id', fieldId).order('order', { ascending: true });
-          if (!error && data && data.length > 0) return toCamelCase(data);
+          if (!error && data) return toCamelCase(data);
         } catch (e) {
           // Fallback démo
         }
@@ -729,7 +728,7 @@ export const db = {
       if (isLiveSupabaseActive()) {
         try {
           const { data, error } = await supabase.from('languages').select('*').order('name', { ascending: true });
-          if (!error && data && data.length > 0) return { list: toCamelCase(data) };
+          if (!error && data) return { list: toCamelCase(data) };
         } catch (e) {
           // Fallback démo
         }
@@ -783,7 +782,7 @@ export const db = {
             query = query.eq('language_code', options.filter.languageCode);
           }
           const { data, error } = await query;
-          if (!error && data && data.length > 0) return { list: toCamelCase(data) };
+          if (!error && data) return { list: toCamelCase(data) };
         } catch (e) {
           // Fallback démo
         }
@@ -795,7 +794,7 @@ export const db = {
       if (isLiveSupabaseActive()) {
         try {
           const { data, error } = await supabase.from('translations').select('*').eq('language_code', languageCode);
-          if (!error && data && data.length > 0) return toCamelCase(data);
+          if (!error && data) return toCamelCase(data);
         } catch (e) {
           // Fallback démo
         }
@@ -832,7 +831,7 @@ export const db = {
           let query = supabase.from('client_messages').select('*').order('created_at', { ascending: false });
           if (clientId) query = query.eq('client_id', clientId);
           const { data, error } = await query;
-          if (!error && data && data.length > 0) return toCamelCase(data);
+          if (!error && data) return toCamelCase(data);
         } catch (e) {
           // Fallback démo
         }
@@ -900,7 +899,7 @@ export const db = {
           }
           if (options?.limit) query = query.limit(options.limit);
           const { data, error } = await query;
-          if (!error && data && data.length > 0) return { list: toCamelCase(data) };
+          if (!error && data) return { list: toCamelCase(data) };
         } catch (e) {
           // Fallback démo
         }
@@ -971,7 +970,7 @@ export const db = {
           }
           if (options.limit) query = query.limit(options.limit);
           const { data, error, count } = await query;
-          if (!error && data && data.length > 0) return { list: toCamelCase(data), count };
+          if (!error && data) return { list: toCamelCase(data), count: count ?? data.length };
         } catch (e) {
           // Fallback démo
         }
