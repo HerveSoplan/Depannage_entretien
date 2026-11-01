@@ -23,9 +23,16 @@ import { auth, isLiveSupabaseActive } from '../../lib/supabase';
 interface LoginScreenProps {
   onLoginSuccess: (userData?: any) => void;
   onNavigateLegal?: () => void;
+  onContinueToApp?: () => void;
+  currentUser?: any;
 }
 
-export function LoginScreen({ onLoginSuccess, onNavigateLegal }: LoginScreenProps) {
+export function LoginScreen({
+  onLoginSuccess,
+  onNavigateLegal,
+  onContinueToApp,
+  currentUser
+}: LoginScreenProps) {
   // Mode : 'login' | 'demande'
   const [activeTab, setActiveTab] = useState<'login' | 'demande'>('login');
 
@@ -246,6 +253,27 @@ export function LoginScreen({ onLoginSuccess, onNavigateLegal }: LoginScreenProp
               Portail professionnel certifié — Authentification Google & Email Validé
             </p>
           </div>
+
+          {/* Bandeau session active si l'utilisateur est déjà connecté */}
+          {currentUser && (
+            <div className="mb-5 p-3.5 bg-blue-50/90 border border-blue-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-blue-900 shadow-sm">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-2.5 h-2.5 rounded-full bg-green-500 flex-shrink-0 animate-pulse" />
+                <span className="truncate">
+                  Session active : <strong>{currentUser.prenom} {currentUser.nom}</strong> ({currentUser.email})
+                </span>
+              </div>
+              {onContinueToApp && (
+                <button
+                  type="button"
+                  onClick={onContinueToApp}
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-xs whitespace-nowrap shadow-sm transition-colors"
+                >
+                  Continuer vers l'application →
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Onglets de sélection : Connexion / Demande d'accès */}
           {!demandeSuccessData && (

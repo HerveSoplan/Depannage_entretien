@@ -4,6 +4,16 @@ Toutes les modifications notables apportées à l'application **Maintenance et D
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.6.2] - 2026-11-01
+
+### Ajouté & Amélioré
+- **Routes universelles de connexion multi-appareils (`/login`, `/connexion`, `/auth`)** :
+  - Accès direct garanti à l'écran de connexion depuis n'importe quel smartphone, tablette ou ordinateur.
+  - Prise en charge du paramètre de réinitialisation `?reset=1` ou `?logout=1` pour forcer l'affichage de l'écran vierge de connexion même si une session locale précédente existait.
+  - Détection et affichage d'un bandeau de session active permettant de basculer de compte ou de continuer vers le tableau de bord.
+- **Configuration Vercel SPA (`vercel.json`)** :
+  - Ajout des règles de réécriture (*rewrites*) redirigeant toutes les requêtes vers `/index.html` pour éliminer toute erreur 404 lors de l'accès direct aux liens de connexion depuis un appareil mobile ou externe.
+
 ## [1.6.1] - 2026-11-01
 
 ### Ajouté & Corrigé

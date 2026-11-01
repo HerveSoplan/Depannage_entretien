@@ -213,17 +213,43 @@ export default function App() {
     navigate(path, { state: params });
   };
 
+  // Détection des routes explicites de connexion pour n'importe quel device / compte
+  const isExplicitLoginRoute =
+    location.pathname === '/login' ||
+    location.pathname === '/connexion' ||
+    location.pathname === '/auth';
+
+  // Si l'URL demande une réinitialisation de session (?reset=1 ou ?logout=1)
+  useEffect(() => {
+    if (location.search.includes('reset=1') || location.search.includes('logout=1')) {
+      handleLogout();
+    }
+  }, [location.search]);
+
+  const getCurrentUser = () => {
+    try {
+      const stored = localStorage.getItem('maintenance_current_user');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  };
+
   const handleLoginSuccess = (userData?: any) => {
     localStorage.setItem('maintenance_authenticated', 'true');
     if (userData) {
       localStorage.setItem('maintenance_current_user', JSON.stringify(userData));
     }
     setIsAuthenticated(true);
+    if (isExplicitLoginRoute) {
+      navigate('/');
+    }
   };
 
   const handleLogout = async () => {
     localStorage.removeItem('maintenance_authenticated');
     localStorage.removeItem('maintenance_current_user');
+    sessionStorage.removeItem('pending_auth_email');
     try {
       await supabase.auth.signOut();
     } catch (e) {
@@ -242,6 +268,21 @@ export default function App() {
     );
   }
 
+  // Si l'utilisateur consulte explicitement /login ou /connexion sur n'importe quel device
+  if (isExplicitLoginRoute) {
+    return (
+      <>
+        <LoginScreen
+          onLoginSuccess={handleLoginSuccess}
+          onNavigateLegal={() => navigate('/mentions-legales')}
+          onContinueToApp={() => navigate('/')}
+          currentUser={isAuthenticated ? getCurrentUser() : null}
+        />
+        <DebugFileOverlay currentScreen="login" />
+      </>
+    );
+  }
+
   if (isAuthenticated === null) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -253,7 +294,10 @@ export default function App() {
   if (!isAuthenticated) {
     return (
       <>
-        <LoginScreen onLoginSuccess={handleLoginSuccess} onNavigateLegal={() => navigate('/mentions-legales')} />
+        <LoginScreen
+          onLoginSuccess={handleLoginSuccess}
+          onNavigateLegal={() => navigate('/mentions-legales')}
+        />
         <DebugFileOverlay currentScreen="login" />
       </>
     );
