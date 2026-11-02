@@ -38,25 +38,13 @@ import { db, generateTemporaryPassword, getPasswordRequestEmail, isLiveSupabaseA
 import { SUPABASE_REPAIR_SQL } from '../../lib/sql/repairScript';
 import { APP_NAME, getAppBaseUrl } from '../../version';
 import { RoleLogigramTab } from './RoleLogigramTab';
+import { ALL_PERMISSIONS, getDefaultPermissionsForRole } from '../../utils/permissions';
 
 interface UsersScreenProps {
   onNavigate: (screen: string, params?: any) => void;
 }
 
-const PERMISSIONS = [
-  { id: 'view_clients', label: 'Voir clients' },
-  { id: 'edit_clients', label: 'Modifier clients' },
-  { id: 'view_machines', label: 'Voir machines' },
-  { id: 'edit_machines', label: 'Modifier machines' },
-  { id: 'view_interventions', label: 'Voir interventions' },
-  { id: 'create_interventions', label: 'Créer interventions' },
-  { id: 'edit_interventions', label: 'Modifier interventions' },
-  { id: 'view_spare_parts', label: 'Voir pièces détachées' },
-  { id: 'edit_spare_parts', label: 'Modifier pièces détachées' },
-  { id: 'view_users', label: 'Voir utilisateurs' },
-  { id: 'edit_users', label: 'Modifier utilisateurs' },
-  { id: 'admin_access', label: 'Accès administration' }
-];
+const PERMISSIONS = ALL_PERMISSIONS.filter((p) => p.id !== 'view_dashboard');
 
 export function UsersScreen({ onNavigate }: UsersScreenProps) {
   const [users, setUsers] = useState<any[]>([]);
@@ -224,9 +212,11 @@ contact@appalacarte.fr`.trim();
     setLoading(true);
     try {
       const tempPassword = generateTemporaryPassword(approvingUser.prenom || 'technicien');
+      const rolePerms = getDefaultPermissionsForRole(approvalRole);
       await db.users.approve(approvingUser._id || approvingUser.id, {
         role: approvalRole,
         numeroTechnicien: approvalNumeroTechnicien.trim(),
+        permissions: rolePerms,
         approvedBy: currentUser?.email || 'contact@appalacarte.fr'
       });
 
@@ -334,11 +324,15 @@ contact@appalacarte.fr`.trim();
       const tempPass = generateTemporaryPassword(formData.prenom || 'technicien');
       const chosenRole = formData.roles.length > 0 ? formData.roles[0] : formData.role;
       const chosenRoles = formData.roles.length > 0 ? formData.roles : formData.role ? [formData.role] : [];
+      const effectivePermissions = formData.permissions && formData.permissions.length > 0
+        ? formData.permissions
+        : getDefaultPermissionsForRole(chosenRole);
 
       const userData = {
         ...formData,
         role: chosenRole,
         roles: chosenRoles,
+        permissions: effectivePermissions,
         statut: formData.actif ? 'VALIDE' : 'EN_ATTENTE',
         motDePasseTemporaire: tempPass,
         doitChangerMotDePasse: true,
@@ -377,16 +371,21 @@ contact@appalacarte.fr`.trim();
 
   const handleEdit = (user: any) => {
     setEditingUser(user);
+    const userRole = user.role || 'TECHNICIEN_CMS';
+    const effectivePerms = user.permissions && user.permissions.length > 0
+      ? user.permissions
+      : getDefaultPermissionsForRole(userRole);
+
     setFormData({
       nom: user.nom || '',
       prenom: user.prenom || '',
       email: user.email || '',
       telephone: user.telephone || '',
       numeroTechnicien: user.numeroTechnicien || '',
-      role: user.role || 'TECHNICIEN_CMS',
+      role: userRole,
       roles: user.roles || (user.role ? [user.role] : []),
       actif: user.actif !== false && user.statut !== 'EN_ATTENTE',
-      permissions: user.permissions || []
+      permissions: effectivePerms
     });
 
     const rolesParDefaut = roles.map((r) => r.value);
@@ -424,7 +423,9 @@ contact@appalacarte.fr`.trim();
       const user = users.find((u) => u._id === userId || u.id === userId);
       if (!user) return;
 
-      const currentPermissions = user.permissions || [];
+      const currentPermissions = user.permissions && user.permissions.length > 0
+        ? user.permissions
+        : getDefaultPermissionsForRole(user.role || 'TECHNICIEN_CMS');
       const hasPermission = currentPermissions.includes(permissionId);
 
       const updatedPermissions = hasPermission
@@ -453,9 +454,11 @@ contact@appalacarte.fr`.trim();
   const handleUpdateUserRole = async (userId: string, newRole: string, allRoles?: string[]) => {
     try {
       const rolesArray = allRoles && allRoles.length > 0 ? allRoles : (newRole ? [newRole] : []);
+      const rolePerms = getDefaultPermissionsForRole(newRole);
       await db.users.update(userId, {
         role: newRole,
         roles: rolesArray,
+        permissions: rolePerms,
         updatedAt: new Date().toISOString()
       });
 
@@ -466,7 +469,8 @@ contact@appalacarte.fr`.trim();
             return {
               ...u,
               role: newRole,
-              roles: rolesArray
+              roles: rolesArray,
+              permissions: rolePerms
             };
           }
           return u;

@@ -36,6 +36,8 @@ import { CommissioningProtocolScreen } from './screens/interventions/Commissioni
 import { InstallationProtocolScreen } from './screens/interventions/InstallationProtocolScreen';
 import { MentionsLegalesScreen } from './screens/legal/MentionsLegalesScreen';
 import { DebugFileOverlay } from './components/common/DebugFileOverlay';
+import { ShieldAlert } from 'lucide-react';
+import { hasPermission, PermissionId } from './utils/permissions';
 
 // Wrapper pour injecter la fonction de navigation compatible et les paramètres
 const RouteWrapper = ({
@@ -51,6 +53,50 @@ const RouteWrapper = ({
   console.log('📦 RouteWrapper - path:', location.pathname, 'state:', location.state, 'stateParams:', stateParams);
 
   return <Component onNavigate={onNavigate} {...stateParams} />;
+};
+
+// Contrôle d'accès par permission pour sécuriser les routes directes
+const ProtectedRoute = ({
+  permission,
+  children,
+  onNavigate
+}: {
+  permission: PermissionId;
+  children: React.ReactNode;
+  onNavigate: (screen: string) => void;
+}) => {
+  const currentUser = (() => {
+    try {
+      const stored = localStorage.getItem('maintenance_current_user');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  })();
+
+  const allowed = hasPermission(currentUser, permission);
+
+  if (!allowed) {
+    return (
+      <div className="p-8 text-center bg-white rounded-xl shadow-sm border border-red-100 max-w-lg mx-auto mt-12">
+        <div className="w-14 h-14 mx-auto rounded-full bg-red-50 flex items-center justify-center text-red-600 mb-4 border border-red-100">
+          <ShieldAlert className="w-7 h-7" />
+        </div>
+        <h2 className="text-xl font-bold text-gray-900 mb-2">Accès restreint</h2>
+        <p className="text-sm text-gray-600 mb-6">
+          Votre profil ({currentUser?.role || 'Utilisateur'}) ne dispose pas des droits nécessaires pour accéder à cette rubrique.
+        </p>
+        <button
+          onClick={() => onNavigate('dashboard')}
+          className="px-5 py-2.5 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors shadow-sm"
+        >
+          Retour au tableau de bord
+        </button>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
 };
 
 export default function App() {
@@ -334,43 +380,43 @@ export default function App() {
         <Routes>
           <Route path="/" element={<RouteWrapper Component={Dashboard} onNavigate={handleNavigate} />} />
 
-          <Route path="/clients" element={<RouteWrapper Component={ClientsScreen} onNavigate={handleNavigate} />} />
-          <Route path="/clients/new" element={<RouteWrapper Component={ClientFormScreen} onNavigate={handleNavigate} />} />
-          <Route path="/clients/:clientId" element={<RouteWrapper Component={ClientDetailScreen} onNavigate={handleNavigate} />} />
-          <Route path="/clients/:clientId/edit" element={<RouteWrapper Component={ClientFormScreen} onNavigate={handleNavigate} />} />
+          <Route path="/clients" element={<ProtectedRoute permission="view_clients" onNavigate={handleNavigate}><RouteWrapper Component={ClientsScreen} onNavigate={handleNavigate} /></ProtectedRoute>} />
+          <Route path="/clients/new" element={<ProtectedRoute permission="edit_clients" onNavigate={handleNavigate}><RouteWrapper Component={ClientFormScreen} onNavigate={handleNavigate} /></ProtectedRoute>} />
+          <Route path="/clients/:clientId" element={<ProtectedRoute permission="view_clients" onNavigate={handleNavigate}><RouteWrapper Component={ClientDetailScreen} onNavigate={handleNavigate} /></ProtectedRoute>} />
+          <Route path="/clients/:clientId/edit" element={<ProtectedRoute permission="edit_clients" onNavigate={handleNavigate}><RouteWrapper Component={ClientFormScreen} onNavigate={handleNavigate} /></ProtectedRoute>} />
 
-          <Route path="/machines" element={<RouteWrapper Component={MachinesScreen} onNavigate={handleNavigate} />} />
-          <Route path="/machines/new" element={<RouteWrapper Component={MachineFormScreen} onNavigate={handleNavigate} />} />
-          <Route path="/machines/:machineId" element={<RouteWrapper Component={MachineDetailScreen} onNavigate={handleNavigate} />} />
-          <Route path="/machines/:machineId/edit" element={<RouteWrapper Component={MachineFormScreen} onNavigate={handleNavigate} />} />
-          <Route path="/clients/:clientId/machines/:machineId" element={<RouteWrapper Component={MachineDetailScreen} onNavigate={handleNavigate} />} />
+          <Route path="/machines" element={<ProtectedRoute permission="view_machines" onNavigate={handleNavigate}><RouteWrapper Component={MachinesScreen} onNavigate={handleNavigate} /></ProtectedRoute>} />
+          <Route path="/machines/new" element={<ProtectedRoute permission="edit_machines" onNavigate={handleNavigate}><RouteWrapper Component={MachineFormScreen} onNavigate={handleNavigate} /></ProtectedRoute>} />
+          <Route path="/machines/:machineId" element={<ProtectedRoute permission="view_machines" onNavigate={handleNavigate}><RouteWrapper Component={MachineDetailScreen} onNavigate={handleNavigate} /></ProtectedRoute>} />
+          <Route path="/machines/:machineId/edit" element={<ProtectedRoute permission="edit_machines" onNavigate={handleNavigate}><RouteWrapper Component={MachineFormScreen} onNavigate={handleNavigate} /></ProtectedRoute>} />
+          <Route path="/clients/:clientId/machines/:machineId" element={<ProtectedRoute permission="view_machines" onNavigate={handleNavigate}><RouteWrapper Component={MachineDetailScreen} onNavigate={handleNavigate} /></ProtectedRoute>} />
 
-          <Route path="/interventions" element={<RouteWrapper Component={InterventionsScreen} onNavigate={handleNavigate} />} />
-          <Route path="/interventions/new" element={<RouteWrapper Component={InterventionFormScreen} onNavigate={handleNavigate} />} />
-          <Route path="/interventions/history" element={<RouteWrapper Component={MaintenanceHistoryView} onNavigate={handleNavigate} />} />
-          <Route path="/interventions/maintenance/select-client" element={<RouteWrapper Component={MaintenanceInterventionScreen} onNavigate={handleNavigate} />} />
-          <Route path="/interventions/maintenance/select-section" element={<RouteWrapper Component={MaintenanceSectionSelectionScreen} onNavigate={handleNavigate} />} />
-          <Route path="/interventions/multi-machine/select-kit" element={<RouteWrapper Component={MultiMachineKitSelectionScreen} onNavigate={handleNavigate} />} />
-          <Route path="/interventions/multi-machine/select-section" element={<RouteWrapper Component={MultiMachineSectionSelectionScreen} onNavigate={handleNavigate} />} />
-          <Route path="/interventions/execute-task" element={<RouteWrapper Component={TaskExecutionScreen} onNavigate={handleNavigate} />} />
-          <Route path="/interventions/:interventionId" element={<RouteWrapper Component={InterventionDetailScreen} onNavigate={handleNavigate} />} />
-          <Route path="/interventions/:interventionId/edit" element={<RouteWrapper Component={InterventionFormScreen} onNavigate={handleNavigate} />} />
-          <Route path="/interventions/:interventionId/execute" element={<RouteWrapper Component={MaintenanceExecutionScreen} onNavigate={handleNavigate} />} />
+          <Route path="/interventions" element={<ProtectedRoute permission="view_interventions" onNavigate={handleNavigate}><RouteWrapper Component={InterventionsScreen} onNavigate={handleNavigate} /></ProtectedRoute>} />
+          <Route path="/interventions/new" element={<ProtectedRoute permission="create_interventions" onNavigate={handleNavigate}><RouteWrapper Component={InterventionFormScreen} onNavigate={handleNavigate} /></ProtectedRoute>} />
+          <Route path="/interventions/history" element={<ProtectedRoute permission="view_interventions" onNavigate={handleNavigate}><RouteWrapper Component={MaintenanceHistoryView} onNavigate={handleNavigate} /></ProtectedRoute>} />
+          <Route path="/interventions/maintenance/select-client" element={<ProtectedRoute permission="view_interventions" onNavigate={handleNavigate}><RouteWrapper Component={MaintenanceInterventionScreen} onNavigate={handleNavigate} /></ProtectedRoute>} />
+          <Route path="/interventions/maintenance/select-section" element={<ProtectedRoute permission="view_interventions" onNavigate={handleNavigate}><RouteWrapper Component={MaintenanceSectionSelectionScreen} onNavigate={handleNavigate} /></ProtectedRoute>} />
+          <Route path="/interventions/multi-machine/select-kit" element={<ProtectedRoute permission="view_interventions" onNavigate={handleNavigate}><RouteWrapper Component={MultiMachineKitSelectionScreen} onNavigate={handleNavigate} /></ProtectedRoute>} />
+          <Route path="/interventions/multi-machine/select-section" element={<ProtectedRoute permission="view_interventions" onNavigate={handleNavigate}><RouteWrapper Component={MultiMachineSectionSelectionScreen} onNavigate={handleNavigate} /></ProtectedRoute>} />
+          <Route path="/interventions/execute-task" element={<ProtectedRoute permission="view_interventions" onNavigate={handleNavigate}><RouteWrapper Component={TaskExecutionScreen} onNavigate={handleNavigate} /></ProtectedRoute>} />
+          <Route path="/interventions/:interventionId" element={<ProtectedRoute permission="view_interventions" onNavigate={handleNavigate}><RouteWrapper Component={InterventionDetailScreen} onNavigate={handleNavigate} /></ProtectedRoute>} />
+          <Route path="/interventions/:interventionId/edit" element={<ProtectedRoute permission="edit_interventions" onNavigate={handleNavigate}><RouteWrapper Component={InterventionFormScreen} onNavigate={handleNavigate} /></ProtectedRoute>} />
+          <Route path="/interventions/:interventionId/execute" element={<ProtectedRoute permission="edit_interventions" onNavigate={handleNavigate}><RouteWrapper Component={MaintenanceExecutionScreen} onNavigate={handleNavigate} /></ProtectedRoute>} />
 
-          <Route path="/spare-parts" element={<RouteWrapper Component={SparePartsScreen} onNavigate={handleNavigate} />} />
-          <Route path="/spare-parts/new" element={<RouteWrapper Component={SparePartFormScreen} onNavigate={handleNavigate} />} />
-          <Route path="/spare-parts/:partId" element={<RouteWrapper Component={SparePartDetailScreen} onNavigate={handleNavigate} />} />
-          <Route path="/spare-parts/:sparePartId/edit" element={<RouteWrapper Component={SparePartFormScreen} onNavigate={handleNavigate} />} />
+          <Route path="/spare-parts" element={<ProtectedRoute permission="view_spare_parts" onNavigate={handleNavigate}><RouteWrapper Component={SparePartsScreen} onNavigate={handleNavigate} /></ProtectedRoute>} />
+          <Route path="/spare-parts/new" element={<ProtectedRoute permission="edit_spare_parts" onNavigate={handleNavigate}><RouteWrapper Component={SparePartFormScreen} onNavigate={handleNavigate} /></ProtectedRoute>} />
+          <Route path="/spare-parts/:partId" element={<ProtectedRoute permission="view_spare_parts" onNavigate={handleNavigate}><RouteWrapper Component={SparePartDetailScreen} onNavigate={handleNavigate} /></ProtectedRoute>} />
+          <Route path="/spare-parts/:sparePartId/edit" element={<ProtectedRoute permission="edit_spare_parts" onNavigate={handleNavigate}><RouteWrapper Component={SparePartFormScreen} onNavigate={handleNavigate} /></ProtectedRoute>} />
 
-          <Route path="/maintenance" element={<RouteWrapper Component={MaintenanceScreen} onNavigate={handleNavigate} />} />
-          <Route path="/maintenance/select-kit" element={<RouteWrapper Component={MaintenanceKitSelectionScreen} onNavigate={handleNavigate} />} />
+          <Route path="/maintenance" element={<ProtectedRoute permission="view_maintenance" onNavigate={handleNavigate}><RouteWrapper Component={MaintenanceScreen} onNavigate={handleNavigate} /></ProtectedRoute>} />
+          <Route path="/maintenance/select-kit" element={<ProtectedRoute permission="view_maintenance" onNavigate={handleNavigate}><RouteWrapper Component={MaintenanceKitSelectionScreen} onNavigate={handleNavigate} /></ProtectedRoute>} />
 
           <Route path="/troubleshooting" element={<RouteWrapper Component={TroubleshootingScreen} onNavigate={handleNavigate} />} />
-          <Route path="/users" element={<RouteWrapper Component={UsersScreen} onNavigate={handleNavigate} />} />
+          <Route path="/users" element={<ProtectedRoute permission="view_users" onNavigate={handleNavigate}><RouteWrapper Component={UsersScreen} onNavigate={handleNavigate} /></ProtectedRoute>} />
 
-          <Route path="/admin/database" element={<RouteWrapper Component={DatabaseAdminScreen} onNavigate={handleNavigate} />} />
-          <Route path="/admin/languages" element={<RouteWrapper Component={LanguageConfigScreen} onNavigate={handleNavigate} />} />
-          <Route path="/admin/translations" element={<RouteWrapper Component={TranslationEditorScreen} onNavigate={handleNavigate} />} />
+          <Route path="/admin/database" element={<ProtectedRoute permission="admin_access" onNavigate={handleNavigate}><RouteWrapper Component={DatabaseAdminScreen} onNavigate={handleNavigate} /></ProtectedRoute>} />
+          <Route path="/admin/languages" element={<ProtectedRoute permission="admin_access" onNavigate={handleNavigate}><RouteWrapper Component={LanguageConfigScreen} onNavigate={handleNavigate} /></ProtectedRoute>} />
+          <Route path="/admin/translations" element={<ProtectedRoute permission="admin_access" onNavigate={handleNavigate}><RouteWrapper Component={TranslationEditorScreen} onNavigate={handleNavigate} /></ProtectedRoute>} />
 
           <Route path="/protocols/commissioning" element={<RouteWrapper Component={CommissioningProtocolScreen} onNavigate={handleNavigate} />} />
           <Route path="/protocols/installation" element={<RouteWrapper Component={InstallationProtocolScreen} onNavigate={handleNavigate} />} />

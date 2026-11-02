@@ -4,6 +4,25 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.8.7] - 2026-11-02
+
+### Ajouté & Corrigé (Alignement Strict des Permissions et Visibilité Tableau de Bord par Rôle)
+- **Système centralisé de gestion des permissions RBAC ([permissions.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/utils/permissions.ts), [useCurrentUser.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/hooks/useCurrentUser.ts))** :
+  - **Matrice complète des habilitations par rôle métier** : Définition des permissions précises pour chaque catégorie de profil (Administrateurs, Directeurs, Responsables Techniques, Chefs Techniciens CMS/VMS, Techniciens CMS/VMS, Monteurs, Magasiniers, Clients).
+  - **Ségrégation stricte des profils terrain (CMS / VMS / Monteurs / Clients)** : Interdiction absolue d'accès et d'affichage des sections sensibles (`view_users`, `manage_users`, `admin_access`). Un technicien ou chef technicien CMS ne peut désormais en aucun cas voir la section *Utilisateurs* ni l'*Administration*.
+- **Conformité de l'affichage du Tableau de Bord ([Dashboard.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/Dashboard.tsx))** :
+  - **Masquage conditionnel de la carte « Utilisateurs »** : La carte statistique des utilisateurs n'est désormais visible et accessible que pour les profils habilités (`ADMINISTRATEUR`, `DIRECTEUR`, `RESPONSABLE_TECHNIQUE`). Elle est totalement masquée pour les profils CMS et techniciens.
+  - **Chargement conditionnel et sécurisé des données (`loadData`)** : L'appel de chargement de la table des utilisateurs n'est plus déclenché pour les utilisateurs n'ayant pas la permission requise, évitant toute fuite d'informations ou requête inutile.
+  - **Filtrage des cartes statistiques et actions** : Les cartes clients, pièces détachées, kits d'entretien, interventions ainsi que le bouton de création d'intervention s'adaptent dynamiquement aux habilitations du profil connecté.
+- **Sécurisation de la Navigation ([Navigation.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/components/common/Navigation.tsx))** :
+  - **Filtrage des entrées de menu (Desktop & Mobile)** : Les rubriques *Utilisateurs* et *Administration* sont automatiquement masquées du menu pour les rôles CMS et non-administrateurs.
+  - **Désactivation de la vérification en arrière-plan des demandes en attente** : L'interrogation périodique du nombre de comptes en attente d'approbation est réservée aux gestionnaires de comptes.
+- **Sécurisation des Routes URL Directes ([App.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/App.tsx))** :
+  - **Composant de garde `ProtectedRoute`** : Tout accès direct par saisie d'URL vers `/users`, `/admin/database`, `/admin/languages`, `/admin/translations`, etc., sans les droits requis affiche un écran sécurisé d'accès restreint avec possibilité de retour immédiat au tableau de bord.
+- **Conformité & Versioning** :
+  - Passage à la version `v1.8.7` synchronisée dans `package.json` et `src/version.ts`.
+  - Contrôle et maintien de l'exactitude des mentions légales (App à la Carte — Hervé CHAMPAGNE EI, SIREN 132 021 098).
+
 ## [1.8.6] - 2026-11-02
 
 ### Ajouté (Enregistrement Automatique et Résilient Sans Intervention Manuelle)

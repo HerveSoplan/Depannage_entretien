@@ -9,6 +9,7 @@ import {
   passwordRules
 } from './validation/password';
 import { getAppBaseUrl } from '../version';
+import { getDefaultPermissionsForRole } from '../utils/permissions';
 
 export {
   demoDb,
@@ -442,7 +443,7 @@ export const db = {
         actif: false,
         motifDemande: data.motifDemande?.trim() || null,
         dateDemande: new Date().toISOString(),
-        permissions: ['view_clients', 'view_machines', 'view_interventions'],
+        permissions: getDefaultPermissionsForRole(chosenRole),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       }, { excludePasswordFields: true });
@@ -501,6 +502,8 @@ export const db = {
       }
       if (updates?.permissions) {
         payload.permissions = updates.permissions;
+      } else if (updates?.role) {
+        payload.permissions = getDefaultPermissionsForRole(updates.role);
       }
 
       return await db.users.update(id, payload);

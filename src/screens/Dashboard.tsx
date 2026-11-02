@@ -1,9 +1,9 @@
-//Dashboard.tsx
+// src/screens/Dashboard.tsx
 import React, { useState, useEffect } from 'react';
 import { Card } from '../components/common/Card';
 import { SearchBar } from '../components/common/SearchBar';
 import { Button } from '../components/common/Button';
-import {Calendar, Clock, MapPin, Plus, Users, Package, Wrench} from 'lucide-react';
+import { Calendar, Clock, MapPin, Plus, Users, Package, Wrench } from 'lucide-react';
 import { INTERVENTION_TYPES } from '../constants';
 import { useClients } from '../hooks/useClients';
 import { useUsers } from '../hooks/useUsers';
@@ -12,6 +12,7 @@ import { useMaintenanceKits } from '../hooks/useMaintenanceKits';
 import { useInterventions } from '../hooks/useInterventions';
 import { useMachines } from '../hooks/useMachines';
 import { useTranslation } from '../hooks/useTranslation';
+import { useCurrentUser } from '../hooks/useCurrentUser';
 
 interface DashboardProps {
   onNavigate?: (screen: string, params?: any) => void;
@@ -20,6 +21,8 @@ interface DashboardProps {
 export function Dashboard({ onNavigate }: DashboardProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const { t } = useTranslation();
+  const { can } = useCurrentUser();
+
   const { clients, loading: loadingClients, fetchClients } = useClients();
   const { users, fetchUsers } = useUsers();
   const { spareParts, fetchSpareParts } = useSpareParts();
@@ -27,41 +30,52 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   const { interventions, fetchInterventions } = useInterventions();
   const { machines, fetchMachines } = useMachines();
 
+  // Contrôle strict des permissions : un profil CMS/technicien ne voit pas Utilisateurs ni Administration
+  const canViewClients = can('view_clients');
+  const canViewMachines = can('view_machines');
+  const canViewInterventions = can('view_interventions');
+  const canCreateInterventions = can('create_interventions');
+  const canViewSpareParts = can('view_spare_parts');
+  const canViewMaintenance = can('view_maintenance');
+  const canViewUsers = can('view_users');
+
   useEffect(() => {
     const loadData = async () => {
       try {
-        await Promise.all([
-          fetchClients({ limit: 100 }),
-          fetchUsers(),
-          fetchSpareParts(),
-          fetchMaintenanceKits(),
-          fetchInterventions({ limit: 100 }),
-          fetchMachines({ limit: 100 })
-        ]);
+        const promises: Promise<any>[] = [];
+        if (canViewClients) promises.push(fetchClients({ limit: 100 }));
+        // Chargement conditionnel strict : les utilisateurs ne sont chargés que si la permission est détenue
+        if (canViewUsers) promises.push(fetchUsers());
+        if (canViewSpareParts) promises.push(fetchSpareParts());
+        if (canViewMaintenance) promises.push(fetchMaintenanceKits());
+        if (canViewInterventions) promises.push(fetchInterventions({ limit: 100 }));
+        if (canViewMachines) promises.push(fetchMachines({ limit: 100 }));
+
+        await Promise.all(promises);
       } catch (error) {
         console.error('Erreur chargement données dashboard:', error);
       }
     };
-    
+
     loadData();
-  }, []);
+  }, [canViewClients, canViewUsers, canViewSpareParts, canViewMaintenance, canViewInterventions, canViewMachines]);
 
   // Interventions du jour
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const todayInterventions = (interventions || []).filter(intervention => {
+  const todayInterventions = (interventions || []).filter((intervention) => {
     const interventionDate = new Date(intervention.dateDebut);
     interventionDate.setHours(0, 0, 0, 0);
     return interventionDate.getTime() === today.getTime();
   });
 
   // Interventions en cours
-  const activeInterventions = (interventions || []).filter(i => i.statut === 'EN_COURS');
+  const activeInterventions = (interventions || []).filter((i) => i.statut === 'EN_COURS');
 
   // Fonction pour obtenir les infos d'une intervention
   const getInterventionDetails = (intervention: any) => {
-    const client = clients.find(c => c._id === intervention.clientId);
-    const interventionMachines = machines.filter(m => 
+    const client = clients.find((c) => c._id === intervention.clientId);
+    const interventionMachines = machines.filter((m) =>
       intervention.machineIds?.includes(m._id)
     );
     return { client, machines: interventionMachines };
@@ -69,11 +83,16 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'PLANIFIEE': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-      case 'EN_COURS': return 'bg-blue-100 text-blue-800 border-blue-300';
-      case 'TERMINEE': return 'bg-green-100 text-green-800 border-green-300';
-      case 'ANNULEE': return 'bg-red-100 text-red-800 border-red-300';
-      default: return 'bg-gray-100 text-gray-800 border-gray-300';
+      case 'PLANIFIEE':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+      case 'EN_COURS':
+        return 'bg-blue-100 text-blue-800 border-blue-300';
+      case 'TERMINEE':
+        return 'bg-green-100 text-green-800 border-green-300';
+      case 'ANNULEE':
+        return 'bg-red-100 text-red-800 border-red-300';
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-300';
     }
   };
 
@@ -88,34 +107,37 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   };
 
   return (
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">{t('dashboard.title', 'Tableau de bord')}</h1>
-            <p className="text-gray-600 mt-1">{t('dashboard.overview', 'Vue d\'ensemble de vos interventions')}</p>
-          </div>
-          <Button 
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">{t('dashboard.title', 'Tableau de bord')}</h1>
+          <p className="text-gray-600 mt-1">{t('dashboard.overview', "Vue d'ensemble de vos interventions")}</p>
+        </div>
+        {canCreateInterventions && (
+          <Button
             className="flex items-center gap-2 touch-manipulation"
             onClick={() => onNavigate?.('intervention-form')}
           >
             <Plus size={20} />
             {t('button.add', 'Ajouter')}
           </Button>
-        </div>
+        )}
+      </div>
 
-        {/* Search */}
-        <SearchBar
-          value={searchQuery}
-          onChange={setSearchQuery}
-          placeholder={t('button.search', 'Rechercher') || 'Rechercher'}
-          className="max-w-md"
-        />
+      {/* Search */}
+      <SearchBar
+        value={searchQuery}
+        onChange={setSearchQuery}
+        placeholder={t('button.search', 'Rechercher') || 'Rechercher'}
+        className="max-w-md"
+      />
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-shadow active:scale-95" 
+      {/* Stats Cards - Filtrées selon les permissions */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {canViewInterventions && (
+          <Card
+            className="cursor-pointer hover:shadow-lg transition-shadow active:scale-95"
             onClick={() => onNavigate?.('interventions')}
           >
             <div className="flex items-center justify-between">
@@ -126,9 +148,11 @@ export function Dashboard({ onNavigate }: DashboardProps) {
               <Calendar className="text-blue-600" size={40} />
             </div>
           </Card>
+        )}
 
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-shadow active:scale-95" 
+        {canViewInterventions && (
+          <Card
+            className="cursor-pointer hover:shadow-lg transition-shadow active:scale-95"
             onClick={() => onNavigate?.('interventions')}
           >
             <div className="flex items-center justify-between">
@@ -139,9 +163,11 @@ export function Dashboard({ onNavigate }: DashboardProps) {
               <Clock className="text-green-600" size={40} />
             </div>
           </Card>
+        )}
 
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-shadow active:scale-95" 
+        {canViewClients && (
+          <Card
+            className="cursor-pointer hover:shadow-lg transition-shadow active:scale-95"
             onClick={() => onNavigate?.('clients')}
           >
             <div className="flex items-center justify-between">
@@ -152,9 +178,12 @@ export function Dashboard({ onNavigate }: DashboardProps) {
               <MapPin className="text-purple-600" size={40} />
             </div>
           </Card>
+        )}
 
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-shadow active:scale-95" 
+        {/* Visible uniquement si l'utilisateur possède l'habilitation sur la gestion des utilisateurs */}
+        {canViewUsers && (
+          <Card
+            className="cursor-pointer hover:shadow-lg transition-shadow active:scale-95"
             onClick={() => onNavigate?.('users')}
           >
             <div className="flex items-center justify-between">
@@ -165,42 +194,50 @@ export function Dashboard({ onNavigate }: DashboardProps) {
               <Users className="text-orange-600" size={40} />
             </div>
           </Card>
-        </div>
+        )}
+      </div>
 
-        {/* Database Stats */}
+      {/* Database Stats - Pièces et Maintenance */}
+      {(canViewSpareParts || canViewMaintenance) && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-shadow active:scale-95" 
-            onClick={() => onNavigate?.('spare-parts')}
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Pièces détachées</p>
-                <p className="text-2xl font-bold text-indigo-600 mt-1">{spareParts.length}</p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Stock total: {spareParts.reduce((sum, p) => sum + (p.stock || 0), 0)} unités
-                </p>
+          {canViewSpareParts && (
+            <Card
+              className="cursor-pointer hover:shadow-lg transition-shadow active:scale-95"
+              onClick={() => onNavigate?.('spare-parts')}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Pièces détachées</p>
+                  <p className="text-2xl font-bold text-indigo-600 mt-1">{spareParts.length}</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Stock total: {spareParts.reduce((sum, p) => sum + (p.stock || 0), 0)} unités
+                  </p>
+                </div>
+                <Package className="text-indigo-600" size={36} />
               </div>
-              <Package className="text-indigo-600" size={36} />
-            </div>
-          </Card>
+            </Card>
+          )}
 
-          <Card 
-            className="cursor-pointer hover:shadow-lg transition-shadow active:scale-95" 
-            onClick={() => onNavigate?.('maintenance')}
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Kits d'entretien</p>
-                <p className="text-2xl font-bold text-teal-600 mt-1">{maintenanceKits.length}</p>
-                <p className="text-xs text-gray-500 mt-1">Disponibles pour maintenance</p>
+          {canViewMaintenance && (
+            <Card
+              className="cursor-pointer hover:shadow-lg transition-shadow active:scale-95"
+              onClick={() => onNavigate?.('maintenance')}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Kits d'entretien</p>
+                  <p className="text-2xl font-bold text-teal-600 mt-1">{maintenanceKits.length}</p>
+                  <p className="text-xs text-gray-500 mt-1">Disponibles pour maintenance</p>
+                </div>
+                <Wrench className="text-teal-600" size={36} />
               </div>
-              <Wrench className="text-teal-600" size={36} />
-            </div>
-          </Card>
+            </Card>
+          )}
         </div>
+      )}
 
-        {/* Interventions et historique */}
+      {/* Interventions et historique */}
+      {canViewInterventions && (
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold text-gray-900">Interventions et historique</h2>
@@ -219,18 +256,17 @@ export function Dashboard({ onNavigate }: DashboardProps) {
             <div className="space-y-3">
               {interventions.slice(0, 10).map((intervention) => {
                 const { client, machines: interventionMachines } = getInterventionDetails(intervention);
-                
+
                 return (
-                  <Card 
-                    key={intervention._id} 
+                  <Card
+                    key={intervention._id}
                     className="hover:shadow-md transition-shadow cursor-pointer"
                     onClick={() => {
-                      // Vérification de l'existence de l'intervention
                       if (!intervention._id) {
                         console.error('❌ Intervention sans ID détectée');
                         return;
                       }
-                      
+
                       if (intervention.statut === 'TERMINEE') {
                         onNavigate?.('intervention-detail', {
                           interventionId: intervention._id,
@@ -277,7 +313,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                         <div className="flex items-center gap-2 text-gray-700">
                           <Wrench size={16} className="text-gray-400" />
                           <span className="text-sm">
-                            {interventionMachines.map(m => m.nom).join(', ')}
+                            {interventionMachines.map((m) => m.nom).join(', ')}
                           </span>
                         </div>
                       )}
@@ -302,8 +338,10 @@ export function Dashboard({ onNavigate }: DashboardProps) {
             </div>
           )}
         </div>
+      )}
 
-        {/* Liste des clients */}
+      {/* Liste des clients récents */}
+      {canViewClients && (
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold text-gray-900">Clients récents</h2>
@@ -323,8 +361,8 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           ) : (
             <div className="space-y-3">
               {clients.slice(0, 5).map((client) => (
-                <Card 
-                  key={client._id} 
+                <Card
+                  key={client._id}
                   className="hover:shadow-md transition-shadow cursor-pointer"
                   onClick={() => onNavigate?.('client-detail', { clientId: client._id })}
                 >
@@ -345,24 +383,27 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                         </div>
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                      <Button 
-                        variant="secondary" 
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onNavigate?.('intervention-form', { clientId: client._id });
-                        }}
-                      >
-                        Intervention
-                      </Button>
-                    </div>
+                    {canCreateInterventions && (
+                      <div className="flex gap-2">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onNavigate?.('intervention-form', { clientId: client._id });
+                          }}
+                        >
+                          Intervention
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </Card>
               ))}
             </div>
           )}
         </div>
-      </div>
+      )}
+    </div>
   );
 }

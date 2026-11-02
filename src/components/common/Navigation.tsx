@@ -3,6 +3,7 @@ import { LayoutDashboard, Users, Wrench, FileText, Package, HelpCircle, Settings
 import { useTranslation } from '../../hooks/useTranslation';
 import { db } from '../../lib/supabase';
 import { APP_NAME, APP_VERSION } from '../../version';
+import { useCurrentUser } from '../../hooks/useCurrentUser';
 
 interface NavigationProps {
   onNavigate?: (screen: string) => void;
@@ -13,8 +14,15 @@ export function Navigation({ onNavigate, currentScreen }: NavigationProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
   const { t } = useTranslation();
+  const { canAccess, can } = useCurrentUser();
 
   useEffect(() => {
+    // Si l'utilisateur n'a pas la permission de voir les utilisateurs, ne pas interroger la liste des demandes
+    if (!can('view_users')) {
+      setPendingCount(0);
+      return;
+    }
+
     const checkPending = async () => {
       try {
         const res: any = await db.users.list();
@@ -32,9 +40,9 @@ export function Navigation({ onNavigate, currentScreen }: NavigationProps) {
     checkPending();
     const interval = setInterval(checkPending, 20000);
     return () => clearInterval(interval);
-  }, []);
+  }, [can]);
 
-  const menuItems = [
+  const rawMenuItems = [
     { id: 'dashboard', labelKey: 'dashboard.title', label: 'Tableau de bord', icon: LayoutDashboard },
     { id: 'clients', labelKey: 'clients.title', label: 'Clients', icon: Users },
     { id: 'machines', labelKey: 'machines.title', label: 'Machines', icon: Wrench },
@@ -46,7 +54,10 @@ export function Navigation({ onNavigate, currentScreen }: NavigationProps) {
     { id: 'database-admin', labelKey: 'administration.title', label: 'Administration', icon: Database },
   ];
 
-  const getLabel = (item: typeof menuItems[0]) => {
+  // Filtrage strict selon les habilitations du profil connecté (ex: un technicien CMS ne voit pas Utilisateurs ni Administration)
+  const menuItems = rawMenuItems.filter((item) => canAccess(item.id));
+
+  const getLabel = (item: typeof rawMenuItems[0]) => {
     return t(item.labelKey, item.label);
   };
 
