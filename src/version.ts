@@ -1,5 +1,5 @@
 // Version active de l'application
-export const APP_VERSION = '1.8.9';
+export const APP_VERSION = '1.9.0';
 export const APP_NAME = 'Dépannage_entretien';
 export const PUBLISHER_NAME = 'App à la Carte — Hervé CHAMPAGNE EI';
 export const PUBLISHER_SIREN = '132 021 098';

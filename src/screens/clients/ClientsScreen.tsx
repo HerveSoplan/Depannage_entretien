@@ -1,7 +1,7 @@
 //ClientsScreen.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card } from '../../components/common/Card';
-import { SearchBar } from '../../components/common/SearchBar';
+import { SearchBar, SearchBarSuggestion } from '../../components/common/SearchBar';
 import { Button } from '../../components/common/Button';
 import { Plus, Users, Loader2 } from 'lucide-react';
 import { useClients } from '../../hooks/useClients';
@@ -93,15 +93,86 @@ export function ClientsScreen({ onNavigate }: ClientsScreenProps) {
     return machines.filter(m => m.clientId === clientId).length;
   };
 
+  // ✅ Suggestions dynamiques pour autocomplétion et pré-remplissage en direct
+  const clientSuggestions = useMemo<SearchBarSuggestion[]>(() => {
+    const list: SearchBarSuggestion[] = [];
+    const seen = new Set<string>();
+
+    clients.forEach(client => {
+      // 1. Nom de la ferme
+      if (client.nomFerme && client.nomFerme.trim()) {
+        const val = client.nomFerme.trim();
+        const key = `ferme:${val.toLowerCase()}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          list.push({
+            id: `ferme-${client._id}`,
+            label: val,
+            subLabel: [client.numeroClient, client.ville].filter(Boolean).join(' • '),
+            category: 'Ferme'
+          });
+        }
+      }
+
+      // 2. Nom du client / contact (s'il diffère du nom de ferme)
+      if (client.nom && client.nom.trim() && client.nom.trim() !== client.nomFerme?.trim()) {
+        const val = client.nom.trim();
+        const key = `nom:${val.toLowerCase()}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          list.push({
+            id: `client-${client._id}`,
+            label: val,
+            subLabel: [client.nomFerme, client.numeroClient, client.ville].filter(Boolean).join(' • '),
+            category: 'Client'
+          });
+        }
+      }
+
+      // 3. Numéro de client
+      if (client.numeroClient && client.numeroClient.trim()) {
+        const val = client.numeroClient.trim();
+        const key = `num:${val.toLowerCase()}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          list.push({
+            id: `num-${client._id}`,
+            label: val,
+            subLabel: client.nomFerme || client.nom || 'Client',
+            category: 'N° Client'
+          });
+        }
+      }
+
+      // 4. Ville de l'exploitation
+      if (client.ville && client.ville.trim()) {
+        const val = client.ville.trim();
+        const key = `ville:${val.toLowerCase()}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          list.push({
+            id: `ville-${client.ville}`,
+            label: val,
+            subLabel: 'Commune / Secteur',
+            category: 'Ville'
+          });
+        }
+      }
+    });
+
+    return list;
+  }, [clients]);
+
   const filteredClients = searchQuery
     ? clients.filter(client =>
       client.nom?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       client.nomFerme?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      client.numeroClient?.toLowerCase().includes(searchQuery.toLowerCase())
+      client.numeroClient?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      client.ville?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      client.adresse?.toLowerCase().includes(searchQuery.toLowerCase())
     )
     : clients.filter(client => getMachineCount(client._id) > 0);
 
-  // ✅ Fonction de navigation avec feedback visuel et enregistrement du client
   // ✅ Fonction de navigation avec feedback visuel et enregistrement du client
   const handleNavigateToClient = (screen: string, params: any) => {
     // ✅ Enregistrer le client dans le contexte global avant de naviguer
@@ -156,10 +227,16 @@ export function ClientsScreen({ onNavigate }: ClientsScreenProps) {
         </Button>
       </div>
 
+      {/* Barre de recherche avec autocomplétion dynamique en direct */}
       <SearchBar
         value={searchQuery}
         onChange={setSearchQuery}
-        placeholder="Rechercher un client..."
+        suggestions={clientSuggestions}
+        onSelectSuggestion={(item) => {
+          const val = typeof item === 'string' ? item : item.label;
+          setSearchQuery(val);
+        }}
+        placeholder="Rechercher par nom, ferme, n° client, ville..."
         className="max-w-md"
       />
 

@@ -4,6 +4,34 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.9.0] - 2026-11-02
+
+### Ajouté (Autocomplétion et Pré-remplissage en Direct pour Accélérer l'Écriture)
+- **Autocomplétion dynamique dans les champs de recherche ([SearchBar.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/components/common/SearchBar.tsx), [ClientsScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/clients/ClientsScreen.tsx))** :
+  - Dans l'écran Clients (`ClientsScreen.tsx`), le champ de recherche propose désormais au fur et à mesure que l'on tape les lettres :
+    - Les correspondances instantanées des noms de ferme (badge "Ferme"), des noms de contacts/clients (badge "Client"), des numéros clients (badge "N° Client") et des villes.
+    - Surlignage en gras et couleur des lettres tapées dans chaque suggestion.
+    - Pré-remplissage en ligne accéléré ("ghost autocompletion") : complétion instantanée en une seule touche (`Tab` ou `Flèche Droite`).
+    - Menu déroulant élégant au clic ou navigation clavier (`Flèche Haut`, `Flèche Bas`, `Entrée`, `Tab`, `Échap`).
+    - Bouton rapide d'effacement `X` pour réinitialiser la recherche en un clic.
+- **Système universel de pré-remplissage et d'auto-apprentissage dans tous les champs de l'application ([Input.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/components/common/Input.tsx), [autocomplete.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/utils/autocomplete.ts))** :
+  - **Module centralisé d'autocomplétion (`src/utils/autocomplete.ts`)** :
+    - Dictionnaires thématiques par défaut adaptés au métier de l'élevage, de la traite et de la maintenance (villes de référence, codes postaux, marques DeLaval/Lely/GEA..., types de machines, désignations pièces détachées, emplacements de stock, motifs et diagnostics d'intervention).
+    - Mémoire d'apprentissage automatique persistant (`localStorage`) : chaque valeur saisie et validée par l'utilisateur est automatiquement mémorisée pour resservir lors des prochaines saisies.
+  - **Composant `Input.tsx` enrichi pour tous les formulaires** :
+    - Pré-remplissage contextuel dès la première lettre tapée.
+    - Affichage d'un menu déroulant de suggestions sous le champ avec mise en valeur des caractères correspondants.
+    - Double compatibilité desktop et mobile : menu personnalisé interactif + balise `<datalist>` HTML5 native pour suggestions directes au-dessus du clavier virtuel sur smartphones et tablettes.
+- **Généralisation de l'autocomplétion aux autres écrans clés** :
+  - `MachinesScreen.tsx` : suggestions instantanées sur noms de machines, numéros de série et marques.
+  - `SparePartsScreen.tsx` : suggestions instantanées sur références et désignations de pièces détachées avec prix et stock.
+  - `InterventionsScreen.tsx` : suggestions sur numéros d'intervention, diagnostics et clients.
+  - `UsersScreen.tsx` : suggestions sur noms complets, emails et numéros de techniciens.
+  - `Dashboard.tsx` : suggestions combinées directes pour les recherches globales.
+- **Conformité & Versioning** :
+  - Passage à la version `v1.9.0` synchronisée dans `package.json`, `src/version.ts` et `public/version.json`.
+  - Contrôle et maintien de l'exactitude des mentions légales (App à la Carte — Hervé CHAMPAGNE EI, SIREN 132 021 098).
+
 ## [1.8.9] - 2026-11-02
 
 ### Modifié (Formulaire Client - Champs Obligatoires Réduits au Strict Nécessaire)

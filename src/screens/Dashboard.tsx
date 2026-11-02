@@ -1,7 +1,7 @@
 // src/screens/Dashboard.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card } from '../components/common/Card';
-import { SearchBar } from '../components/common/SearchBar';
+import { SearchBar, SearchBarSuggestion } from '../components/common/SearchBar';
 import { Button } from '../components/common/Button';
 import { Calendar, Clock, MapPin, Plus, Users, Package, Wrench } from 'lucide-react';
 import { INTERVENTION_TYPES } from '../constants';
@@ -69,6 +69,38 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     return interventionDate.getTime() === today.getTime();
   });
 
+  // Suggestions dynamiques pour le tableau de bord
+  const dashboardSuggestions = useMemo<SearchBarSuggestion[]>(() => {
+    const list: SearchBarSuggestion[] = [];
+    const seen = new Set<string>();
+
+    (clients || []).forEach(c => {
+      if (c.nomFerme && !seen.has(`f:${c.nomFerme.toLowerCase()}`)) {
+        seen.add(`f:${c.nomFerme.toLowerCase()}`);
+        list.push({
+          id: `f-${c._id}`,
+          label: c.nomFerme,
+          subLabel: [c.numeroClient, c.ville].filter(Boolean).join(' • '),
+          category: 'Client'
+        });
+      }
+    });
+
+    (spareParts || []).forEach(p => {
+      if (p.designation && !seen.has(`p:${p.designation.toLowerCase()}`)) {
+        seen.add(`p:${p.designation.toLowerCase()}`);
+        list.push({
+          id: `p-${p._id}`,
+          label: p.designation,
+          subLabel: `Réf: ${p.reference}`,
+          category: 'Pièce'
+        });
+      }
+    });
+
+    return list.slice(0, 15);
+  }, [clients, spareParts]);
+
   // Interventions en cours
   const activeInterventions = (interventions || []).filter((i) => i.statut === 'EN_COURS');
 
@@ -129,6 +161,11 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       <SearchBar
         value={searchQuery}
         onChange={setSearchQuery}
+        suggestions={dashboardSuggestions}
+        onSelectSuggestion={(item) => {
+          const val = typeof item === 'string' ? item : item.label;
+          setSearchQuery(val);
+        }}
         placeholder={t('button.search', 'Rechercher') || 'Rechercher'}
         className="max-w-md"
       />

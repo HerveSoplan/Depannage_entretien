@@ -1,8 +1,8 @@
 // src/screens/users/UsersScreen.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
-import { SearchBar } from '../../components/common/SearchBar';
+import { SearchBar, SearchBarSuggestion } from '../../components/common/SearchBar';
 import { Input } from '../../components/common/Input';
 import {
   Plus,
@@ -49,6 +49,45 @@ const PERMISSIONS = ALL_PERMISSIONS.filter((p) => p.id !== 'view_dashboard');
 export function UsersScreen({ onNavigate }: UsersScreenProps) {
   const [users, setUsers] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Suggestions dynamiques pour autocomplétion
+  const userSuggestions = useMemo<SearchBarSuggestion[]>(() => {
+    const list: SearchBarSuggestion[] = [];
+    const seen = new Set<string>();
+
+    users.forEach(u => {
+      const nomComplet = [u.nom, u.prenom].filter(Boolean).join(' ');
+      if (nomComplet && !seen.has(nomComplet.toLowerCase())) {
+        seen.add(nomComplet.toLowerCase());
+        list.push({
+          id: `u-${u._id || u.id}`,
+          label: nomComplet,
+          subLabel: [u.email, u.role].filter(Boolean).join(' • '),
+          category: 'Utilisateur'
+        });
+      }
+      if (u.email && !seen.has(u.email.toLowerCase())) {
+        seen.add(u.email.toLowerCase());
+        list.push({
+          id: `email-${u._id || u.id}`,
+          label: u.email,
+          subLabel: nomComplet || u.role,
+          category: 'Email'
+        });
+      }
+      if (u.technicianNumber && !seen.has(u.technicianNumber.toLowerCase())) {
+        seen.add(u.technicianNumber.toLowerCase());
+        list.push({
+          id: `tech-${u._id || u.id}`,
+          label: u.technicianNumber,
+          subLabel: nomComplet || 'Technicien',
+          category: 'N° Tech'
+        });
+      }
+    });
+
+    return list;
+  }, [users]);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingUser, setEditingUser] = useState<any>(null);
@@ -676,6 +715,11 @@ contact@appalacarte.fr`.trim();
           <SearchBar
             value={searchQuery}
             onChange={setSearchQuery}
+            suggestions={userSuggestions}
+            onSelectSuggestion={(item) => {
+              const val = typeof item === 'string' ? item : item.label;
+              setSearchQuery(val);
+            }}
             placeholder="Rechercher nom, email, n° technicien..."
             className="w-full sm:max-w-xs"
           />

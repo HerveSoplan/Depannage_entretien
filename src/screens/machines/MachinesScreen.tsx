@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card } from '../../components/common/Card';
-import { SearchBar } from '../../components/common/SearchBar';
+import { SearchBar, SearchBarSuggestion } from '../../components/common/SearchBar';
 import { Button } from '../../components/common/Button';
 import { Plus, Settings } from 'lucide-react';
 import { useMachines } from '../../hooks/useMachines';
@@ -24,10 +24,63 @@ export function MachinesScreen({ onNavigate, clientId }: MachinesScreenProps) {
     fetchClients({ limit: 100 });
   }, []);
 
+  const machineSuggestions = useMemo<SearchBarSuggestion[]>(() => {
+    const list: SearchBarSuggestion[] = [];
+    const seen = new Set<string>();
+
+    machines.forEach(m => {
+      if (m.nom && m.nom.trim()) {
+        const val = m.nom.trim();
+        const key = `nom:${val.toLowerCase()}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          list.push({
+            id: `nom-${m._id}`,
+            label: val,
+            subLabel: [m.numeroSerie, m.marque, m.modele].filter(Boolean).join(' • '),
+            category: 'Machine'
+          });
+        }
+      }
+
+      if (m.numeroSerie && m.numeroSerie.trim()) {
+        const val = m.numeroSerie.trim();
+        const key = `serie:${val.toLowerCase()}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          list.push({
+            id: `serie-${m._id}`,
+            label: val,
+            subLabel: m.nom || 'Numéro de série',
+            category: 'N° Série'
+          });
+        }
+      }
+
+      if (m.marque && m.marque.trim()) {
+        const val = m.marque.trim();
+        const key = `marque:${val.toLowerCase()}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          list.push({
+            id: `marque-${val}`,
+            label: val,
+            subLabel: 'Marque',
+            category: 'Marque'
+          });
+        }
+      }
+    });
+
+    return list;
+  }, [machines]);
+
   const filteredMachines = machines.filter(machine => {
     const matchesSearch =
       machine.nom?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      machine.numeroSerie?.toLowerCase().includes(searchQuery.toLowerCase());
+      machine.numeroSerie?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      machine.marque?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      machine.modele?.toLowerCase().includes(searchQuery.toLowerCase());
     // ✅ CORRECTION : Utilisation des valeurs françaises pour correspondre au formulaire
     const matchesType = selectedType === 'all' || machine.typeRelation === selectedType;
     return matchesSearch && matchesType;
@@ -63,13 +116,18 @@ export function MachinesScreen({ onNavigate, clientId }: MachinesScreenProps) {
         <SearchBar
           value={searchQuery}
           onChange={setSearchQuery}
-          placeholder="Rechercher une machine..."
+          suggestions={machineSuggestions}
+          onSelectSuggestion={(item) => {
+            const val = typeof item === 'string' ? item : item.label;
+            setSearchQuery(val);
+          }}
+          placeholder="Rechercher par nom, n° série, marque..."
           className="flex-1"
         />
         <select
           value={selectedType}
           onChange={(e) => setSelectedType(e.target.value)}
-          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
         >
           {machineTypes.map(type => (
             <option key={type.value} value={type.value}>
@@ -98,15 +156,8 @@ export function MachinesScreen({ onNavigate, clientId }: MachinesScreenProps) {
             <MachineCard
               key={machine._id}
               machine={machine}
-              showClientInfo={true}
-              onSelect={() => onNavigate('machine-detail', { machineId: machine._id })}
-              // ✅ CORRECT : Navigation vers le formulaire avec l'ID (Mode Édition)
               onEdit={() => onNavigate('machine-form', { machineId: machine._id })}
-              onIntervention={() => onNavigate('intervention-form', {
-                machineId: machine._id,
-                clientId: machine.clientId
-              })}
-              onHistory={() => onNavigate('machine-detail', { machineId: machine._id })}
+              onViewDetails={() => onNavigate('machine-detail', { machineId: machine._id })}
             />
           ))}
         </div>

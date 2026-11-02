@@ -1,7 +1,7 @@
 //InterventionsScreen.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card } from '../../components/common/Card';
-import { SearchBar } from '../../components/common/SearchBar';
+import { SearchBar, SearchBarSuggestion } from '../../components/common/SearchBar';
 import { Button } from '../../components/common/Button';
 import { Plus, Clock, AlertCircle, Calendar } from 'lucide-react';
 import { useInterventions } from '../../hooks/useInterventions';
@@ -76,10 +76,53 @@ export function InterventionsScreen({ onNavigate }: InterventionsScreenProps) {
     fetchMachines({ limit: 100 });
   }, []);
 
+  const interventionSuggestions = useMemo<SearchBarSuggestion[]>(() => {
+    const list: SearchBarSuggestion[] = [];
+    const seen = new Set<string>();
+
+    interventions.forEach(i => {
+      const num = i.numeroIntervention || i.numero_intervention;
+      if (num && num.trim()) {
+        const val = num.trim();
+        const key = `num:${val.toLowerCase()}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          const client = clients.find(c => c._id === i.clientId);
+          list.push({
+            id: `num-${i._id}`,
+            label: val,
+            subLabel: [client?.nomFerme || client?.nom, i.type].filter(Boolean).join(' • '),
+            category: 'N° Interv.'
+          });
+        }
+      }
+
+      if (i.diagnostic && i.diagnostic.trim()) {
+        const val = i.diagnostic.trim();
+        const key = `diag:${val.toLowerCase()}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          list.push({
+            id: `diag-${i._id}`,
+            label: val,
+            subLabel: 'Diagnostic / Motif',
+            category: 'Diagnostic'
+          });
+        }
+      }
+    });
+
+    return list;
+  }, [interventions, clients]);
+
   const filteredInterventions = interventions.filter((intervention) => {
+    const client = clients.find(c => c._id === intervention.clientId);
     const matchesSearch =
-      intervention.numeroIntervention?.includes(searchQuery) ||
-      intervention.diagnostic?.toLowerCase().includes(searchQuery.toLowerCase());
+      intervention.numeroIntervention?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      intervention.numero_intervention?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      intervention.diagnostic?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      client?.nom?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      client?.nomFerme?.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesFilter = filter === 'ALL' || intervention.statut === filter;
 
@@ -126,7 +169,12 @@ export function InterventionsScreen({ onNavigate }: InterventionsScreenProps) {
         <SearchBar
           value={searchQuery}
           onChange={setSearchQuery}
-          placeholder="Rechercher une intervention..."
+          suggestions={interventionSuggestions}
+          onSelectSuggestion={(item) => {
+            const val = typeof item === 'string' ? item : item.label;
+            setSearchQuery(val);
+          }}
+          placeholder="Rechercher une intervention par n°, diagnostic, client..."
           className="flex-1"
         />
         <div className="flex gap-2 flex-wrap">
