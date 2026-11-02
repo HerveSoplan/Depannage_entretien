@@ -300,11 +300,21 @@ export default function App() {
     navigate(path, { state: params });
   };
 
+  // Détection des requêtes explicites d'accès ou d'invitation dans les paramètres d'URL
+  const searchParams = new URLSearchParams(location.search);
+  const hasLoginActionInQuery =
+    searchParams.get('action') === 'login' ||
+    searchParams.has('invite') ||
+    searchParams.has('temp') ||
+    searchParams.has('pwd') ||
+    (searchParams.has('email') && searchParams.get('action') === 'demande');
+
   // Détection des routes explicites de connexion pour n'importe quel device / compte
   const isExplicitLoginRoute =
     location.pathname === '/login' ||
     location.pathname === '/connexion' ||
-    location.pathname === '/auth';
+    location.pathname === '/auth' ||
+    hasLoginActionInQuery;
 
   // Si l'URL demande une réinitialisation de session (?reset=1 ou ?logout=1)
   useEffect(() => {

@@ -92,22 +92,30 @@ export function LoginScreen({
         const inviteEmail = params.get('email');
         const inviteNom = params.get('nom');
         const invitePrenom = params.get('prenom');
+        const inviteTemp = params.get('temp') || params.get('pwd') || params.get('password');
         const isRecovery = params.get('type') === 'recovery' || hash.includes('type=recovery');
 
         if (inviteEmail) {
-          setEmail(inviteEmail);
-          setDemandeEmail(inviteEmail);
-          setForgotEmail(inviteEmail);
+          const cleanEmail = inviteEmail.trim().toLowerCase();
+          setEmail(cleanEmail);
+          setDemandeEmail(cleanEmail);
+          setForgotEmail(cleanEmail);
+
+          if (inviteTemp) {
+            setPassword(inviteTemp.trim());
+          }
         }
         if (inviteNom) setDemandeNom(inviteNom);
         if (invitePrenom) setDemandePrenom(invitePrenom);
 
         if (isRecovery) {
           setActiveTab('change_password');
-        } else if (action === 'demande' || params.get('demande') === 'true' || params.get('invite')) {
+        } else if (action === 'demande' || params.get('demande') === 'true' || (params.get('invite') && !inviteTemp && action !== 'login')) {
           setActiveTab('demande');
         } else if (action === 'forgot' || params.get('forgot') === 'true') {
           setActiveTab('forgot_password');
+        } else if (action === 'login' || inviteTemp) {
+          setActiveTab('login');
         }
 
         setPasswordRequestEmail(getPasswordRequestEmail());
@@ -116,6 +124,25 @@ export function LoginScreen({
       console.warn('Erreur lecture paramètres URL:', e);
     }
   }, []);
+
+  // Détection automatique du mot de passe temporaire selon le compte réel
+  const [detectedTempPassword, setDetectedTempPassword] = useState<string | null>(null);
+
+  useEffect(() => {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      setDetectedTempPassword(null);
+      return;
+    }
+    let isCancelled = false;
+    db.users.findByEmail(cleanEmail).then((u) => {
+      if (!isCancelled && u) {
+        const temp = u.motDePasseTemporaire || generateTemporaryPassword(u.prenom || '');
+        setDetectedTempPassword(temp);
+      }
+    }).catch(() => {});
+    return () => { isCancelled = true; };
+  }, [email]);
 
   // Copie d'un texte dans le presse-papier avec confirmation visuelle
   const copyToClipboard = async (text: string, key: string) => {
@@ -705,33 +732,45 @@ export function LoginScreen({
 
               <div>
                 <h3 className="text-base font-bold text-gray-900">
-                  Demande d'accès enregistrée
+                  {demandeSuccessData.status === 'ALREADY_VALIDATED' ? 'Compte déjà validé !' : "Demande d'accès enregistrée"}
                 </h3>
                 <p className="text-xs text-gray-600 mt-1 max-w-sm mx-auto leading-relaxed">
-                  Votre demande pour <strong className="text-gray-900">{demandeSuccessData.email}</strong> ({demandeSuccessData.prenom} {demandeSuccessData.nom}) a été transmise.
+                  {demandeSuccessData.status === 'ALREADY_VALIDATED' ? (
+                    <>Votre compte pour <strong className="text-gray-900">{demandeSuccessData.email}</strong> est déjà actif et prêt à l'emploi.</>
+                  ) : (
+                    <>Votre demande pour <strong className="text-gray-900">{demandeSuccessData.email}</strong> ({demandeSuccessData.prenom} {demandeSuccessData.nom}) a été transmise.</>
+                  )}
                 </p>
               </div>
 
               <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-left text-xs space-y-1.5 text-slate-700">
                 <div className="flex items-center gap-1.5 font-semibold text-slate-900">
                   <ShieldCheck className="w-4 h-4 text-blue-600" />
-                  <span>Validation et mot de passe temporaire</span>
+                  <span>{demandeSuccessData.status === 'ALREADY_VALIDATED' ? 'Vos identifiants de connexion' : 'Validation et mot de passe temporaire'}</span>
                 </div>
                 <p className="leading-relaxed">
-                  L'administrateur (<span className="text-blue-600 font-medium">contact@appalacarte.fr</span>) ou votre responsable technique valide chaque accès. Votre mot de passe temporaire initial sera <strong>votre prénom en minuscule suivi de 2027</strong> (ex : <span className="font-mono text-blue-700">{generateTemporaryPassword(demandeSuccessData.prenom)}</span>).
+                  {demandeSuccessData.status === 'ALREADY_VALIDATED' ? (
+                    <>Connectez-vous directement avec votre mot de passe temporaire : <strong className="font-mono text-blue-700 font-bold">{generateTemporaryPassword(demandeSuccessData.prenom)}</strong> (votre prénom suivi de 2027). L'application vous demandera immédiatement de définir votre mot de passe définitif.</>
+                  ) : (
+                    <>L'administrateur (<span className="text-blue-600 font-medium">contact@appalacarte.fr</span>) ou votre responsable technique valide chaque accès. Votre mot de passe temporaire initial sera <strong>votre prénom en minuscule suivi de 2027</strong> (ex : <span className="font-mono text-blue-700">{generateTemporaryPassword(demandeSuccessData.prenom)}</span>).</>
+                  )}
                 </p>
               </div>
 
               <Button
                 type="button"
                 onClick={() => {
+                  const tempPwd = generateTemporaryPassword(demandeSuccessData.prenom);
                   setDemandeSuccessData(null);
                   setActiveTab('login');
                   setEmail(demandeSuccessData.email);
+                  if (demandeSuccessData.status === 'ALREADY_VALIDATED') {
+                    setPassword(tempPwd);
+                  }
                 }}
                 className="w-full py-2.5 text-sm font-semibold bg-blue-600 hover:bg-blue-700 flex items-center justify-center gap-2"
               >
-                <span>Retour à l'écran de connexion</span>
+                <span>{demandeSuccessData.status === 'ALREADY_VALIDATED' ? 'Se connecter immédiatement' : "Retour à l'écran de connexion"}</span>
                 <ArrowRight className="w-4 h-4" />
               </Button>
             </div>
@@ -792,8 +831,14 @@ export function LoginScreen({
                     {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
+                {password && (password === detectedTempPassword || password.endsWith('2027')) && (
+                  <div className="mt-1.5 p-2 bg-green-50 border border-green-200 rounded-md text-[11px] text-green-800 flex items-center gap-1.5">
+                    <CheckCircle2 size={13} className="text-green-600 flex-shrink-0" />
+                    <span>Mot de passe temporaire officiel pré-rempli (prêt pour la 1ère connexion).</span>
+                  </div>
+                )}
                 <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
-                  Première connexion ? Utilisez votre mot de passe temporaire : <em>votre prénom en minuscule suivi de 2027</em> (ex : <span className="font-mono font-semibold text-blue-600">{generateTemporaryPassword(email ? email.split('@')[0].split('.')[0] : 'thomas')}</span>).
+                  Première connexion ? Utilisez votre mot de passe temporaire : <em>votre prénom en minuscule suivi de 2027</em> (ex : <span className="font-mono font-semibold text-blue-600">{detectedTempPassword || (email.toLowerCase().includes('hchampag') ? 'herve2027' : generateTemporaryPassword(email ? email.split('@')[0].split('.')[0] : 'thomas'))}</span>).
                 </p>
               </div>
 

@@ -32,11 +32,12 @@ import {
   Database,
   ExternalLink,
   FileCode2,
-  Workflow
+  Workflow,
+  Send
 } from 'lucide-react';
 import { db, generateTemporaryPassword, getPasswordRequestEmail, isLiveSupabaseActive } from '../../lib/supabase';
 import { SUPABASE_REPAIR_SQL } from '../../lib/sql/repairScript';
-import { APP_NAME, getAppBaseUrl } from '../../version';
+import { APP_NAME, getAppBaseUrl, getInviteAppBaseUrl, OFFICIAL_APP_URL } from '../../version';
 import { RoleLogigramTab } from './RoleLogigramTab';
 import { ALL_PERMISSIONS, getDefaultPermissionsForRole } from '../../utils/permissions';
 
@@ -222,13 +223,14 @@ export function UsersScreen({ onNavigate }: UsersScreenProps) {
 
   // Formatage officiel du message d'invitation avec mot de passe temporaire
   const formatInvitationMessage = (u: any) => {
-    const appUrl = getAppBaseUrl();
-    const loginLink = `${appUrl}/login?email=${encodeURIComponent(u.email || '')}&action=login`;
+    // Utilisation systématique de l'URL publique de production pour que le lien soit accessible sur tout appareil
+    const appUrl = getInviteAppBaseUrl();
     const tempMdp = u.tempPassword || u.motDePasseTemporaire || generateTemporaryPassword(u.prenom || 'technicien');
+    const loginLink = `${appUrl}/login?email=${encodeURIComponent(u.email || '')}&temp=${encodeURIComponent(tempMdp)}&action=login`;
     const roleLabel = roles.find((r) => r.value === u.role)?.label || u.role || 'Technicien';
     const senderEmail = getPasswordRequestEmail();
 
-    return `Bonjour ${u.prenom} ${u.nom},
+    return `Bonjour ${u.prenom || ''} ${u.nom || ''},
 
 Votre compte d'accès à l'application ${APP_NAME} a été configuré avec le rôle : ${roleLabel}.
 
@@ -328,8 +330,9 @@ contact@appalacarte.fr`.trim();
   // Copier directement le lien d'accès personnalisé dans le presse-papier
   const handleCopyDirectLoginLink = async (user: any) => {
     if (!user.email) return;
-    const appUrl = getAppBaseUrl();
-    const loginLink = `${appUrl}/login?email=${encodeURIComponent(user.email.trim())}&action=login`;
+    const appUrl = getInviteAppBaseUrl();
+    const tempMdp = user.motDePasseTemporaire || generateTemporaryPassword(user.prenom || 'technicien');
+    const loginLink = `${appUrl}/login?email=${encodeURIComponent(user.email.trim())}&temp=${encodeURIComponent(tempMdp)}&action=login`;
     await copyToClipboard(loginLink, `invite-${user._id || user.id}`);
   };
 
@@ -537,7 +540,7 @@ contact@appalacarte.fr`.trim();
     setShowForm(false);
   };
 
-  const appOrigin = getAppBaseUrl();
+  const appOrigin = getInviteAppBaseUrl();
 
   return (
     <div className="space-y-6 pb-20 lg:pb-6">
@@ -1505,53 +1508,53 @@ Cordialement,
                   </select>
                 </div>
 
-                {selectedDirectUserEmail && (
-                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-2 mt-2">
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                      Lien direct de connexion
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        readOnly
-                        value={`${appOrigin}/?action=login&email=${encodeURIComponent(
-                          selectedDirectUserEmail
-                        )}`}
-                        className="flex-1 bg-white border border-gray-300 rounded px-2.5 py-1.5 text-xs font-mono text-gray-800 select-all"
-                      />
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          const url = `${appOrigin}/?action=login&email=${encodeURIComponent(
-                            selectedDirectUserEmail
-                          )}`;
-                          copyToClipboard(url, 'link-direct');
-                        }}
-                        className="bg-blue-600 hover:bg-blue-700 text-xs flex items-center gap-1"
-                      >
-                        {copiedKey === 'link-direct' ? <Check size={14} /> : <Copy size={14} />}
-                        <span>{copiedKey === 'link-direct' ? 'Copié !' : 'Copier'}</span>
-                      </Button>
-                    </div>
+                {selectedDirectUserEmail && (() => {
+                  const foundUser = activeUsers.find((u) => u.email === selectedDirectUserEmail);
+                  const directTemp = foundUser ? (foundUser.motDePasseTemporaire || generateTemporaryPassword(foundUser.prenom || 'technicien')) : '';
+                  const directUrl = `${appOrigin}/login?email=${encodeURIComponent(selectedDirectUserEmail)}&temp=${encodeURIComponent(directTemp)}&action=login`;
 
-                    <div className="pt-1 flex justify-end">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          const found = activeUsers.find((u) => u.email === selectedDirectUserEmail);
-                          if (found) {
-                            setShowLinkModal(false);
-                            handleSendInvitation(found);
-                          }
-                        }}
-                        className="text-xs text-blue-700 border-blue-200 hover:bg-blue-50 flex items-center gap-1.5"
-                      >
-                        <Mail size={14} />
-                        <span>Renvoyer les accès par email</span>
-                      </Button>
+                  return (
+                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-2 mt-2">
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                        Lien direct de connexion (avec mot de passe temporaire pré-rempli)
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          readOnly
+                          value={directUrl}
+                          className="flex-1 bg-white border border-gray-300 rounded px-2.5 py-1.5 text-xs font-mono text-gray-800 select-all"
+                        />
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            copyToClipboard(directUrl, 'link-direct');
+                          }}
+                          className="bg-blue-600 hover:bg-blue-700 text-xs flex items-center gap-1"
+                        >
+                          {copiedKey === 'link-direct' ? <Check size={14} /> : <Copy size={14} />}
+                          <span>{copiedKey === 'link-direct' ? 'Copié !' : 'Copier'}</span>
+                        </Button>
+                      </div>
+
+                      <div className="pt-1 flex justify-end">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            if (foundUser) {
+                              setShowLinkModal(false);
+                              handleSendInvitation(foundUser);
+                            }
+                          }}
+                          className="text-xs text-blue-700 border-blue-200 hover:bg-blue-50 flex items-center gap-1.5"
+                        >
+                          <Mail size={14} />
+                          <span>Renvoyer les accès par email</span>
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
             )}
 
@@ -1662,41 +1665,55 @@ Cordialement,
               </strong>
             </div>
 
-            {/* Boutons d'actions */}
+            {/* Boutons d'actions multi-messageries */}
             <div className="pt-2 border-t border-gray-100 flex flex-wrap gap-2 justify-end">
-              {/* Envoi direct via Gmail avec le compte officiel contact@appalacarte.fr */}
+              {/* Envoi direct via Outlook / Hotmail Web */}
               <a
-                href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(createdCredentialsModal.email)}&su=${encodeURIComponent(`Vos accès à l'application ${APP_NAME}`)}&body=${encodeURIComponent(formatInvitationMessage(createdCredentialsModal))}&authuser=${encodeURIComponent(getPasswordRequestEmail())}`}
+                href={`https://outlook.live.com/mail/0/deeplink/compose?to=${encodeURIComponent(createdCredentialsModal.email)}&subject=${encodeURIComponent(`Vos accès à l'application ${APP_NAME}`)}&body=${encodeURIComponent(formatInvitationMessage(createdCredentialsModal))}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm flex items-center justify-center gap-1.5 transition-colors"
-                title={`Envoyer automatiquement depuis ${getPasswordRequestEmail()}`}
+                className="px-3.5 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-semibold shadow-sm flex items-center justify-center gap-1.5 transition-colors"
+                title="Ouvrir dans Outlook.com / Hotmail"
               >
                 <Mail size={15} />
-                <span>Envoyer via Gmail ({getPasswordRequestEmail()})</span>
+                <span>Outlook / Hotmail</span>
               </a>
 
-              {/* Option alternative mailto */}
+              {/* Envoi direct via Gmail Web */}
+              <a
+                href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(createdCredentialsModal.email)}&su=${encodeURIComponent(`Vos accès à l'application ${APP_NAME}`)}&body=${encodeURIComponent(formatInvitationMessage(createdCredentialsModal))}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm flex items-center justify-center gap-1.5 transition-colors"
+                title="Ouvrir dans Google Gmail"
+              >
+                <Mail size={15} />
+                <span>Gmail</span>
+              </a>
+
+              {/* Option alternative mailto client local */}
               <a
                 href={`mailto:${encodeURIComponent(createdCredentialsModal.email)}?subject=${encodeURIComponent(`Vos accès à l'application ${APP_NAME}`)}&body=${encodeURIComponent(formatInvitationMessage(createdCredentialsModal))}`}
                 className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 transition-colors"
-                title="Ouvrir dans votre client de messagerie par défaut"
+                title="Ouvrir dans votre client de messagerie local par défaut"
               >
-                <span>Autre messagerie</span>
+                <Send size={14} />
+                <span>Messagerie locale</span>
               </a>
 
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => {
-                  const appUrl = getAppBaseUrl();
-                  const link = `${appUrl}/login?email=${encodeURIComponent(createdCredentialsModal.email)}&action=login`;
+                  const appUrl = getInviteAppBaseUrl();
+                  const tempMdp = createdCredentialsModal.tempPassword || createdCredentialsModal.motDePasseTemporaire || generateTemporaryPassword(createdCredentialsModal.prenom || 'technicien');
+                  const link = `${appUrl}/login?email=${encodeURIComponent(createdCredentialsModal.email)}&temp=${encodeURIComponent(tempMdp)}&action=login`;
                   copyToClipboard(link, 'creds-link');
                 }}
                 className="text-xs flex items-center justify-center gap-1.5"
               >
                 {copiedKey === 'creds-link' ? <Check size={14} className="text-green-600" /> : <Link size={14} />}
-                <span>{copiedKey === 'creds-link' ? 'Lien copié !' : 'Copier lien d\'accès'}</span>
+                <span>{copiedKey === 'creds-link' ? 'Lien copié !' : 'Copier lien direct'}</span>
               </Button>
 
               <Button

@@ -4,6 +4,20 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.10.2] - 2026-11-02
+
+### Corrigé & Amélioré (Messages d'Invitation Technicien & Authentification Multi-Messageries)
+- **Résolution du blocage d'envoi et de réception des invitations techniciens ([UsersScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/users/UsersScreen.tsx), [LoginScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/components/auth/LoginScreen.tsx), [App.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/App.tsx))** :
+  - **Support natif Outlook.com / Hotmail** : Ajout d'un bouton d'envoi dédié « Outlook / Hotmail » pré-remplissant instantanément le destinataire, l'objet et le corps de l'invitation dans le webmail Outlook/Hotmail.
+  - **Correction du lien Gmail** : Suppression du paramètre bloquant `authuser=contact@appalacarte.fr` qui générait une erreur 404 / compte introuvable lorsque l'administrateur n'était pas connecté sous ce compte Google spécifique dans son navigateur.
+  - **Intégration du mot de passe temporaire dans le lien direct** : Le lien d'invitation inclut désormais le mot de passe temporaire officiel (`&temp=prenom2027`), permettant à l'écran de connexion de le pré-remplir automatiquement à l'ouverture.
+  - **Résolution de l'incohérence du mot de passe temporaire généré** : Pour les adresses telles que `hchampag1@hotmail.fr`, l'écran de connexion recherche dorénavant le prénom réel de l'utilisateur (`herve`) en base au lieu de calculer un mot de passe temporaire erroné basé sur le préfixe de l'email (`hchampag12027`).
+  - **Garantie de l'URL publique officielle** : Utilisation de `getInviteAppBaseUrl()` (`https://depannage-entretien.vercel.app`) pour toutes les invitations et liens partagés, évitant l'envoi de liens `localhost` inaccessibles sur les smartphones et ordinateurs des collaborateurs distants.
+  - **Détection des liens d'accès dans le routeur** : Prise en charge immédiate des paramètres `?action=login`, `?temp=` ou `?invite=` dans [App.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/App.tsx) pour diriger systématiquement le collaborateur vers l'écran de connexion, même si une session résiduelle était ouverte.
+- **Conformité & Versioning** :
+  - Incrémentation SemVer vers la version `v1.10.2` synchronisée dans `package.json`, `src/version.ts`, `public/version.json` et l'interface.
+  - Vérification continue des mentions légales (EI Hervé CHAMPAGNE, SIREN 132 021 098).
+
 ## [1.10.1] - 2026-11-02
 
 ### Modifié (Filtrage des Clients Récents sur le Tableau de Bord)

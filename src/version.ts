@@ -1,5 +1,5 @@
 // Version active de l'application
-export const APP_VERSION = '1.10.1';
+export const APP_VERSION = '1.10.2';
 export const APP_NAME = 'Dépannage_entretien';
 export const PUBLISHER_NAME = 'App à la Carte — Hervé CHAMPAGNE EI';
 export const PUBLISHER_SIREN = '132 021 098';
@@ -25,4 +25,14 @@ export const getAppBaseUrl = (): string => {
   }
   return origin || OFFICIAL_APP_URL;
 };
+
+/**
+ * Retourne l'URL publique garantie pour les invitations et liens partagés aux techniciens.
+ * Utilise systématiquement l'URL de production accessible sur internet
+ * pour éviter que le technicien distant ne reçoive un lien localhost inaccessible.
+ */
+export const getInviteAppBaseUrl = (): string => {
+  return OFFICIAL_APP_URL;
+};
+
 
