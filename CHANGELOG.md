@@ -4,6 +4,18 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.10.5] - 2026-11-02
+
+### Simplifié & Épuré (Transmission des Accès Techniciens)
+- **Simplification radicale de la modale de transmission d'identifiants ([UsersScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/users/UsersScreen.tsx))** :
+  - **Élimination de la surcharge de boutons Webmail** : Suppression des multiples boutons Outlook/Gmail aux URLs surchargées qui semaient la confusion et ouvraient des pages intermédiaires non désirées.
+  - **Bouton Copier le lien tout-en-un** : Ajout d'un champ dédié avec bouton 1-clic pour copier le lien direct incluant email et mot de passe temporaire pré-remplis (`&temp=prenom2027`).
+  - **Bouton Copier le message complet** : Permet de coller instantanément le message prêt à l'envoi dans n'importe quelle application (email, WhatsApp, SMS, etc.).
+  - **Bouton Messagerie standardisé** : Un simple lien `mailto:` universel pour ouvrir le client de messagerie par défaut sans artifice.
+- **Conformité & Versioning** :
+  - Incrémentation SemVer vers la version `v1.10.5` synchronisée dans `package.json`, `src/version.ts`, `public/version.json` et le footer.
+  - Vérification continue des mentions légales (EI Hervé CHAMPAGNE, SIREN 132 021 098).
+
 ## [1.10.4] - 2026-11-02
 
 ### Corrigé & Blindé (Résolution Définitive du Cache Navigateur & CDN Vercel)

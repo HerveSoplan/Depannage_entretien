@@ -20,7 +20,8 @@ import {
   Wrench,
   FileText,
   Calendar,
-  AlertCircle
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react';
 import { useClients } from '../../hooks/useClients';
 import { useMachines } from '../../hooks/useMachines';
@@ -264,17 +265,97 @@ export function InstallationProtocolScreen({
     };
   }, [activeInterventionId, currentUser, activeMachineId, allMachines.length]);
 
-  // Sauvegarde des modifications du montage
+  // Rafraîchissement du montage actif (synchronisation temps réel multi-techniciens)
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const refreshActiveMontage = async () => {
+    const targetId = montageId || activeInterventionId;
+    if (!targetId) return;
+    try {
+      setIsRefreshing(true);
+      const latest = await db.montages.get(targetId);
+      if (latest) {
+        setInstallationData(latest);
+      }
+    } catch (e) {
+      console.warn('Erreur rafraîchissement montage:', e);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Synchronisation automatique toutes les 25 secondes pour que chaque technicien
+  // voie les heures et machines saisies par ses collègues sur leurs téléphones
+  useEffect(() => {
+    if (!montageId || installationData?.statut === 'TERMINEE') return;
+    const interval = setInterval(() => {
+      refreshActiveMontage();
+    }, 25000);
+    return () => clearInterval(interval);
+  }, [montageId, installationData?.statut]);
+
+  // Sauvegarde des modifications du montage avec fusion intelligente multi-techniciens
   const saveMontage = async (updates: any) => {
     if (!montageId) return;
     try {
+      let finalUpdates = { ...updates };
+
+      // Si on met à jour la liste des machines, on fusionne avec la dernière version en base
+      // pour éviter qu'un technicien enregistrant sur Machine 1 n'écrase les heures d'un collègue sur Machine 2
+      // ou les heures d'un autre intervenant sur la même machine
+      if (updates.machines && Array.isArray(updates.machines)) {
+        try {
+          const latest = await db.montages.get(montageId);
+          if (latest?.machines && Array.isArray(latest.machines)) {
+            const latestMachinesMap = new Map((latest.machines as any[]).map((m: any) => [m.id, m]));
+
+            const merged = updates.machines.map((upMach: any) => {
+              const latestMach = latestMachinesMap.get(upMach.id);
+              if (!latestMach) return upMach;
+
+              // Fusionner heuresParTechnicien pour cette machine
+              const upTechMap = new Map((upMach.heuresParTechnicien || []).map((t: any) => [t.technicienId, t]));
+              const combinedTechs: any[] = [];
+
+              // 1. Techniciens mis à jour
+              (upMach.heuresParTechnicien || []).forEach((t: any) => {
+                combinedTechs.push(t);
+              });
+
+              // 2. Techniciens déjà enregistrés dans la DB mais non modifiés localement
+              (latestMach.heuresParTechnicien || []).forEach((lt: any) => {
+                if (!upTechMap.has(lt.technicienId)) {
+                  combinedTechs.push(lt);
+                }
+              });
+
+              return {
+                ...latestMach,
+                ...upMach,
+                heuresParTechnicien: combinedTechs
+              };
+            });
+
+            // 3. Conserver aussi les machines ajoutées par d'autres techniciens entre-temps
+            (latest.machines as any[]).forEach((lm: any) => {
+              if (!merged.some((m: any) => m.id === lm.id)) {
+                merged.push(lm);
+              }
+            });
+
+            finalUpdates.machines = merged;
+          }
+        } catch (mergeErr) {
+          console.warn('Note fusion machines:', mergeErr);
+        }
+      }
+
       const updated = await db.montages.update(montageId, {
-        ...updates,
+        ...finalUpdates,
         updatedAt: new Date().toISOString()
       });
       setInstallationData(updated);
       refreshMontagesList();
-      console.log('💾 Montage sauvegardé:', montageId);
+      console.log('💾 Montage sauvegardé avec synchronisation multi-techniciens:', montageId);
     } catch (e) {
       console.error('❌ Erreur sauvegarde montage:', e);
     }
@@ -989,19 +1070,46 @@ export function InstallationProtocolScreen({
           </div>
 
           <div className="flex items-center gap-2">
-            {isChantierTermine && (
-              <Button
-                onClick={handleGeneratePDF}
-                className="bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm flex items-center gap-1.5 shadow-sm"
-              >
-                <FileText size={16} /> PDF
-              </Button>
-            )}
+            <button
+              onClick={refreshActiveMontage}
+              disabled={isRefreshing}
+              className={`p-2 rounded-lg border border-gray-200 text-gray-600 hover:text-green-700 hover:bg-green-50 transition flex items-center gap-1.5 text-xs font-medium ${
+                isRefreshing ? 'opacity-70 animate-pulse' : ''
+              }`}
+              title="Synchroniser immédiatement les heures saisies par les autres techniciens"
+            >
+              <RefreshCw size={15} className={isRefreshing ? 'animate-spin text-green-600' : ''} />
+              <span className="hidden sm:inline">Synchroniser</span>
+            </button>
+            <Button
+              onClick={handleGeneratePDF}
+              className={`${
+                isChantierTermine ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'
+              } text-white text-xs sm:text-sm flex items-center gap-1.5 shadow-sm`}
+              title={isChantierTermine ? 'Compte-rendu final collationné' : 'Aperçu du PDF collationné'}
+            >
+              <FileText size={16} />
+              <span>{isChantierTermine ? 'PDF Compte-rendu' : 'PDF Synthèse'}</span>
+            </Button>
           </div>
         </div>
       </div>
 
       <div className="max-w-6xl mx-auto px-4 py-4 space-y-4">
+        {/* Bandeau d'information : Travail collaboratif multi-techniciens & multi-machines */}
+        <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-sky-50 border border-blue-200 rounded-xl p-3.5 text-xs sm:text-sm text-blue-950 flex items-start gap-3 shadow-sm">
+          <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm">
+            <Users className="w-4 h-4" />
+          </div>
+          <div className="space-y-1">
+            <p className="font-bold text-blue-900 text-sm">
+              Chantier collaboratif multi-techniciens & multi-machines
+            </p>
+            <p className="text-blue-800 text-xs leading-relaxed">
+              Plusieurs techniciens peuvent intervenir simultanément avec leur propre téléphone chez ce client, sur la même machine ou sur différentes machines. Chaque technicien renseigne ses heures de son côté : elles sont automatiquement synchronisées et centralisées sur le compte-rendu PDF final de fin de montage.
+            </p>
+          </div>
+        </div>
         {/* ═══════════════════════════════════════════════════════════════
             CARTE SYNTHÈSE & CALCUL DES HEURES
         ═══════════════════════════════════════════════════════════════ */}

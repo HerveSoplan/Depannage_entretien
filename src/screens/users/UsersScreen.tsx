@@ -1635,103 +1635,70 @@ Cordialement,
               </p>
             </div>
 
-            {/* Message type à copier ou envoyer */}
-            <div className="space-y-2">
+            {/* Lien direct prêt à l'emploi */}
+            <div className="space-y-1.5 bg-blue-50/50 p-3 rounded-xl border border-blue-200">
+              <label className="text-xs font-bold text-blue-950 flex items-center gap-1.5">
+                <Link size={14} className="text-blue-600" />
+                <span>Lien de connexion direct (email et mot de passe pré-remplis) :</span>
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={`${getInviteAppBaseUrl()}/login?email=${encodeURIComponent(createdCredentialsModal.email)}&temp=${encodeURIComponent(createdCredentialsModal.tempPassword || createdCredentialsModal.motDePasseTemporaire || generateTemporaryPassword(createdCredentialsModal.prenom || 'technicien'))}&action=login`}
+                  className="flex-1 text-xs font-mono bg-white border border-blue-200 rounded-lg px-2.5 py-1.5 text-blue-900 select-all"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => {
+                    const appUrl = getInviteAppBaseUrl();
+                    const tempMdp = createdCredentialsModal.tempPassword || createdCredentialsModal.motDePasseTemporaire || generateTemporaryPassword(createdCredentialsModal.prenom || 'technicien');
+                    const link = `${appUrl}/login?email=${encodeURIComponent(createdCredentialsModal.email)}&temp=${encodeURIComponent(tempMdp)}&action=login`;
+                    copyToClipboard(link, 'creds-link');
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-xs flex items-center gap-1 shrink-0"
+                >
+                  {copiedKey === 'creds-link' ? <Check size={14} /> : <Copy size={14} />}
+                  <span>{copiedKey === 'creds-link' ? 'Copié !' : 'Copier le lien'}</span>
+                </Button>
+              </div>
+            </div>
+
+            {/* Message complet prêt à copier */}
+            <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-gray-700">Message complet prêt à envoyer :</label>
+                <label className="text-xs font-bold text-gray-700">Message complet d'invitation :</label>
                 <button
                   type="button"
                   onClick={() => copyToClipboard(formatInvitationMessage(createdCredentialsModal), 'creds-msg')}
                   className="text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1"
                 >
                   {copiedKey === 'creds-msg' ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
-                  <span>{copiedKey === 'creds-msg' ? 'Message copié !' : 'Copier le message'}</span>
+                  <span>{copiedKey === 'creds-msg' ? 'Message copié !' : 'Copier le message complet'}</span>
                 </button>
               </div>
 
-              <pre className="text-[11px] text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-200 whitespace-pre-wrap font-sans max-h-36 overflow-y-auto leading-relaxed">
+              <pre className="text-[11px] text-gray-700 bg-gray-50 p-2.5 rounded-lg border border-gray-200 whitespace-pre-wrap font-sans max-h-32 overflow-y-auto leading-relaxed">
                 {formatInvitationMessage(createdCredentialsModal)}
               </pre>
             </div>
 
-            {/* Guide d'envoi explicite pour éviter toute confusion */}
-            <div className="p-3 bg-amber-50/90 border border-amber-200 rounded-xl text-xs text-amber-950 space-y-1.5">
-              <div className="flex items-center gap-1.5 font-bold text-amber-900">
-                <Send size={15} className="text-amber-700 flex-shrink-0" />
-                <span>Comment transmettre ces accès au technicien :</span>
-              </div>
-              <p className="text-[11.5px] text-amber-900/90 leading-relaxed">
-                ℹ️ <strong>Aucun email n'est envoyé automatiquement sans action de votre part</strong>. Pour expédier ces identifiants au technicien, cliquez ci-dessous sur le bouton de votre choix (<strong>Envoyer via Outlook / Hotmail</strong>, <strong>Envoyer via Gmail</strong> ou <strong>Messagerie locale</strong>), ou copiez le message / le lien direct pour le coller dans vos échanges (email, SMS, WhatsApp).
-              </p>
-            </div>
-
-            {/* Email officiel de support & contact */}
-            <div className="flex items-center justify-between p-2.5 bg-blue-50/70 border border-blue-200 rounded-lg text-xs text-blue-900">
-              <span className="flex items-center gap-1.5 font-medium">
-                <Mail size={14} className="text-blue-600" />
-                <span>Email officiel de support & contact :</span>
-              </span>
-              <strong className="font-mono text-blue-700 bg-white px-2 py-0.5 rounded border border-blue-200">
-                {getPasswordRequestEmail()}
-              </strong>
-            </div>
-
-            {/* Boutons d'actions multi-messageries */}
-            <div className="pt-2 border-t border-gray-100 flex flex-wrap gap-2 justify-end">
-              {/* Envoi direct via Outlook / Hotmail Web */}
+            {/* Boutons d'actions épurés et sans confusion */}
+            <div className="pt-2 border-t border-gray-100 flex items-center justify-between gap-2">
               <a
-                href={`https://outlook.live.com/mail/0/deeplink/compose?to=${encodeURIComponent(createdCredentialsModal.email)}&subject=${encodeURIComponent(`Vos accès à l'application ${APP_NAME}`)}&body=${encodeURIComponent(formatInvitationMessage(createdCredentialsModal))}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-3.5 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-semibold shadow-sm flex items-center justify-center gap-1.5 transition-colors"
-                title="Ouvrir dans Outlook.com / Hotmail avec le message pré-rempli"
+                href={`mailto:${encodeURIComponent(createdCredentialsModal.email)}?subject=${encodeURIComponent(`Vos identifiants d'accès à ${APP_NAME}`)}&body=${encodeURIComponent(formatInvitationMessage(createdCredentialsModal))}`}
+                className="px-3.5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors"
+                title="Ouvrir dans votre logiciel de messagerie par défaut"
               >
-                <Mail size={15} />
-                <span>Envoyer via Outlook / Hotmail</span>
-              </a>
-
-              {/* Envoi direct via Gmail Web */}
-              <a
-                href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(createdCredentialsModal.email)}&su=${encodeURIComponent(`Vos accès à l'application ${APP_NAME}`)}&body=${encodeURIComponent(formatInvitationMessage(createdCredentialsModal))}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm flex items-center justify-center gap-1.5 transition-colors"
-                title="Ouvrir dans Google Gmail avec le message pré-rempli"
-              >
-                <Mail size={15} />
-                <span>Envoyer via Gmail</span>
-              </a>
-
-              {/* Option alternative mailto client local */}
-              <a
-                href={`mailto:${encodeURIComponent(createdCredentialsModal.email)}?subject=${encodeURIComponent(`Vos accès à l'application ${APP_NAME}`)}&body=${encodeURIComponent(formatInvitationMessage(createdCredentialsModal))}`}
-                className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 transition-colors"
-                title="Ouvrir dans votre client de messagerie local par défaut"
-              >
-                <Send size={14} />
-                <span>Messagerie locale</span>
+                <Mail size={15} className="text-gray-600" />
+                <span>Ouvrir dans ma messagerie</span>
               </a>
 
               <Button
                 type="button"
-                variant="outline"
-                onClick={() => {
-                  const appUrl = getInviteAppBaseUrl();
-                  const tempMdp = createdCredentialsModal.tempPassword || createdCredentialsModal.motDePasseTemporaire || generateTemporaryPassword(createdCredentialsModal.prenom || 'technicien');
-                  const link = `${appUrl}/login?email=${encodeURIComponent(createdCredentialsModal.email)}&temp=${encodeURIComponent(tempMdp)}&action=login`;
-                  copyToClipboard(link, 'creds-link');
-                }}
-                className="text-xs flex items-center justify-center gap-1.5"
-              >
-                {copiedKey === 'creds-link' ? <Check size={14} className="text-green-600" /> : <Link size={14} />}
-                <span>{copiedKey === 'creds-link' ? 'Lien copié !' : 'Copier lien direct'}</span>
-              </Button>
-
-              <Button
-                type="button"
-                variant="ghost"
                 onClick={() => setCreatedCredentialsModal(null)}
-                className="text-xs"
+                className="text-xs px-4"
               >
                 Fermer
               </Button>

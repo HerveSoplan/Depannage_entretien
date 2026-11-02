@@ -289,6 +289,12 @@ export function MachineTasksView({
               <p className="text-2xl font-bold text-blue-900">{formatHeures(totalTechActuel)}</p>
             </div>
           </div>
+          <div className="mt-3 pt-2 border-t border-blue-200/60 text-xs text-blue-800 flex items-center gap-1.5">
+            <span>📱</span>
+            <span>
+              <strong>Saisie mobile individuelle</strong> : vos heures sont enregistrées sous votre nom et seront automatiquement collationnées avec celles de vos collègues sur le PDF final.
+            </span>
+          </div>
         </Card>
 
         {/* Total Machine */}
@@ -459,9 +465,9 @@ export function MachineTasksView({
           )}
         </Card>
 
-        {/* AUTRES TECHNICIENS */}
+        {/* AUTRES TECHNICIENS SUR CETTE MACHINE */}
         {(localMachine.heuresParTechnicien || [])
-          .filter((t: any) => t.technicienId !== currentUser._id)
+          .filter((t: any) => t.technicienId !== currentUserId)
           .map((tech: any) => {
             const totalTech = calculerTotalTechnicien(tech);
             if (totalTech === 0) return null; // Ne pas afficher les techniciens sans heures

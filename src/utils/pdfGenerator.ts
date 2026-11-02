@@ -1,4 +1,4 @@
-//src/utils/pdfGenerator.ts - VERSION CORRIGÉE
+﻿//src/utils/pdfGenerator.ts - VERSION CORRIGÉE
 
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -174,14 +174,55 @@ export const generateInstallationReportPDF = async (data: InstallationReportData
   doc.text('Heures par technicien', 20, yPos);
   yPos += 10;
 
-  const parTechnicien = installationData?.journaliers?.parTechnicien || [];
+  // Récupération des données journalières ou calcul dynamique direct depuis toutes les machines
+  let parTechnicien = installationData?.journaliers?.parTechnicien || [];
+  let parTache = installationData?.journaliers?.parTache || [];
+  let calculatedGrandTotal = 0;
+
+  // Calcul dynamique de repli si le chantier est en cours ou journaliers non pré-calculés
+  if (parTechnicien.length === 0 && machinesInstallees.length > 0) {
+    const techMap = new Map<string, { nom: string; totalHeures: number; specialite: string }>();
+    const tacheMap = new Map<string, { description: string; totalHeures: number }>();
+
+    machinesInstallees.forEach((machine: any) => {
+      (machine.heuresParTechnicien || []).forEach((t: any) => {
+        const techKey = t.technicienId || t.technicienNom || 'tech';
+        if (!techMap.has(techKey)) {
+          techMap.set(techKey, {
+            nom: t.technicienNom || 'Technicien',
+            totalHeures: 0,
+            specialite: t.specialite || 'Technicien'
+          });
+        }
+        const currentTech = techMap.get(techKey)!;
+
+        (t.taches || []).forEach((tach: any) => {
+          const h = parseFloat(tach.heures) || 0;
+          if (h > 0) {
+            currentTech.totalHeures += h;
+            calculatedGrandTotal += h;
+
+            if (!tacheMap.has(tach.description)) {
+              tacheMap.set(tach.description, { description: tach.description, totalHeures: 0 });
+            }
+            tacheMap.get(tach.description)!.totalHeures += h;
+          }
+        });
+      });
+    });
+
+    parTechnicien = Array.from(techMap.values()).filter((t) => t.totalHeures > 0);
+    parTache = Array.from(tacheMap.values());
+  } else {
+    calculatedGrandTotal = parTechnicien.reduce((sum: number, t: any) => sum + (parseFloat(t.totalHeures) || 0), 0);
+  }
   const techBody = parTechnicien.map((t: any) => {
     // Trouver la spécialité du technicien
     const tech = (installationData?.techniciens || []).find((tc: any) => tc.nom === t.nom);
     return [
       t.nom,
       formatHeures(t.totalHeures),
-      tech?.specialiteNom || 'Non definie'
+      t.specialite || tech?.specialiteNom || 'Technicien'
     ];
   });
 
@@ -213,7 +254,10 @@ export const generateInstallationReportPDF = async (data: InstallationReportData
   doc.text('Heures par tache', 20, yPos);
   yPos += 10;
 
-  const parTache = installationData?.journaliers?.parTache || [];
+  // Utilisation de la liste des tâches (calculée ou issue des journaliers)
+  if (!parTache || parTache.length === 0) {
+    parTache = installationData?.journaliers?.parTache || [];
+  }
   const tacheBody = parTache
     .filter((t: any) => t.totalHeures > 0)
     .map((t: any) => [
@@ -349,7 +393,7 @@ export const generateInstallationReportPDF = async (data: InstallationReportData
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
   doc.text('TOTAL GLOBAL', 25, yPos + 13);
-  doc.text(formatHeures(installationData?.totalHeures || 0), 185, yPos + 13, { align: 'right' });
+  doc.text(formatHeures(installationData?.totalHeures || calculatedGrandTotal || 0), 185, yPos + 13, { align: 'right' });
   
   yPos += 30;
 
@@ -403,18 +447,32 @@ export const generateInstallationReportPDF = async (data: InstallationReportData
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     doc.setFontSize(8);
-    doc.setTextColor(150, 150, 150);
+    doc.setTextColor(140, 140, 140);
     doc.setFont('helvetica', 'italic');
+    if (responsableTechnique?.email) {
+      doc.text(
+        Destinataire : ${responsableTechnique?.prenom || ''} ${responsableTechnique?.nom || ''} (${responsableTechnique?.email}),
+        105,
+        282,
+        { align: 'center' }
+      );
+    }
     doc.text(
-      `Page ${i} / ${pageCount} - Genere le ${new Date().toLocaleString('fr-FR')} - Maintenance & Dépannage`,
+      Page ${i} / ${pageCount} - Genere le ${new Date().toLocaleString('fr-FR')} - Compte-rendu de montage,
+      105,
+      286,
+      { align: 'center' }
+    );
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(120, 120, 120);
+    doc.text(
+      'App a la Carte - Herve CHAMPAGNE EI | SIREN : 132 021 098 | contact@appalacarte.fr | TVA non applicable, art. 293 B du CGI',
       105,
       290,
       { align: 'center' }
     );
-    
-    // Info destinataire
-    doc.text(
-      `Destinataire : ${responsableTechnique?.prenom} ${responsableTechnique?.nom} (${responsableTechnique?.email})`,
+  }bleTechnique?.prenom} ${responsableTechnique?.nom} (${responsableTechnique?.email})`,
       105,
       285,
       { align: 'center' }
