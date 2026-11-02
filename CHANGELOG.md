@@ -4,6 +4,15 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.7.6] - 2026-11-02
+
+### Modifié & Déployé (Domaine Vercel & Liens d'accès)
+- **Remplacement du domaine `soplan-app-alpha.vercel.app` par `depannage-entretien.vercel.app`** :
+  - Configuration et assignation du nouveau domaine officiel `depannage-entretien.vercel.app` sur le projet Vercel de production.
+  - Déploiement en production de l'application avec prise en charge des règles de réécriture SPA (`vercel.json`) pour garantir la validité de toutes les routes de connexion directes.
+  - Les liens de connexion et d'invitation générés dynamiquement par l'application (`window.location.origin`) pointent désormais sur `https://depannage-entretien.vercel.app/login?email=...&action=login`.
+  - Nettoyage des reliquats de désignation dans la configuration locale `.env`.
+
 ## [1.7.5] - 2026-11-02
 
 ### Corrigé & Amélioré (Gestion des utilisateurs & Envoi d'invitations)
