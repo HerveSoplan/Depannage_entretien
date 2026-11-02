@@ -7,7 +7,7 @@ import { TextArea } from '../../components/common/TextArea';
 import { DataTable } from '../../components/admin/DataTable';
 import { CSVImporter } from '../../components/admin/CSVImporter';
 import { MaintenanceKitImporter } from '../../components/admin/MaintenanceKitImporter';
-import { Database, Upload, Plus, X, Save, BarChart3, Wifi, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Database, Upload, Plus, X, Save, BarChart3, Wifi, AlertTriangle, CheckCircle2, Mail, KeyRound } from 'lucide-react';
 import { useClients } from '../../hooks/useClients';
 import { useUsers } from '../../hooks/useUsers';
 import { useMachines } from '../../hooks/useMachines';
@@ -17,7 +17,14 @@ import { useErrorCodes } from '../../hooks/useErrorCodes';
 import { useTachesEntretien } from '../../hooks/useTachesEntretien';
 import { useMachineFields } from '../../hooks/useMachineFields';
 import { useMachineFieldOptions } from '../../hooks/useMachineFieldOptions';
-import { db, checkSupabaseConnection, isLiveSupabaseActive } from '../../lib/supabase';
+import {
+  db,
+  checkSupabaseConnection,
+  isLiveSupabaseActive,
+  getPasswordRequestEmail,
+  setPasswordRequestEmail,
+  DEFAULT_PASSWORD_REQUEST_EMAIL
+} from '../../lib/supabase';
 
 
 interface DatabaseAdminScreenProps {
@@ -39,6 +46,23 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
   const [formData, setFormData] = useState<any>({});
   const [loading, setLoading] = useState(false);
   const [supabaseHealth, setSupabaseHealth] = useState<{ connected: boolean; error?: string; url: string } | null>(null);
+  const [passwordRequestEmail, setPasswordRequestEmailState] = useState<string>(() => getPasswordRequestEmail());
+  const [emailSaveSuccess, setEmailSaveSuccess] = useState(false);
+
+  const handleSavePasswordRequestEmail = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const saved = setPasswordRequestEmail(passwordRequestEmail);
+    setPasswordRequestEmailState(saved);
+    setEmailSaveSuccess(true);
+    setTimeout(() => setEmailSaveSuccess(false), 3000);
+  };
+
+  const handleResetPasswordRequestEmail = () => {
+    const reset = setPasswordRequestEmail(DEFAULT_PASSWORD_REQUEST_EMAIL);
+    setPasswordRequestEmailState(reset);
+    setEmailSaveSuccess(true);
+    setTimeout(() => setEmailSaveSuccess(false), 3000);
+  };
 
 
   const { machines, fetchMachines } = useMachines();
@@ -1194,6 +1218,76 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
           } catch (e: any) { alert('Erreur: ' + e.message); }
           setLoading(false);
         }}>🚀 Créer les champs</Button>
+      </Card>
+
+      {/* 🔐 PARAMÉTRAGE EMAIL DEMANDE DE NOUVEAU MOT DE PASSE (PAGE DE CONNEXION) */}
+      <Card className="p-4 sm:p-5 border-blue-200 bg-gradient-to-r from-blue-50/70 via-indigo-50/50 to-white shadow-sm">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 bg-blue-600 text-white rounded-xl shadow-xs mt-0.5 flex-shrink-0">
+              <KeyRound size={20} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-gray-900 text-sm sm:text-base">
+                  Email de demande de nouveau mot de passe (Page de connexion)
+                </h3>
+                <span className="text-[11px] font-semibold bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
+                  Page de connexion
+                </span>
+              </div>
+              <p className="text-xs text-gray-600 mt-0.5 leading-relaxed">
+                Cette adresse email est affichée publiquement sur la page de connexion et dans la rubrique « Mot de passe oublié » pour permettre aux techniciens d'adresser leurs demandes.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 min-w-full sm:min-w-[340px] lg:min-w-[380px]">
+            <div className="relative flex-1">
+              <Mail className="w-4 h-4 text-gray-400 absolute left-3 top-3 pointer-events-none" />
+              <input
+                type="email"
+                required
+                value={passwordRequestEmail}
+                onChange={(e) => setPasswordRequestEmailState(e.target.value)}
+                placeholder="soplanapp1@gmail.com"
+                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium text-gray-800"
+              />
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <Button
+                type="button"
+                onClick={() => handleSavePasswordRequestEmail()}
+                disabled={!passwordRequestEmail.trim()}
+                className="py-2 px-3 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5 shadow-sm"
+              >
+                <Save size={15} />
+                <span>Enregistrer</span>
+              </Button>
+
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={handleResetPasswordRequestEmail}
+                className="py-2 px-2 text-xs text-gray-600 hover:text-gray-900 border border-gray-200"
+                title="Rétablir l'adresse par défaut (soplanapp1@gmail.com)"
+              >
+                Rétablir défaut
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {emailSaveSuccess && (
+          <div className="mt-3 p-2.5 bg-green-50 border border-green-200 rounded-lg text-xs text-green-800 flex items-center gap-2">
+            <CheckCircle2 size={16} className="text-green-600 flex-shrink-0" />
+            <span>
+              Adresse enregistrée avec succès ! Elle est immédiatement affichée sur la page de connexion :{' '}
+              <strong className="font-semibold underline">{passwordRequestEmail}</strong>.
+            </span>
+          </div>
+        )}
       </Card>
 
       {/* Table Tabs */}

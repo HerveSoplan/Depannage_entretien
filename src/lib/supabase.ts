@@ -41,6 +41,26 @@ export const setLiveSupabaseActive = (active: boolean) => {
   }
 };
 
+// Configuration de l'email officiel pour les demandes de nouveau mot de passe (paramétrable depuis DatabaseAdminScreen)
+export const DEFAULT_PASSWORD_REQUEST_EMAIL = 'soplanapp1@gmail.com';
+
+export const getPasswordRequestEmail = (): string => {
+  if (typeof window !== 'undefined') {
+    const stored = localStorage.getItem('depannage_password_request_email');
+    if (stored && stored.trim()) return stored.trim();
+  }
+  return DEFAULT_PASSWORD_REQUEST_EMAIL;
+};
+
+export const setPasswordRequestEmail = (newEmail: string): string => {
+  const clean = (newEmail || '').trim().toLowerCase();
+  const valueToStore = clean || DEFAULT_PASSWORD_REQUEST_EMAIL;
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('depannage_password_request_email', valueToStore);
+  }
+  return valueToStore;
+};
+
 // Vérification de l'état de la connexion Supabase en temps réel
 export const checkSupabaseConnection = async (): Promise<{ connected: boolean; error?: string; url: string }> => {
   const url = import.meta.env.VITE_SUPABASE_URL || '';

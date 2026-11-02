@@ -28,7 +28,8 @@ import {
   validatePassword,
   passwordRules,
   passwordErrorMessage,
-  generateTemporaryPassword
+  generateTemporaryPassword,
+  getPasswordRequestEmail
 } from '../../lib/supabase';
 import { APP_NAME } from '../../version';
 
@@ -57,6 +58,7 @@ export function LoginScreen({
   const [errorCode, setErrorCode] = useState<string | null>(null);
   const [showLegal, setShowLegal] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [passwordRequestEmail, setPasswordRequestEmail] = useState<string>(() => getPasswordRequestEmail());
 
   // Champs Changement obligatoire de mot de passe (première connexion ou réinitialisation)
   const [targetUserForPasswordChange, setTargetUserForPasswordChange] = useState<any>(null);
@@ -107,6 +109,8 @@ export function LoginScreen({
         } else if (action === 'forgot' || params.get('forgot') === 'true') {
           setActiveTab('forgot_password');
         }
+
+        setPasswordRequestEmail(getPasswordRequestEmail());
       }
     } catch (e) {
       console.warn('Erreur lecture paramètres URL:', e);
@@ -620,6 +624,33 @@ export function LoginScreen({
                     Saisissez votre adresse email professionnelle. Votre mot de passe temporaire (prénom suivi de 2027) sera réactivé pour vous permettre de vous connecter et de choisir immédiatement votre nouveau mot de passe personnel.
                   </p>
 
+                  {/* Encadré contact officiel pour demande de nouveau mot de passe */}
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl space-y-1.5 text-xs text-blue-950">
+                    <div className="flex items-center gap-1.5 font-bold text-blue-900">
+                      <Mail className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                      <span>Contact officiel pour demande de mot de passe :</span>
+                    </div>
+                    <p className="text-xs text-blue-800 leading-relaxed">
+                      Vous pouvez également adresser directement votre demande à l'administrateur technique :
+                    </p>
+                    <div className="flex items-center justify-between bg-white px-2.5 py-1.5 rounded-lg border border-blue-200">
+                      <a
+                        href={`mailto:${passwordRequestEmail}?subject=Demande%20de%20nouveau%20mot%20de%20passe%20-%20D%C3%A9pannage_entretien`}
+                        className="font-mono font-bold text-blue-700 hover:underline"
+                      >
+                        {passwordRequestEmail}
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(passwordRequestEmail, 'forgot-contact-email')}
+                        className="text-[11px] text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1"
+                      >
+                        {copiedKey === 'forgot-contact-email' ? <Check size={12} className="text-green-600" /> : <Copy size={12} />}
+                        <span>{copiedKey === 'forgot-contact-email' ? 'Copié !' : 'Copier'}</span>
+                      </button>
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wider">
                       Votre adresse email *
@@ -778,6 +809,34 @@ export function LoginScreen({
               <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-[11px] text-slate-600 text-center flex items-center justify-center gap-1.5">
                 <Lock className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
                 <span>Accès strictement protégé par mot de passe (temporaire ou personnel).</span>
+              </div>
+
+              {/* Email de demande de nouveau mot de passe (paramétrable depuis DatabaseAdminScreen) */}
+              <div className="p-3 bg-blue-50/80 border border-blue-200 rounded-xl text-center space-y-1 shadow-xs">
+                <div className="flex items-center justify-center gap-1.5 text-xs text-blue-900 font-semibold">
+                  <Mail className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Demande de nouveau mot de passe :</span>
+                </div>
+                <div className="flex items-center justify-center gap-2">
+                  <a
+                    href={`mailto:${passwordRequestEmail}?subject=Demande%20de%20nouveau%20mot%20de%20passe%20-%20D%C3%A9pannage_entretien`}
+                    className="text-xs font-bold text-blue-700 hover:text-blue-900 underline"
+                  >
+                    {passwordRequestEmail}
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(passwordRequestEmail, 'login-contact-email')}
+                    className="text-[11px] text-blue-600 hover:text-blue-800 font-semibold inline-flex items-center gap-0.5"
+                    title="Copier l'adresse email"
+                  >
+                    {copiedKey === 'login-contact-email' ? <Check size={12} className="text-green-600" /> : <Copy size={12} />}
+                    <span>{copiedKey === 'login-contact-email' ? 'Copié' : 'Copier'}</span>
+                  </button>
+                </div>
+                <p className="text-[10px] text-gray-500">
+                  Contactez cette adresse pour toute demande d'assistance ou de nouveau mot de passe
+                </p>
               </div>
 
               {/* Lien vers la demande d'accès */}

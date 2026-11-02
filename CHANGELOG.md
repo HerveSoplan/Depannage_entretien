@@ -4,6 +4,19 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.7.4] - 2026-11-02
+
+### Ajouté & Amélioré (Administration & Page de Connexion)
+- **Email de demande de nouveau mot de passe paramétrable depuis l'administration (`DatabaseAdminScreen.tsx`)** :
+  - Ajout d'une section dédiée dans l'écran d'administration des bases permettant de modifier et enregistrer l'adresse email de contact pour les demandes de mot de passe (valeur par défaut : `soplanapp1@gmail.com`).
+  - Boutons d'enregistrement et de rétablissement de la valeur par défaut avec confirmation visuelle immédiate.
+- **Affichage sur l'écran de connexion (`LoginScreen.tsx`)** :
+  - Affichage direct et dynamique de l'email paramétré sur la page de connexion principale avec lien `mailto:` prérempli et bouton de copie en un clic.
+  - Intégration de l'adresse de contact dans le volet « Mot de passe oublié » pour orienter immédiatement les techniciens ayant besoin d'une assistance ou d'un nouveau mot de passe.
+- **Conformité Mentions Légales & Versioning** :
+  - Maintien rigoureux des données de l'éditeur officiel App à la Carte — Hervé CHAMPAGNE EI (SIREN 132 021 098, `contact@appalacarte.fr`).
+  - Synchronisation de la version `v1.7.4` dans `package.json`, `src/version.ts`, le pied de page et les mentions légales.
+
 ## [1.7.3] - 2026-11-02
 
 ### Sécurité & Simplification (Authentification & Mentions Légales)
