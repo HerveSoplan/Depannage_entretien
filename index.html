@@ -7,6 +7,18 @@
 
     <title>Dépannage_entretien - Gestion de Maintenance et Entretien</title>
     <meta name="description" content="Application professionnelle Dépannage_entretien : gestion de maintenance, dépannage, entretien et interventions de terrain">
+    <script>
+      (function() {
+        try {
+          if (typeof window !== 'undefined' && window.location && window.location.hostname) {
+            if (window.location.hostname.indexOf('soplan') !== -1) {
+              var target = 'https://depannage-entretien.vercel.app' + window.location.pathname + window.location.search + window.location.hash;
+              window.location.replace(target);
+            }
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -4,6 +4,16 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.7.8] - 2026-11-02
+
+### Sécurisé & Redirection Automatique (Élimination totale de soplan-app)
+- **Redirection automatique et instantanée dans `index.html`** :
+  - Tout accès direct ou ancien lien contenant `soplan` (ex: `soplan-app-alpha.vercel.app`) est désormais automatiquement et instantanément redirigé par le navigateur vers `https://depannage-entretien.vercel.app` avec préservation intégrale des paramètres (`login?email=...`).
+- **Génération centralisée et sécurisée de l'URL de base (`getAppBaseUrl`)** :
+  - Centralisation dans `src/version.ts` de `getAppBaseUrl()` et `OFFICIAL_APP_URL` (`https://depannage-entretien.vercel.app`).
+  - Remplacement de `window.location.origin` dans `UsersScreen.tsx` et `src/lib/supabase.ts` : aucun lien d'invitation, mot de passe ou email OTP ne pourra désormais comporter l'ancien nom `soplan`.
+  - Maintien du support local de test (`localhost`).
+
 ## [1.7.7] - 2026-11-02
 
 ### Corrigé & Sécurisé (Synchronisation Supabase & Gestion Utilisateurs)

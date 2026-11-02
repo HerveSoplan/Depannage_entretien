@@ -8,6 +8,7 @@ import {
   passwordErrorMessage,
   passwordRules
 } from './validation/password';
+import { getAppBaseUrl } from '../version';
 
 export {
   demoDb,
@@ -1550,7 +1551,7 @@ export const auth = {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin
+        redirectTo: getAppBaseUrl()
       }
     });
     if (error) throw error;
@@ -1588,7 +1589,7 @@ export const auth = {
         const { data, error } = await supabase.auth.signInWithOtp({
           email: cleanEmail,
           options: {
-            emailRedirectTo: window.location.origin
+            emailRedirectTo: getAppBaseUrl()
           }
         });
         if (error) {
@@ -1781,7 +1782,7 @@ export const auth = {
     if (isLiveSupabaseActive()) {
       try {
         await supabase.auth.resetPasswordForEmail(cleanEmail, {
-          redirectTo: `${window.location.origin}/login?type=recovery&email=${encodeURIComponent(cleanEmail)}`
+          redirectTo: `${getAppBaseUrl()}/login?type=recovery&email=${encodeURIComponent(cleanEmail)}`
         });
       } catch (e) {
         console.warn('Supabase resetPasswordForEmail warning:', e);

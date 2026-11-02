@@ -35,7 +35,7 @@ import {
 } from 'lucide-react';
 import { db, generateTemporaryPassword, getPasswordRequestEmail, isLiveSupabaseActive } from '../../lib/supabase';
 import { SUPABASE_REPAIR_SQL } from '../../lib/sql/repairScript';
-import { APP_NAME } from '../../version';
+import { APP_NAME, getAppBaseUrl } from '../../version';
 
 interface UsersScreenProps {
   onNavigate: (screen: string, params?: any) => void;
@@ -188,7 +188,7 @@ export function UsersScreen({ onNavigate }: UsersScreenProps) {
 
   // Formatage officiel du message d'invitation avec mot de passe temporaire
   const formatInvitationMessage = (u: any) => {
-    const appUrl = window.location.origin;
+    const appUrl = getAppBaseUrl();
     const loginLink = `${appUrl}/login?email=${encodeURIComponent(u.email || '')}&action=login`;
     const tempMdp = u.tempPassword || u.motDePasseTemporaire || generateTemporaryPassword(u.prenom || 'technicien');
     const roleLabel = roles.find((r) => r.value === u.role)?.label || u.role || 'Technicien';
@@ -476,7 +476,7 @@ contact@appalacarte.fr`.trim();
     setShowForm(false);
   };
 
-  const appOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+  const appOrigin = getAppBaseUrl();
 
   return (
     <div className="space-y-6 pb-20 lg:pb-6">
@@ -1565,7 +1565,7 @@ Cordialement,
                 type="button"
                 variant="outline"
                 onClick={() => {
-                  const appUrl = window.location.origin;
+                  const appUrl = getAppBaseUrl();
                   const link = `${appUrl}/login?email=${encodeURIComponent(createdCredentialsModal.email)}&action=login`;
                   copyToClipboard(link, 'creds-link');
                 }}
