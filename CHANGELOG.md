@@ -4,6 +4,15 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.7.2] - 2026-11-02
+
+### Modifié
+- **Incrémentation de version & synchronisation système** :
+  - Passage officiel à la version `v1.7.2` (SemVer Patch).
+  - Synchronisation de la version applicative dans `package.json` et `src/version.ts`.
+  - Contrôle et maintien de l'affichage dynamique de la version dans le footer de l'application et sur la page des mentions légales.
+  - Vérification de la stricte conformité éditeur (App à la Carte — Hervé CHAMPAGNE EI, SIREN 132 021 098) et accessibilité hors connexion de la page légale.
+
 ## [1.7.1] - 2026-11-02
 
 ### Modifié & Nettoyé (Rebranding)
