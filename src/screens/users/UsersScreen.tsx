@@ -30,7 +30,7 @@ import {
   RefreshCw,
   Lock
 } from 'lucide-react';
-import { db, generateTemporaryPassword } from '../../lib/supabase';
+import { db, generateTemporaryPassword, getPasswordRequestEmail } from '../../lib/supabase';
 import { APP_NAME } from '../../version';
 
 interface UsersScreenProps {
@@ -186,6 +186,7 @@ export function UsersScreen({ onNavigate }: UsersScreenProps) {
     const loginLink = `${appUrl}/login?email=${encodeURIComponent(u.email || '')}&action=login`;
     const tempMdp = u.tempPassword || u.motDePasseTemporaire || generateTemporaryPassword(u.prenom || 'technicien');
     const roleLabel = roles.find((r) => r.value === u.role)?.label || u.role || 'Technicien';
+    const senderEmail = getPasswordRequestEmail();
 
     return `Bonjour ${u.prenom} ${u.nom},
 
@@ -197,6 +198,8 @@ Votre compte d'accès à l'application ${APP_NAME} a été configuré avec le r�
 - Mot de passe temporaire : ${tempMdp}
 
 ⚠️ Première connexion : Dès votre connexion avec ce mot de passe temporaire, l'application vous demandera immédiatement de définir votre mot de passe personnel définitif.
+
+En cas de question ou pour toute demande d'assistance : ${senderEmail}
 
 Bien cordialement,
 App à la Carte — Hervé CHAMPAGNE EI
@@ -1437,14 +1440,38 @@ Cordialement,
               </pre>
             </div>
 
+            {/* Compte d'envoi automatique configuré */}
+            <div className="flex items-center justify-between p-2.5 bg-blue-50/70 border border-blue-200 rounded-lg text-xs text-blue-900">
+              <span className="flex items-center gap-1.5 font-medium">
+                <Mail size={14} className="text-blue-600" />
+                <span>Compte d'envoi automatique :</span>
+              </span>
+              <strong className="font-mono text-blue-700 bg-white px-2 py-0.5 rounded border border-blue-200">
+                {getPasswordRequestEmail()}
+              </strong>
+            </div>
+
             {/* Boutons d'actions */}
-            <div className="pt-2 border-t border-gray-100 flex flex-col sm:flex-row gap-2 justify-end">
+            <div className="pt-2 border-t border-gray-100 flex flex-wrap gap-2 justify-end">
+              {/* Envoi direct via Gmail avec le compte automatique soplanapp1@gmail.com */}
               <a
-                href={`mailto:${encodeURIComponent(createdCredentialsModal.email)}?subject=${encodeURIComponent(`Vos accès à l'application ${APP_NAME}`)}&body=${encodeURIComponent(formatInvitationMessage(createdCredentialsModal))}`}
+                href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(createdCredentialsModal.email)}&su=${encodeURIComponent(`Vos accès à l'application ${APP_NAME}`)}&body=${encodeURIComponent(formatInvitationMessage(createdCredentialsModal))}&authuser=${encodeURIComponent(getPasswordRequestEmail())}`}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm flex items-center justify-center gap-1.5 transition-colors"
+                title={`Envoyer automatiquement depuis ${getPasswordRequestEmail()}`}
               >
                 <Mail size={15} />
-                <span>Envoyer par email</span>
+                <span>Envoyer via Gmail ({getPasswordRequestEmail()})</span>
+              </a>
+
+              {/* Option alternative mailto */}
+              <a
+                href={`mailto:${encodeURIComponent(createdCredentialsModal.email)}?subject=${encodeURIComponent(`Vos accès à l'application ${APP_NAME}`)}&body=${encodeURIComponent(formatInvitationMessage(createdCredentialsModal))}`}
+                className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 transition-colors"
+                title="Ouvrir dans votre client de messagerie par défaut"
+              >
+                <span>Autre messagerie</span>
               </a>
 
               <Button

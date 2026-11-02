@@ -4,6 +4,15 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.7.5] - 2026-11-02
+
+### Corrigé & Amélioré (Gestion des utilisateurs & Envoi d'invitations)
+- **Envoi automatique des identifiants et invitations depuis `soplanapp1@gmail.com` ([UsersScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/users/UsersScreen.tsx))** :
+  - Remplacement du simple lien `mailto:` système (qui ouvrait par défaut la boîte personnelle `hchampag1@hotmail.fr`) par un bouton d'envoi direct **Gmail** pré-authentifié avec le compte `soplanapp1@gmail.com` (`authuser=soplanapp1@gmail.com`).
+  - Intégration de l'adresse de support et de demande de mot de passe (`soplanapp1@gmail.com`) directement dans le corps du message d'invitation généré.
+  - Affichage d'un badge confirmant le compte d'envoi automatique configuré dans la modale de transmission d'identifiants.
+  - Synchronisation dynamique avec la configuration globale de l'email paramétrable depuis `DatabaseAdminScreen.tsx`.
+
 ## [1.7.4] - 2026-11-02
 
 ### Ajouté & Amélioré (Administration & Page de Connexion)
