@@ -4,6 +4,18 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.10.1] - 2026-11-02
+
+### Modifié (Filtrage des Clients Récents sur le Tableau de Bord)
+- **Affichage conditionnel des clients récents ([Dashboard.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/Dashboard.tsx))** :
+  - Les clients affichés dans le bloc « Clients récents » du tableau de bord ne sont désormais présentés que s'ils possèdent au moins une machine enregistrée (`m.clientId` ou `m.client_id`).
+  - Ajout d'un badge visuel élégant indiquant le nombre exact de machines associées pour chaque client affiché (ex: `1 machine`, `2 machines`).
+  - Chargement garanti des machines lors de l'accès au tableau de bord pour fiabiliser le filtrage en temps réel.
+  - Message explicite et clair lorsque aucun client possédant une machine n'est encore enregistré.
+- **Conformité & Versioning** :
+  - Incrémentation SemVer vers la version `v1.10.1` synchronisée dans `package.json`, `src/version.ts`, `public/version.json` et le footer.
+  - Vérification continue des mentions légales (EI Hervé CHAMPAGNE, SIREN 132 021 098).
+
 ## [1.10.0] - 2026-11-02
 
 ### Corrigé & Intégré (Restauration du Protocole de Montage et Calcul des Heures)

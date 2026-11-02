@@ -28,7 +28,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   const { spareParts, fetchSpareParts } = useSpareParts();
   const { maintenanceKits, fetchMaintenanceKits } = useMaintenanceKits();
   const { interventions, fetchInterventions } = useInterventions();
-  const { machines, fetchMachines } = useMachines();
+  const { machines, loading: loadingMachines, fetchMachines } = useMachines();
 
   // Contrôle strict des permissions : un profil CMS/technicien ne voit pas Utilisateurs ni Administration
   const canViewClients = can('view_clients');
@@ -49,7 +49,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         if (canViewSpareParts) promises.push(fetchSpareParts());
         if (canViewMaintenance) promises.push(fetchMaintenanceKits());
         if (canViewInterventions) promises.push(fetchInterventions({ limit: 100 }));
-        if (canViewMachines) promises.push(fetchMachines({ limit: 100 }));
+        if (canViewMachines || canViewClients) promises.push(fetchMachines({ limit: 200 }));
 
         await Promise.all(promises);
       } catch (error) {
@@ -103,6 +103,38 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
   // Interventions en cours
   const activeInterventions = (interventions || []).filter((i) => i.statut === 'EN_COURS');
+
+  // Filtrage des clients possédant au moins une machine
+  const clientHasMachine = useMemo(() => {
+    const clientsWithMachinesSet = new Set<string>();
+    (machines || []).forEach((m: any) => {
+      const cId = m.clientId || m.client_id;
+      if (cId) {
+        clientsWithMachinesSet.add(String(cId));
+      }
+    });
+    return (client: any) => {
+      const id1 = client?._id != null ? String(client._id) : '';
+      const id2 = client?.id != null ? String(client.id) : '';
+      return (id1 && clientsWithMachinesSet.has(id1)) || (id2 && clientsWithMachinesSet.has(id2));
+    };
+  }, [machines]);
+
+  // Clients récents : seuls les clients possédant au moins une machine sont retenus
+  const recentClientsWithMachines = useMemo(() => {
+    if (!clients || clients.length === 0) return [];
+    return clients.filter(clientHasMachine).slice(0, 5);
+  }, [clients, clientHasMachine]);
+
+  // Nombre de machines possédées par un client
+  const getClientMachineCount = (client: any) => {
+    const id1 = client?._id != null ? String(client._id) : '';
+    const id2 = client?.id != null ? String(client.id) : '';
+    return (machines || []).filter((m: any) => {
+      const cId = String(m.clientId || m.client_id || '');
+      return (id1 && cId === id1) || (id2 && cId === id2);
+    }).length;
+  };
 
   // Fonction pour obtenir les infos d'une intervention
   const getInterventionDetails = (intervention: any) => {
@@ -386,7 +418,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         </div>
       )}
 
-      {/* Liste des clients récents */}
+      {/* Liste des clients récents (uniquement les clients possédant au moins une machine) */}
       {canViewClients && (
         <div>
           <div className="flex items-center justify-between mb-4">
@@ -400,52 +432,68 @@ export function Dashboard({ onNavigate }: DashboardProps) {
             </Button>
           </div>
 
-          {loadingClients ? (
+          {loadingClients || (loadingMachines && machines.length === 0) ? (
             <p className="text-gray-500">Chargement...</p>
-          ) : clients.length === 0 ? (
-            <Card><p className="text-gray-500">Aucun client enregistré</p></Card>
+          ) : recentClientsWithMachines.length === 0 ? (
+            <Card>
+              <p className="text-gray-500">
+                {clients.length === 0
+                  ? 'Aucun client enregistré'
+                  : 'Aucun client possédant une machine enregistré'}
+              </p>
+            </Card>
           ) : (
             <div className="space-y-3">
-              {clients.slice(0, 5).map((client) => (
-                <Card
-                  key={client._id}
-                  className="hover:shadow-md transition-shadow cursor-pointer"
-                  onClick={() => onNavigate?.('client-detail', { clientId: client._id })}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                          <span className="text-blue-600 font-bold text-lg">
-                            {client.nom?.charAt(0) || '?'}
-                          </span>
-                        </div>
-                        <div>
-                          <p className="font-semibold text-gray-900">{client.nom}</p>
-                          <p className="text-sm text-gray-600">{client.nomFerme}</p>
-                          <p className="text-xs text-gray-500">
-                            N° {client.numeroClient}
-                          </p>
+              {recentClientsWithMachines.map((client) => {
+                const machineCount = getClientMachineCount(client);
+                return (
+                  <Card
+                    key={client._id}
+                    className="hover:shadow-md transition-shadow cursor-pointer"
+                    onClick={() => onNavigate?.('client-detail', { clientId: client._id })}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                            <span className="text-blue-600 font-bold text-lg">
+                              {client.nom?.charAt(0) || '?'}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-900">{client.nom}</p>
+                            <p className="text-sm text-gray-600">{client.nomFerme}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <p className="text-xs text-gray-500">
+                                N° {client.numeroClient}
+                              </p>
+                              <span className="text-xs text-gray-300">•</span>
+                              <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
+                                <Wrench size={12} className="text-blue-600" />
+                                {machineCount} machine{machineCount > 1 ? 's' : ''}
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       </div>
+                      {canCreateInterventions && (
+                        <div className="flex gap-2">
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onNavigate?.('intervention-form', { clientId: client._id });
+                            }}
+                          >
+                            Intervention
+                          </Button>
+                        </div>
+                      )}
                     </div>
-                    {canCreateInterventions && (
-                      <div className="flex gap-2">
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onNavigate?.('intervention-form', { clientId: client._id });
-                          }}
-                        >
-                          Intervention
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </Card>
-              ))}
+                  </Card>
+                );
+              })}
             </div>
           )}
         </div>
