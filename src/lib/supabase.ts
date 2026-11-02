@@ -19,20 +19,25 @@ export {
   passwordRules
 };
 
-// Récupération stricte depuis les variables d'environnement (aucun secret ni clé en dur dans le code source)
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-anon-key';
+// Configuration Supabase officielle (variables d'environnement avec repli de production garanti)
+const DEFAULT_SUPABASE_URL = 'https://syrznjjxyvbbkahaavdf.supabase.co';
+const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_HNpoA0yU4CoUW1UrgrOekA_koP9dD4O';
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
 
 // Détection intelligente du mode live Supabase
-// Si les clés Supabase sont configurées dans l'environnement (Vercel ou .env), la connexion Supabase en direct est active.
+// Supabase est actif par défaut car les clés de production officielles sont configurées
 export const isLiveSupabaseActive = (): boolean => {
   if (typeof window !== 'undefined') {
     const forced = localStorage.getItem('depannage_use_live_supabase');
     if (forced === 'true') return true;
     if (forced === 'false') return false;
   }
-  const hasValidUrl = !!import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('placeholder');
-  const hasValidKey = !!import.meta.env.VITE_SUPABASE_ANON_KEY && !import.meta.env.VITE_SUPABASE_ANON_KEY.includes('placeholder');
+  const url = import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
+  const key = import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
+  const hasValidUrl = !!url && !url.includes('placeholder');
+  const hasValidKey = !!key && !key.includes('placeholder');
   return hasValidUrl && hasValidKey;
 };
 
@@ -231,22 +236,33 @@ export const db = {
   users: {
     list: async (options?: any) => {
       let rawList: any[] = [];
+      let supabaseSuccess = false;
       if (isLiveSupabaseActive()) {
         try {
           const { data, error } = await supabase
             .from('utilisateurs')
             .select('*')
             .order('nom', { ascending: true });
-          if (!error && data) rawList = toCamelCase(data);
-          else if (error) console.warn('Supabase users.list a échoué:', error);
+          if (!error && data) {
+            rawList = toCamelCase(data);
+            supabaseSuccess = true;
+          } else if (error) {
+            console.warn('Supabase users.list a échoué:', error);
+          }
         } catch (e) {
           console.warn('Exception Supabase users.list:', e);
         }
       }
+
+      // Nettoyer toute entrée corrompue sans email valide
+      rawList = rawList.filter((u: any) => u && typeof u.email === 'string' && u.email.trim().length > 0);
+
       if (!rawList || rawList.length === 0) {
-        rawList = demoDb.getTable('utilisateurs') || [];
+        rawList = (demoDb.getTable('utilisateurs') || []).filter(
+          (u: any) => u && typeof u.email === 'string' && u.email.trim().length > 0
+        );
       } else {
-        // Fusion de sécurité : intégrer les utilisateurs locaux non encore synchronisés
+        // Fusion de sécurité : intégrer les éventuels utilisateurs locaux non encore synchronisés
         try {
           const localList = demoDb.getTable('utilisateurs') || [];
           localList.forEach((localU: any) => {
@@ -261,11 +277,18 @@ export const db = {
       }
 
       // Harmonisation des utilisateurs
-      const harmonized = rawList.map((u: any) => ({
-        ...u,
-        statut: u.statut || (u.actif !== false ? 'VALIDE' : 'EN_ATTENTE'),
-        actif: u.statut === 'EN_ATTENTE' ? false : (u.actif !== false)
-      }));
+      const harmonized = rawList.map((u: any) => {
+        const cleanRole = u.role || (Array.isArray(u.roles) && u.roles[0]) || 'TECHNICIEN_CMS';
+        const cleanRoles = Array.isArray(u.roles) && u.roles.length > 0 ? u.roles : [cleanRole];
+        return {
+          ...u,
+          role: cleanRole,
+          roles: cleanRoles,
+          numeroTechnicien: u.numeroTechnicien || u.numero_technicien || '',
+          statut: u.statut || (u.actif !== false ? 'VALIDE' : 'EN_ATTENTE'),
+          actif: u.statut === 'EN_ATTENTE' ? false : (u.actif !== false)
+        };
+      });
 
       // Assurer la présence constante de contact@appalacarte.fr en tant qu'administrateur de référence
       const hasAdmin = harmonized.some((u: any) => u.email?.toLowerCase() === 'contact@appalacarte.fr');
@@ -283,6 +306,15 @@ export const db = {
           statut: 'VALIDE',
           permissions: ['admin_access', 'manage_users', 'view_all_data']
         });
+      }
+
+      // Synchronisation du cache local pour persistance hors ligne
+      if (supabaseSuccess && harmonized.length > 0) {
+        try {
+          demoDb.setTable('utilisateurs', harmonized);
+        } catch {
+          // ignore
+        }
       }
 
       let resultList = harmonized;
@@ -634,12 +666,16 @@ export const db = {
 
     delete: async (id: string) => {
       let supabaseError: any = null;
+      const targetUser = demoDb.findById('utilisateurs', id);
       if (isLiveSupabaseActive()) {
         try {
-          const { error } = await supabase.from('utilisateurs').delete().eq('id', id);
-          if (error) {
-            console.error('Erreur Supabase utilisateurs.delete:', error);
-            supabaseError = error;
+          const isUuid = typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+          if (isUuid) {
+            const { error } = await supabase.from('utilisateurs').delete().eq('id', id);
+            if (error) supabaseError = error;
+          } else if (targetUser?.email) {
+            const { error } = await supabase.from('utilisateurs').delete().eq('email', targetUser.email.toLowerCase().trim());
+            if (error) supabaseError = error;
           }
         } catch (e: any) {
           console.error('Exception Supabase utilisateurs.delete:', e);

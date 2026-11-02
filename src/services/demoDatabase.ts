@@ -146,6 +146,11 @@ class DemoDatabaseManager {
     return this.state[tableName] || [];
   }
 
+  public setTable(tableName: keyof DemoDatabaseState, list: any[]) {
+    const newState = { ...this.state, [tableName]: list };
+    this.saveState(newState);
+  }
+
   public findById(tableName: keyof DemoDatabaseState, id: string): any | null {
     const list = this.getTable(tableName);
     return list.find((item: any) => item.id === id || item._id === id) || null;

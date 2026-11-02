@@ -68,7 +68,7 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
 
   const { machines, fetchMachines } = useMachines();
   const { clients, fetchClients, deleteClient } = useClients();
-  const { users, fetchUsers } = useUsers();
+  const { users, fetchUsers, deleteUser } = useUsers();
   const { spareParts, fetchSpareParts, deleteSparePart } = useSpareParts();
   const { maintenanceKits, fetchMaintenanceKits, deleteMaintenanceKit } = useMaintenanceKits();
   const { errorCodes, fetchErrorCodes } = useErrorCodes();
@@ -468,6 +468,72 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
           </Card>
         );
 
+      case 'users':
+        return (
+          <Card className="mb-6 border-blue-200">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold">Ajouter un utilisateur</h2>
+              <Button variant="ghost" size="sm" onClick={() => setShowAddForm(false)}>
+                <X size={20} />
+              </Button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Input
+                label="Nom"
+                value={formData.nom || ''}
+                onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
+                required
+              />
+              <Input
+                label="Prénom"
+                value={formData.prenom || ''}
+                onChange={(e) => setFormData({ ...formData, prenom: e.target.value })}
+                required
+              />
+              <Input
+                label="Email"
+                type="email"
+                value={formData.email || ''}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                required
+              />
+              <Input
+                label="Téléphone"
+                value={formData.telephone || ''}
+                onChange={(e) => setFormData({ ...formData, telephone: e.target.value })}
+              />
+              <Input
+                label="N° Technicien"
+                value={formData.numeroTechnicien || ''}
+                onChange={(e) => setFormData({ ...formData, numeroTechnicien: e.target.value })}
+                placeholder="Ex: 002"
+              />
+              <Select
+                label="Rôle"
+                value={formData.role || 'TECHNICIEN_CMS'}
+                onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                options={[
+                  { value: 'TECHNICIEN_CMS', label: 'Technicien CMS' },
+                  { value: 'TECHNICIEN_ROBOT', label: 'Technicien Robot' },
+                  { value: 'TECHNICIEN_FROID', label: 'Technicien Froid' },
+                  { value: 'TECHNICIEN_TRAITE', label: 'Technicien Traite' },
+                  { value: 'RESPONSABLE_TECHNIQUE', label: 'Responsable Technique' },
+                  { value: 'ADMINISTRATEUR', label: 'Administrateur' },
+                  { value: 'MAGASINIER', label: 'Magasinier' },
+                  { value: 'CLIENT', label: 'Client' }
+                ]}
+              />
+            </div>
+            <div className="flex justify-end gap-3 mt-4">
+              <Button variant="ghost" onClick={() => setShowAddForm(false)}>Annuler</Button>
+              <Button onClick={handleAdd} disabled={loading}>
+                <Save size={18} className="mr-2" />
+                Enregistrer
+              </Button>
+            </div>
+          </Card>
+        );
+
       default:
         return null;
     }
@@ -475,6 +541,80 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
 
   // ✅ NOUVEAU : Formulaire d'édition
   const getEditForm = () => {
+    if (activeTable === 'users') {
+      return (
+        <Card className="mb-6 border-blue-200">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold">Modifier l'utilisateur</h2>
+            <Button variant="ghost" size="sm" onClick={() => {
+              setShowEditForm(false);
+              setEditingItem(null);
+              setFormData({});
+            }}>
+              <X size={20} />
+            </Button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input
+              label="Nom"
+              value={formData.nom || ''}
+              onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
+              required
+            />
+            <Input
+              label="Prénom"
+              value={formData.prenom || ''}
+              onChange={(e) => setFormData({ ...formData, prenom: e.target.value })}
+              required
+            />
+            <Input
+              label="Email"
+              type="email"
+              value={formData.email || ''}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              required
+            />
+            <Input
+              label="Téléphone"
+              value={formData.telephone || ''}
+              onChange={(e) => setFormData({ ...formData, telephone: e.target.value })}
+            />
+            <Input
+              label="N° Technicien"
+              value={formData.numeroTechnicien || ''}
+              onChange={(e) => setFormData({ ...formData, numeroTechnicien: e.target.value })}
+            />
+            <Select
+              label="Rôle"
+              value={formData.role || 'TECHNICIEN_CMS'}
+              onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+              options={[
+                { value: 'TECHNICIEN_CMS', label: 'Technicien CMS' },
+                { value: 'TECHNICIEN_ROBOT', label: 'Technicien Robot' },
+                { value: 'TECHNICIEN_FROID', label: 'Technicien Froid' },
+                { value: 'TECHNICIEN_TRAITE', label: 'Technicien Traite' },
+                { value: 'RESPONSABLE_TECHNIQUE', label: 'Responsable Technique' },
+                { value: 'ADMINISTRATEUR', label: 'Administrateur' },
+                { value: 'MAGASINIER', label: 'Magasinier' },
+                { value: 'CLIENT', label: 'Client' }
+              ]}
+            />
+          </div>
+          <div className="flex justify-end gap-3 mt-4">
+            <Button variant="ghost" onClick={() => {
+              setShowEditForm(false);
+              setEditingItem(null);
+              setFormData({});
+            }}>Annuler</Button>
+            <Button onClick={handleUpdate} disabled={loading}>
+              <Save size={18} className="mr-2" />
+              Mettre à jour
+            </Button>
+          </div>
+        </Card>
+      );
+    }
+
     if (activeTable !== 'machine_fields') return null;
 
     return (
@@ -613,6 +753,22 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
         updatedAt: now
       };
 
+      if (activeTable === 'users') {
+        const userNom = (formData.nom || '').trim();
+        const userPrenom = (formData.prenom || '').trim();
+        const userEmail = (formData.email || '').trim().toLowerCase();
+        await db.users.update(editingItem.id || editingItem._id, {
+          nom: userNom,
+          prenom: userPrenom,
+          email: userEmail,
+          telephone: (formData.telephone || '').trim(),
+          numeroTechnicien: (formData.numeroTechnicien || '').trim(),
+          role: formData.role || 'TECHNICIEN_CMS',
+          roles: [formData.role || 'TECHNICIEN_CMS']
+        });
+        await fetchUsers();
+      }
+
       if (activeTable === 'machine_fields') {
         const fieldData = {
           ...data,
@@ -653,6 +809,32 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
       };
 
       switch (activeTable) {
+        case 'users': {
+          const userNom = (formData.nom || '').trim();
+          const userPrenom = (formData.prenom || '').trim();
+          const userEmail = (formData.email || '').trim().toLowerCase();
+          if (!userEmail) {
+            alert("L'adresse email est obligatoire.");
+            setLoading(false);
+            return;
+          }
+          await db.users.create({
+            nom: userNom,
+            prenom: userPrenom,
+            email: userEmail,
+            telephone: (formData.telephone || '').trim(),
+            numeroTechnicien: (formData.numeroTechnicien || '').trim(),
+            role: formData.role || 'TECHNICIEN_CMS',
+            roles: [formData.role || 'TECHNICIEN_CMS'],
+            actif: true,
+            statut: 'VALIDE'
+          });
+          await fetchUsers();
+          alert('✅ Utilisateur créé et enregistré avec succès dans la base de données !');
+          setShowAddForm(false);
+          setFormData({});
+          break;
+        }
         case 'clients':
           await (db as any).clients.create(data);
           await fetchClients();
@@ -866,7 +1048,24 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
 
         await fetchUsers();
       },
-      onDelete: undefined
+      onDelete: async (id: string) => {
+        const target = users.find((u: any) => u.id === id || u._id === id);
+        if (target?.email?.toLowerCase() === 'contact@appalacarte.fr') {
+          alert("L'administrateur maître contact@appalacarte.fr ne peut pas être supprimé.");
+          return;
+        }
+        if (!confirm("Supprimer définitivement cet utilisateur ?")) return;
+        setLoading(true);
+        try {
+          await deleteUser(id);
+          await fetchUsers();
+          alert('✅ Utilisateur supprimé avec succès.');
+        } catch (e: any) {
+          alert('Erreur lors de la suppression : ' + (e.message || 'Erreur inconnue'));
+        } finally {
+          setLoading(false);
+        }
+      }
     },
     maintenance_kits: {
       name: 'Kits d\'entretien',
@@ -1498,6 +1697,21 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
             console.log('Edit:', item);
             if (activeTable === 'clients') {
               onNavigate?.('client-form', { clientId: item._id });
+            } else if (activeTable === 'users') {
+              setEditingItem(item);
+              setFormData({
+                ...item,
+                nom: item.nom || '',
+                prenom: item.prenom || '',
+                email: item.email || '',
+                telephone: item.telephone || '',
+                numeroTechnicien: item.numeroTechnicien || item.numero_technicien || '',
+                role: item.role || 'TECHNICIEN_CMS'
+              });
+              setShowEditForm(true);
+              setShowAddForm(false);
+              setShowImporter(false);
+              setShowKitImporter(false);
             } else if (activeTable === 'machine_fields') {
               setEditingItem(item);
               setFormData({

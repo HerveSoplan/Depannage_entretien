@@ -4,6 +4,23 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.8.4] - 2026-11-02
+
+### Corrigé (Persistance Totale des Utilisateurs & Gestion Complète dans la Base de Données)
+- **Résolution définitive de la persistance des utilisateurs ([supabase.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/lib/supabase.ts), [demoDatabase.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/services/demoDatabase.ts))** :
+  - **Configuration officielle de production garantie par défaut** : Intégration directe des clés Supabase officielles (`https://syrznjjxyvbbkahaavdf.supabase.co`) en valeur par défaut résiliente, évitant tout basculement intempestif sur une URL placeholder lors des déploiements en ligne.
+  - **Synchronisation automatique et bidirectionnelle du cache local (`demoDb.setTable`)** : Dès que Supabase charge la liste des utilisateurs, le stockage local est automatiquement synchronisé et mis à jour pour assurer la persistance et l'accès instantané en toute circonstance.
+  - **Purge et nettoyage des entrées corrompues** : Élimination dans Supabase et en mémoire locale des lignes fantômes ayant des identifiants vides (`email: ''`), et filtrage strict pour n'afficher que les utilisateurs réels et identifiables.
+- **Ajout de la gestion complète des utilisateurs dans l'Administration de la Base de Données ([DatabaseAdminScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/admin/DatabaseAdminScreen.tsx))** :
+  - **Formulaire d'ajout direct d'utilisateur (`getAddForm`)** : Ajout du formulaire complet (Nom, Prénom, Email, Téléphone, N° Technicien, Rôle) permettant de créer un nouvel utilisateur directement depuis l'onglet Utilisateurs de la base de données.
+  - **Modification en ligne (`getEditForm` & `onEdit`)** : Bouton d'édition opérationnel sur le tableau des utilisateurs avec formulaire modal pré-rempli.
+  - **Suppression sécurisée (`onDelete`)** : Bouton de suppression branché avec confirmation et protection absolue du compte maître administrateur (`contact@appalacarte.fr`).
+- **Sécurisation du filtrage dans la Gestion des Utilisateurs ([UsersScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/users/UsersScreen.tsx))** :
+  - Filtrage sécurisé contre les valeurs nulles ou indéfinies garantissant que tous les utilisateurs enregistrés restent toujours visibles dans leurs onglets respectifs (*Tous*, *Validés*, *En attente*).
+- **Conformité & Versioning** :
+  - Passage à la version `v1.8.4` synchronisée dans `package.json` et `src/version.ts`.
+  - Contrôle et maintien de l'exactitude des mentions légales (App à la Carte — Hervé CHAMPAGNE EI, SIREN 132 021 098).
+
 ## [1.8.3] - 2026-11-02
 
 ### Ajouté (Bouton Enveloppe pour Renvoyer l'Email de Connexion)

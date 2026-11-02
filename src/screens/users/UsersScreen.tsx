@@ -158,12 +158,14 @@ export function UsersScreen({ onNavigate }: UsersScreenProps) {
     }
   };
 
-  // Groupes d'utilisateurs selon statut
-  const pendingUsers = users.filter(
+  // Groupes d'utilisateurs selon statut (en excluant toute ligne corrompue sans identité)
+  const validUsersList = users.filter((u) => u && typeof u === 'object' && (u.email || u.nom || u.prenom));
+
+  const pendingUsers = validUsersList.filter(
     (u) => u.statut === 'EN_ATTENTE' || (u.actif === false && u.statut !== 'REFUSE' && u.email !== 'contact@appalacarte.fr')
   );
 
-  const activeUsers = users.filter(
+  const activeUsers = validUsersList.filter(
     (u) => u.statut === 'VALIDE' || (u.actif !== false && u.statut !== 'EN_ATTENTE' && u.statut !== 'REFUSE')
   );
 
@@ -171,15 +173,18 @@ export function UsersScreen({ onNavigate }: UsersScreenProps) {
   const getTabUsers = () => {
     if (activeTab === 'en_attente') return pendingUsers;
     if (activeTab === 'valides') return activeUsers;
-    return users;
+    return validUsersList;
   };
 
-  const filteredUsers = getTabUsers().filter((user) =>
-    user.nom?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.prenom?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.numeroTechnicien?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredUsers = getTabUsers().filter((user) => {
+    const q = (searchQuery || '').trim().toLowerCase();
+    if (!q) return true;
+    const nom = String(user.nom || '').toLowerCase();
+    const prenom = String(user.prenom || '').toLowerCase();
+    const email = String(user.email || '').toLowerCase();
+    const num = String(user.numeroTechnicien || user.numero_technicien || '').toLowerCase();
+    return nom.includes(q) || prenom.includes(q) || email.includes(q) || num.includes(q);
+  });
 
   // Validation d'une demande d'accès
   const handleOpenApproveModal = (user: any) => {
