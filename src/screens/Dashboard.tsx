@@ -304,6 +304,15 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                         return;
                       }
 
+                      if (intervention.type === 'INSTALLATION') {
+                        onNavigate?.('installation-protocol', {
+                          interventionId: intervention._id,
+                          clientId: intervention.clientId,
+                          machineId: intervention.machineIds?.[0]
+                        });
+                        return;
+                      }
+
                       if (intervention.statut === 'TERMINEE') {
                         onNavigate?.('intervention-detail', {
                           interventionId: intervention._id,

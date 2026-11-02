@@ -17,6 +17,7 @@ export interface DemoDatabaseState {
   languages: any[];
   translations: any[];
   clientMessages: any[];
+  montages: any[];
 }
 
 const STORAGE_KEY = 'maintenance_database_v2';
@@ -64,7 +65,8 @@ const INITIAL_CLEAN_DATA: DemoDatabaseState = {
     { id: 'lang-en', code: 'en', name: 'English', nativeName: 'English', isActive: true, isDefault: false }
   ],
   translations: [],
-  clientMessages: []
+  clientMessages: [],
+  montages: []
 };
 
 class DemoDatabaseManager {
@@ -91,6 +93,7 @@ class DemoDatabaseManager {
       if (stored) {
         const parsed = JSON.parse(stored);
         if (!parsed.utilisateurs) parsed.utilisateurs = [];
+        if (!parsed.montages) parsed.montages = [];
         
         // S'assurer que contact@appalacarte.fr est toujours présent et administrateur actif
         const adminIndex = parsed.utilisateurs.findIndex((u: any) => u.email?.toLowerCase() === 'contact@appalacarte.fr');

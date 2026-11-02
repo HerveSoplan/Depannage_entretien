@@ -4,6 +4,29 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.10.0] - 2026-11-02
+
+### Corrigé & Intégré (Restauration du Protocole de Montage et Calcul des Heures)
+- **Restauration et intégration complète du Protocole de montage ([InstallationProtocolScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/interventions/InstallationProtocolScreen.tsx))** :
+  - Élimination définitive des anciennes références bloquantes à Lumi (`lumi.auth.refreshUser()`) qui provoquaient un gel indéfini de l'écran sur "Chargement...".
+  - Utilisation du hook centralisé `useCurrentUser()` garantissant la disponibilité instantanée du profil connecté.
+  - Implémentation complète de l'entité `db.montages` dans `src/lib/supabase.ts` et `src/services/demoDatabase.ts` pour la persistance locale et la synchronisation avec la table Supabase `installation_protocols`.
+  - Prise en charge des accès directs : l'écran de montage peut désormais être ouvert aussi bien avec les paramètres d'une intervention précise qu'en tant qu'espace global de gestion des montages.
+- **Calcul et Suivi en Temps Réel des Heures d'Intervention ([MachineTasksView.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/installation/MachineTasksView.tsx), [InstallationProtocolScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/interventions/InstallationProtocolScreen.tsx))** :
+  - **Module de calcul des heures** : calcul et ventilation automatique des heures par intervenant, par machine et pour l'ensemble du chantier de montage.
+  - **Boutons de saisie rapide sur le terrain** : ajout de raccourcis tactiles `+0.5h`, `+1h`, `+2h` en plus de la saisie numérique libre pour accélérer l'enregistrement des temps passés sur chaque tâche obligatoire ou personnalisée.
+  - **Carte de synthèse des heures en haut du chantier** : affichage en grand format du cumul total du chantier (`XXh XXmin`) et tableau de répartition par intervenant.
+  - **Correction du calcul d'heures GPS** : transmission de la liste réelle des techniciens et de leurs tâches au composant `GPSTrackingAlert.tsx` pour fiabiliser le contrôle du quota journalier minimum de 8h sur le chantier.
+- **Accès et Navigation Directe dans toute l'application ([Navigation.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/components/common/Navigation.tsx), [App.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/App.tsx), [InterventionDetailScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/interventions/InterventionDetailScreen.tsx), [InterventionsScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/interventions/InterventionsScreen.tsx))** :
+  - Ajout d'une entrée directe **Montage** (icône marteau `Hammer`) dans le menu latéral et mobile pour un accès immédiat.
+  - Intégration de la route `/montage` protégée dans `App.tsx`.
+  - Ajout du bouton direct `🔨 Ouvrir le protocole de montage` dans la fiche détail des interventions (`InterventionDetailScreen.tsx`).
+  - Redirection automatique des interventions de type `INSTALLATION` (Montage) directement vers leur protocole depuis la liste des interventions (`InterventionsScreen.tsx`) et le tableau de bord (`Dashboard.tsx`).
+  - Sécurisation de `InterventionFormScreen.tsx` : la modification d'un montage existant n'entraîne plus de création de doublon.
+- **Conformité & Versioning** :
+  - Passage à la version `v1.10.0` synchronisée dans `package.json`, `src/version.ts` et `public/version.json`.
+  - Vérification et respect des mentions légales obligatoires (App à la Carte — Hervé CHAMPAGNE EI, SIREN 132 021 098).
+
 ## [1.9.0] - 2026-11-02
 
 ### Ajouté (Autocomplétion et Pré-remplissage en Direct pour Accélérer l'Écriture)

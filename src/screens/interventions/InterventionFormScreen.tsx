@@ -805,28 +805,39 @@ export function InterventionFormScreen({
                       }
 
                       try {
-                        const now = new Date();
-                        const numeroIntervention =
-                          now.getFullYear().toString() +
-                          (now.getMonth() + 1).toString().padStart(2, '0') +
-                          now.getDate().toString().padStart(2, '0') +
-                          now.getHours().toString().padStart(2, '0') +
-                          formData.technicienId.slice(-3);
+                        let targetInterventionId = interventionId;
 
-                        const newIntervention = await createIntervention({
-                          ...formData,
-                          numeroIntervention,
-                          statut: 'EN_COURS',
-                          dateDebut: new Date().toISOString(),
-                          creator: 'system',
-                          createdAt: new Date().toISOString(),
-                          updatedAt: new Date().toISOString()
-                        });
+                        if (targetInterventionId) {
+                          await updateIntervention(targetInterventionId, {
+                            ...formData,
+                            statut: 'EN_COURS',
+                            updatedAt: new Date().toISOString()
+                          });
+                        } else {
+                          const now = new Date();
+                          const numeroIntervention =
+                            now.getFullYear().toString() +
+                            (now.getMonth() + 1).toString().padStart(2, '0') +
+                            now.getDate().toString().padStart(2, '0') +
+                            now.getHours().toString().padStart(2, '0') +
+                            (formData.technicienId || '000').slice(-3);
+
+                          const newIntervention = await createIntervention({
+                            ...formData,
+                            numeroIntervention,
+                            statut: 'EN_COURS',
+                            dateDebut: new Date().toISOString(),
+                            creator: 'system',
+                            createdAt: new Date().toISOString(),
+                            updatedAt: new Date().toISOString()
+                          });
+                          targetInterventionId = newIntervention._id;
+                        }
 
                         onNavigate('installation-protocol', {
-                          interventionId: newIntervention._id,
-                          clientId: newIntervention.clientId,
-                          machineId: newIntervention.machineIds[0]
+                          interventionId: targetInterventionId,
+                          clientId: formData.clientId,
+                          machineId: formData.machineIds[0]
                         });
 
                       } catch (error) {

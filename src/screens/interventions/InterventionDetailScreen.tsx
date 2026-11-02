@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
-import {ArrowLeft, Edit, Trash2, MapPin, Clock, User, Package, FileText, Plus} from 'lucide-react';
+import {ArrowLeft, Edit, Trash2, MapPin, Clock, User, Package, FileText, Plus, Hammer} from 'lucide-react';
 import { useInterventions } from '../../hooks/useInterventions';
 import { useClients } from '../../hooks/useClients';
 import { useMachines } from '../../hooks/useMachines';
@@ -285,6 +285,7 @@ export function InterventionDetailScreen({
   const isFinished = intervention.statut === 'TERMINEE';
   const isCommissioning = intervention?.type === 'COMMISSIONING';
   const isMaintenance = intervention?.type === 'MAINTENANCE';
+  const isInstallation = intervention?.type === 'INSTALLATION';
   const hasProtocolData = !!intervention?.protocolData;
 
   return (
@@ -313,7 +314,7 @@ export function InterventionDetailScreen({
         </div>
 
         <div className="flex gap-2 flex-wrap">
-          {!isFinished && !isCommissioning && !isMaintenance && (
+          {!isFinished && !isCommissioning && !isMaintenance && !isInstallation && (
             <Button variant="primary" onClick={handleCloseIntervention} className="flex items-center gap-2 bg-orange-400 hover:bg-orange-500 text-white">
               <Clock size={18} />
               Clôturer
@@ -345,6 +346,19 @@ export function InterventionDetailScreen({
             >
               <FileText size={18} />
               {intervention.totalTaches ? '📋 Continuer l\'entretien' : '🚀 Démarrer l\'entretien'}
+            </Button>
+          ) : isInstallation ? (
+            <Button 
+              variant="primary" 
+              onClick={() => onNavigate('installation-protocol', { 
+                interventionId: intervention._id, 
+                clientId: intervention.clientId,
+                machineId: intervention.machineIds?.[0]
+              })} 
+              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
+            >
+              <Hammer size={18} />
+              {intervention.montageId ? '🔨 Ouvrir le protocole de montage' : '🚀 Démarrer le montage'}
             </Button>
           ) : (
             !isFinished && (

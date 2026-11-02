@@ -333,6 +333,8 @@ export function canAccessMenuItem(menuId: string, user: any): boolean {
       return hasPermission(user, 'view_machines');
     case 'interventions':
       return hasPermission(user, 'view_interventions');
+    case 'montage':
+      return hasPermission(user, 'view_interventions') || hasPermission(user, 'view_maintenance');
     case 'spare-parts':
       return hasPermission(user, 'view_spare_parts');
     case 'maintenance':

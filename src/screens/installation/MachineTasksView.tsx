@@ -64,6 +64,9 @@ export function MachineTasksView({
   const [nouvelleTacheDesc, setNouvelleTacheDesc] = useState('');
 
   const isTerminee = installationData.statut === 'TERMINEE';
+  const currentUserId = currentUser?._id || currentUser?.id || 'usr-tech';
+  const currentUserName = (currentUser ? `${currentUser.prenom || ''} ${currentUser.nom || ''}`.trim() : '') || currentUser?.email || 'Technicien';
+  const currentUserRole = currentUser?.role || 'Technicien';
 
   // ═══════════════════════════════════════════════════════════════
   // OBTENIR OU CRÉER LE TECHNICIEN ACTUEL SUR CETTE MACHINE
@@ -71,14 +74,14 @@ export function MachineTasksView({
   
   const getTechnicienActuel = () => {
     let heuresParTech = localMachine.heuresParTechnicien || [];
-    let tech = heuresParTech.find((t: any) => t.technicienId === currentUser._id);
+    let tech = heuresParTech.find((t: any) => t.technicienId === currentUserId);
 
     if (!tech) {
       // Créer le technicien avec les tâches obligatoires
       tech = {
-        technicienId: currentUser._id,
-        technicienNom: `${currentUser.prenom || ''} ${currentUser.nom || ''}`.trim(),
-        specialite: currentUser.role || 'Technicien',
+        technicienId: currentUserId,
+        technicienNom: currentUserName,
+        specialite: currentUserRole,
         taches: TACHES_OBLIGATOIRES.map(t => ({
           id: t.id,
           description: t.description,
@@ -110,6 +113,29 @@ export function MachineTasksView({
     setHeuresValue(currentHeures.toString());
   };
 
+  const handleQuickAddHeures = (tacheId: string, delta: number) => {
+    const heuresParTech = (localMachine.heuresParTechnicien || []).map((t: any) => {
+      if (t.technicienId === currentUserId) {
+        return {
+          ...t,
+          taches: (t.taches || []).map((tache: any) => {
+            if (tache.id === tacheId) {
+              const current = parseFloat(tache.heures || 0);
+              const next = Math.max(0, Math.round((current + delta) * 10) / 10);
+              return { ...tache, heures: next, dateDerniereModification: new Date().toISOString() };
+            }
+            return tache;
+          })
+        };
+      }
+      return t;
+    });
+
+    const updated = { ...localMachine, heuresParTechnicien: heuresParTech };
+    setLocalMachine(updated);
+    onSave(updated);
+  };
+
   const handleSaveHeures = (tacheId: string) => {
     const heures = parseFloat(heuresValue);
     if (isNaN(heures) || heures < 0) {
@@ -118,7 +144,7 @@ export function MachineTasksView({
     }
 
     const heuresParTech = localMachine.heuresParTechnicien.map((t: any) => {
-      if (t.technicienId === currentUser._id) {
+      if (t.technicienId === currentUserId) {
         return {
           ...t,
           taches: t.taches.map((tache: any) =>
@@ -158,7 +184,7 @@ export function MachineTasksView({
     };
 
     const heuresParTech = localMachine.heuresParTechnicien.map((t: any) => {
-      if (t.technicienId === currentUser._id) {
+      if (t.technicienId === currentUserId) {
         return {
           ...t,
           taches: [...t.taches, nouvelleTache]
@@ -182,7 +208,7 @@ export function MachineTasksView({
     if (!confirm('Supprimer cette tâche ?')) return;
 
     const heuresParTech = localMachine.heuresParTechnicien.map((t: any) => {
-      if (t.technicienId === currentUser._id) {
+      if (t.technicienId === currentUserId) {
         return {
           ...t,
           taches: t.taches.filter((tache: any) => tache.id !== tacheId)
@@ -332,22 +358,50 @@ export function MachineTasksView({
                         </Button>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-3 mt-2">
+                      <div className="flex items-center gap-3 mt-2 flex-wrap">
                         <span className={`text-lg font-bold ${tache.heures > 0 ? 'text-green-700' : 'text-gray-400'}`}>
                           {formatHeures(tache.heures || 0)}
                         </span>
                         {!isTerminee && (
-                          <button
-                            onClick={() => handleEditHeures(tache.id, tache.heures || 0)}
-                            className="text-blue-600 hover:text-blue-700 text-sm flex items-center gap-1"
-                          >
-                            <Edit2 size={14} /> Modifier
-                          </button>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <button
+                              type="button"
+                              onClick={() => handleQuickAddHeures(tache.id, 0.5)}
+                              className="px-2 py-0.5 text-xs font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded transition-colors"
+                              title="Ajouter 30 minutes"
+                            >
+                              +0.5h
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleQuickAddHeures(tache.id, 1)}
+                              className="px-2 py-0.5 text-xs font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded transition-colors"
+                              title="Ajouter 1 heure"
+                            >
+                              +1h
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleQuickAddHeures(tache.id, 2)}
+                              className="px-2 py-0.5 text-xs font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded transition-colors"
+                              title="Ajouter 2 heures"
+                            >
+                              +2h
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleEditHeures(tache.id, tache.heures || 0)}
+                              className="text-blue-600 hover:text-blue-700 text-sm flex items-center gap-1 ml-1"
+                            >
+                              <Edit2 size={14} /> Saisir
+                            </button>
+                          </div>
                         )}
                         {!isTerminee && !tache.obligatoire && (
                           <button
+                            type="button"
                             onClick={() => handleSupprimerTache(tache.id)}
-                            className="text-red-500 hover:text-red-700 text-sm flex items-center gap-1"
+                            className="text-red-500 hover:text-red-700 text-sm flex items-center gap-1 ml-auto"
                           >
                             <Trash2 size={14} /> Supprimer
                           </button>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Users, Wrench, FileText, Package, HelpCircle, Settings, Database, Menu, X, ShieldAlert } from 'lucide-react';
+import { LayoutDashboard, Users, Wrench, FileText, Hammer, Package, HelpCircle, Settings, Database, Menu, X, ShieldAlert } from 'lucide-react';
 import { useTranslation } from '../../hooks/useTranslation';
 import { db } from '../../lib/supabase';
 import { APP_NAME, APP_VERSION } from '../../version';
@@ -47,6 +47,7 @@ export function Navigation({ onNavigate, currentScreen }: NavigationProps) {
     { id: 'clients', labelKey: 'clients.title', label: 'Clients', icon: Users },
     { id: 'machines', labelKey: 'machines.title', label: 'Machines', icon: Wrench },
     { id: 'interventions', labelKey: 'interventions.title', label: 'Interventions', icon: FileText },
+    { id: 'montage', labelKey: 'montage.title', label: 'Montage', icon: Hammer },
     { id: 'spare-parts', labelKey: 'spare_parts.title', label: 'Pièces détachées', icon: Package },
     { id: 'maintenance', labelKey: 'maintenance.title', label: 'Maintenance', icon: Settings },
     { id: 'troubleshooting', labelKey: 'troubleshooting.title', label: 'Dépannage', icon: HelpCircle },

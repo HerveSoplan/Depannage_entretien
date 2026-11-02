@@ -1005,6 +1005,151 @@ export const db = {
     }
   },
 
+  // Montages & Protocoles de montage avec calcul des heures
+  montages: {
+    list: async (options?: any) => {
+      if (isLiveSupabaseActive()) {
+        try {
+          const { data, error } = await supabase
+            .from('installation_protocols')
+            .select('*')
+            .order('created_at', { ascending: false });
+          if (!error && data && data.length > 0) {
+            return toCamelCase(data).map((item: any) => ({
+              ...item,
+              _id: item.montageId || item.id,
+              id: item.montageId || item.id
+            }));
+          }
+        } catch (e) {
+          console.warn('Erreur Supabase montages.list:', e);
+        }
+      }
+      return demoDb.getTable('montages') || [];
+    },
+
+    get: async (id: string) => {
+      if (!id) return null;
+      if (isLiveSupabaseActive()) {
+        try {
+          const { data, error } = await supabase
+            .from('installation_protocols')
+            .select('*')
+            .or(`id.eq.${id},montage_id.eq.${id},intervention_id.eq.${id}`)
+            .limit(1)
+            .maybeSingle();
+          if (!error && data) {
+            const camel = toCamelCase(data);
+            return {
+              ...camel,
+              _id: camel.montageId || camel.id,
+              id: camel.montageId || camel.id
+            };
+          }
+        } catch (e) {
+          console.warn('Erreur Supabase montages.get:', e);
+        }
+      }
+      const all = demoDb.getTable('montages') || [];
+      return all.find((m: any) => m.id === id || m._id === id || m.interventionId === id || m.montageId === id) || null;
+    },
+
+    create: async (montageData: any) => {
+      const generatedId = montageData._id || montageData.id || ('mnt_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 7));
+      const fullMontage = {
+        ...montageData,
+        _id: generatedId,
+        id: generatedId,
+        createdAt: montageData.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      if (isLiveSupabaseActive()) {
+        try {
+          const supabasePayload: any = {
+            montage_id: generatedId,
+            intervention_id: fullMontage.interventionId || null,
+            client_id: fullMontage.clientId || null,
+            numero_intervention: fullMontage.numeroIntervention || null,
+            statut: fullMontage.statut || 'EN_COURS',
+            chef_de_chantier_id: fullMontage.chefDeChantierId || null,
+            machines: fullMontage.machines || [],
+            sections: fullMontage.sections || fullMontage.journaliers || {},
+            temps_total: Math.round((fullMontage.totalHeures || 0) * 60)
+          };
+
+          const { data, error } = await supabase
+            .from('installation_protocols')
+            .insert(supabasePayload)
+            .select()
+            .single();
+
+          if (!error && data) {
+            const saved = { ...fullMontage, ...toCamelCase(data), _id: generatedId, id: generatedId };
+            demoDb.insert('montages', saved);
+            return saved;
+          }
+        } catch (e) {
+          console.warn('Erreur Supabase montages.create:', e);
+        }
+      }
+
+      return demoDb.insert('montages', fullMontage);
+    },
+
+    update: async (id: string, updates: any) => {
+      const all = demoDb.getTable('montages') || [];
+      const existing = demoDb.findById('montages', id) || all.find((m: any) => m.interventionId === id || m.montageId === id);
+      const updatedMontage = {
+        ...(existing || {}),
+        ...updates,
+        _id: existing?._id || id,
+        id: existing?.id || id,
+        updatedAt: new Date().toISOString()
+      };
+
+      if (isLiveSupabaseActive()) {
+        try {
+          const supabasePayload: any = {
+            updated_at: new Date().toISOString()
+          };
+          if (updates.statut) supabasePayload.statut = updates.statut;
+          if (updates.chefDeChantierId !== undefined) supabasePayload.chef_de_chantier_id = updates.chefDeChantierId;
+          if (updates.machines !== undefined) supabasePayload.machines = updates.machines;
+          if (updates.totalHeures !== undefined) supabasePayload.temps_total = Math.round(updates.totalHeures * 60);
+          if (updates.journaliers !== undefined) supabasePayload.sections = updates.journaliers;
+
+          await supabase
+            .from('installation_protocols')
+            .update(supabasePayload)
+            .or(`id.eq.${id},montage_id.eq.${id}`);
+        } catch (e) {
+          console.warn('Erreur Supabase montages.update:', e);
+        }
+      }
+
+      if (existing) {
+        return demoDb.update('montages', existing.id || existing._id, updatedMontage);
+      } else {
+        return demoDb.insert('montages', updatedMontage);
+      }
+    },
+
+    delete: async (id: string) => {
+      if (isLiveSupabaseActive()) {
+        try {
+          await supabase
+            .from('installation_protocols')
+            .delete()
+            .or(`id.eq.${id},montage_id.eq.${id}`);
+        } catch (e) {
+          console.warn('Erreur Supabase montages.delete:', e);
+        }
+      }
+      return demoDb.delete('montages', id);
+    }
+  },
+
   // Commissioning Protocols
   commissioningProtocols: {
     get: async (interventionId: string) => {

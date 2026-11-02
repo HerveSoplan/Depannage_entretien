@@ -241,9 +241,18 @@ export function InterventionsScreen({ onNavigate }: InterventionsScreenProps) {
 
                   switch (intervention.type) {
                     case 'REPAIR':
-                    case 'INSTALLATION':
                       console.log('✅ Navigation vers: intervention-form');
                       onNavigate('intervention-form', {
+                        interventionId: intervention._id,
+                        clientId: intervention.clientId,
+                        machineId: intervention.machineIds?.[0],
+                        readOnly: isFinished
+                      });
+                      break;
+
+                    case 'INSTALLATION':
+                      console.log('✅ Navigation vers: installation-protocol');
+                      onNavigate('installation-protocol', {
                         interventionId: intervention._id,
                         clientId: intervention.clientId,
                         machineId: intervention.machineIds?.[0],

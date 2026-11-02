@@ -290,6 +290,7 @@ export default function App() {
       case 'database-admin': path = '/admin/database'; break;
       case 'language-config': path = '/admin/languages'; break;
       case 'translation-editor': path = '/admin/translations'; break;
+      case 'montage': path = '/montage'; break;
       case 'commissioning-protocol': path = '/protocols/commissioning'; break;
       case 'installation-protocol': path = '/protocols/installation'; break;
       case 'mentions-legales': path = '/mentions-legales'; break;
@@ -395,6 +396,7 @@ export default function App() {
     if (path === '/' || path === '') return 'dashboard';
     if (path.startsWith('/clients')) return 'clients';
     if (path.startsWith('/machines')) return 'machines';
+    if (path.startsWith('/montage') || path.startsWith('/protocols/installation')) return 'montage';
     if (path.startsWith('/interventions')) return 'interventions';
     if (path.startsWith('/spare-parts')) return 'spare-parts';
     if (path.startsWith('/troubleshooting')) return 'troubleshooting';
@@ -448,8 +450,9 @@ export default function App() {
           <Route path="/admin/languages" element={<ProtectedRoute permission="admin_access" onNavigate={handleNavigate}><RouteWrapper Component={LanguageConfigScreen} onNavigate={handleNavigate} /></ProtectedRoute>} />
           <Route path="/admin/translations" element={<ProtectedRoute permission="admin_access" onNavigate={handleNavigate}><RouteWrapper Component={TranslationEditorScreen} onNavigate={handleNavigate} /></ProtectedRoute>} />
 
+          <Route path="/montage" element={<ProtectedRoute permission="view_interventions" onNavigate={handleNavigate}><RouteWrapper Component={InstallationProtocolScreen} onNavigate={handleNavigate} /></ProtectedRoute>} />
           <Route path="/protocols/commissioning" element={<RouteWrapper Component={CommissioningProtocolScreen} onNavigate={handleNavigate} />} />
-          <Route path="/protocols/installation" element={<RouteWrapper Component={InstallationProtocolScreen} onNavigate={handleNavigate} />} />
+          <Route path="/protocols/installation" element={<ProtectedRoute permission="view_interventions" onNavigate={handleNavigate}><RouteWrapper Component={InstallationProtocolScreen} onNavigate={handleNavigate} /></ProtectedRoute>} />
 
           <Route path="/mentions-legales" element={<MentionsLegalesScreen onBack={() => navigate(-1)} />} />
 
