@@ -4,6 +4,17 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.8.9] - 2026-11-02
+
+### Modifié (Formulaire Client - Champs Obligatoires Réduits au Strict Nécessaire)
+- **Ajustement des champs requis dans `ClientFormScreen.tsx` ([ClientFormScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/clients/ClientFormScreen.tsx))** :
+  - Seuls le **Numéro client**, le **Nom de la ferme** et l'**Adresse** sont désormais des champs obligatoires (`required`).
+  - Les champs Nom personnel, Prénom, Code postal, Ville et Téléphone sont désormais optionnels afin d'accélérer la saisie sur le terrain.
+  - Gestion automatique de repli sur le nom de ferme pour le champ `nom` en base de données afin de respecter l'intégrité de la table PostgreSQL sans bloquer l'utilisateur.
+- **Conformité & Versioning** :
+  - Incrémentation de version vers `v1.8.9` synchronisée dans `package.json`, `src/version.ts` et `public/version.json`.
+  - Contrôle et maintien de l'exactitude des mentions légales (App à la Carte — Hervé CHAMPAGNE EI, SIREN 132 021 098).
+
 ## [1.8.8] - 2026-11-02
 
 ### Corrigé (Purge Totale du Cache Navigateur & Déploiement Direct Vercel Production)
