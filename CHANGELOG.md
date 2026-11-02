@@ -4,6 +4,21 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.10.4] - 2026-11-02
+
+### Corrigé & Blindé (Résolution Définitive du Cache Navigateur & CDN Vercel)
+- **Neutralisation définitive du cache Vercel Edge CDN ([vercel.json](file:///d:/Aplli/D%C3%A9pannage_entretien/vercel.json))** :
+  - **Correction de la règle d'en-têtes HTTP** : Remplacement des filtres restreints par `/((?!assets/).*)`, garantissant que toutes les routes de l'application (`/`, `/login`, `/version.json`, etc.) reçoivent systématiquement les en-têtes stricts anti-cache.
+  - **Désactivation du cache Vercel Edge** : Ajout des en-têtes `CDN-Cache-Control: no-store`, `Vercel-CDN-Cache-Control: no-store` et `s-maxage=0`, empêchant Vercel de conserver les pages HTML périmées pendant plus de 2 heures sur ses serveurs périphériques.
+- **Désenregistrement automatique des Service Workers & Vidage CacheStorage ([index.html](file:///d:/Aplli/D%C3%A9pannage_entretien/index.html))** :
+  - Script d'initialisation immédiate dans l'en-tête HTML désenregistrant inconditionnellement tout Service Worker actif et purgeant tous les caches de `CacheStorage` au chargement de la page.
+- **Bandeau de notification et actualisation intelligente ([App.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/App.tsx), [Footer.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/components/common/Footer.tsx))** :
+  - Ajout du composant `VersionBanner` affichant un bandeau en temps réel dès qu'une nouvelle version est disponible sur le serveur, avec un bouton « Actualiser maintenant ».
+  - Fonction globale `forceAppUpdate` procédant à la purge intégrale (Service Worker + CacheStorage + sessionStorage) et au rechargement dur avec paramètre de contournement d'horodatage (`_v=timestamp`).
+- **Conformité & Versioning** :
+  - Incrémentation SemVer vers la version `v1.10.4` synchronisée dans `package.json`, `src/version.ts`, `public/version.json` et le footer.
+  - Vérification continue des mentions légales (EI Hervé CHAMPAGNE, SIREN 132 021 098).
+
 ## [1.10.3] - 2026-11-02
 
 ### Clarifié & Amélioré (Transmission des Identifiants Technicien & Explication de l'Envoi)

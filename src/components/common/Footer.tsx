@@ -14,15 +14,25 @@ export function Footer({ onNavigateLegal, className = '' }: FooterProps) {
     }
   };
 
-  const handleForceUpdate = () => {
+  const handleForceUpdate = async () => {
     try {
       if (typeof window !== 'undefined') {
-        if ('caches' in window) {
-          caches.keys().then((names) => {
-            names.forEach((name) => caches.delete(name));
-          });
+        if ('serviceWorker' in navigator) {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          for (const reg of registrations) {
+            await reg.unregister();
+          }
         }
-        window.location.href = window.location.pathname + '?reload=' + Date.now();
+        if ('caches' in window) {
+          const names = await caches.keys();
+          for (const name of names) {
+            await caches.delete(name);
+          }
+        }
+        sessionStorage.clear();
+        const url = new URL(window.location.href);
+        url.searchParams.set('_v', Date.now().toString());
+        window.location.replace(url.toString());
       }
     } catch {
       window.location.reload();

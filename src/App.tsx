@@ -36,9 +36,66 @@ import { CommissioningProtocolScreen } from './screens/interventions/Commissioni
 import { InstallationProtocolScreen } from './screens/interventions/InstallationProtocolScreen';
 import { MentionsLegalesScreen } from './screens/legal/MentionsLegalesScreen';
 import { DebugFileOverlay } from './components/common/DebugFileOverlay';
-import { ShieldAlert } from 'lucide-react';
+import { ShieldAlert, RefreshCw } from 'lucide-react';
 import { hasPermission, PermissionId } from './utils/permissions';
 import { APP_VERSION } from './version';
+
+// Déclenche une purge absolue et définitive de tout cache, Service Worker et session
+export const forceAppUpdate = async (targetVersion?: string) => {
+  try {
+    if (typeof window !== 'undefined') {
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const reg of registrations) {
+          await reg.unregister();
+        }
+      }
+      if ('caches' in window) {
+        const names = await caches.keys();
+        for (const name of names) {
+          await caches.delete(name);
+        }
+      }
+      sessionStorage.clear();
+      const url = new URL(window.location.href);
+      url.searchParams.set('_v', Date.now().toString());
+      if (targetVersion) {
+        url.searchParams.set('_ver', targetVersion);
+      }
+      window.location.replace(url.toString());
+    }
+  } catch {
+    window.location.reload();
+  }
+};
+
+// Bandeau persistant d'actualisation de version
+const VersionBanner = ({
+  newVersion,
+  onUpdate
+}: {
+  newVersion: string | null;
+  onUpdate: () => void;
+}) => {
+  if (!newVersion) return null;
+  return (
+    <div className="bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 text-white px-4 py-2.5 text-xs sm:text-sm font-semibold flex items-center justify-between shadow-xl sticky top-0 z-[9999] border-b border-amber-400">
+      <div className="flex items-center gap-2">
+        <RefreshCw size={16} className="animate-spin text-white flex-shrink-0" />
+        <span>
+          Mise à jour disponible : <strong>v{newVersion}</strong> (actuellement en mémoire : v{APP_VERSION}).
+        </span>
+      </div>
+      <button
+        type="button"
+        onClick={onUpdate}
+        className="ml-3 px-3.5 py-1.5 bg-white text-amber-900 hover:bg-amber-50 font-bold rounded-lg shadow-sm text-xs flex items-center gap-1.5 transition-all cursor-pointer flex-shrink-0"
+      >
+        <span>Actualiser maintenant</span>
+      </button>
+    </div>
+  );
+};
 
 // Wrapper pour injecter la fonction de navigation compatible et les paramètres
 const RouteWrapper = ({
@@ -102,6 +159,7 @@ const ProtectedRoute = ({
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [newVersionAvailable, setNewVersionAvailable] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -225,20 +283,25 @@ export default function App() {
     // 3. Détection automatique des mises à jour de version et purge automatique du cache
     const checkServerVersion = async () => {
       try {
-        const res = await fetch(`/version.json?t=${Date.now()}`, { cache: 'no-store' });
+        const res = await fetch(`/version.json?t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache, no-store' }
+        });
         if (res.ok) {
           const data = await res.json();
           if (data?.version && data.version !== APP_VERSION) {
-            console.log('🔄 Nouvelle version disponible:', data.version, '(active:', APP_VERSION, ')');
+            console.log('🔄 Nouvelle version disponible sur le serveur:', data.version, '(active:', APP_VERSION, ')');
+            if (mounted) setNewVersionAvailable(data.version);
+
             const lastReload = sessionStorage.getItem('last_version_reload');
             if (lastReload !== data.version) {
               sessionStorage.setItem('last_version_reload', data.version);
-              if ('caches' in window) {
-                caches.keys().then((names) => {
-                  names.forEach((name) => caches.delete(name));
-                });
+              const path = window.location.pathname;
+              if (path === '/' || path === '/login') {
+                setTimeout(() => {
+                  forceAppUpdate(data.version);
+                }, 1000);
               }
-              window.location.reload();
             }
           }
         }
@@ -369,6 +432,7 @@ export default function App() {
   if (isExplicitLoginRoute) {
     return (
       <>
+        <VersionBanner newVersion={newVersionAvailable} onUpdate={() => forceAppUpdate(newVersionAvailable || undefined)} />
         <LoginScreen
           onLoginSuccess={handleLoginSuccess}
           onNavigateLegal={() => navigate('/mentions-legales')}
@@ -391,6 +455,7 @@ export default function App() {
   if (!isAuthenticated) {
     return (
       <>
+        <VersionBanner newVersion={newVersionAvailable} onUpdate={() => forceAppUpdate(newVersionAvailable || undefined)} />
         <LoginScreen
           onLoginSuccess={handleLoginSuccess}
           onNavigateLegal={() => navigate('/mentions-legales')}
@@ -418,6 +483,7 @@ export default function App() {
 
   return (
     <SelectedClientProvider>
+      <VersionBanner newVersion={newVersionAvailable} onUpdate={() => forceAppUpdate(newVersionAvailable || undefined)} />
       <Layout onNavigate={handleNavigate} onLogout={handleLogout} currentScreen={getCurrentScreenForLayout()}>
         <Routes>
           <Route path="/" element={<RouteWrapper Component={Dashboard} onNavigate={handleNavigate} />} />
