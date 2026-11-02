@@ -4,6 +4,26 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.8.3] - 2026-11-02
+
+### Ajouté (Bouton Enveloppe pour Renvoyer l'Email de Connexion)
+- **Ajout de l'icône enveloppe pour renvoyer le mail de connexion ([UsersScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/users/UsersScreen.tsx))** :
+  - **Bouton enveloppe dédié (`Mail`) dans la liste des utilisateurs** : Chaque utilisateur disposant d'une adresse email dispose désormais d'un bouton d'action direct représenté par une enveloppe avec infobulle explicite : *« Renvoyer le mail de connexion (identifiants & lien direct) »*.
+  - **Accès direct aux options d'envoi** : Ouvre instantanément la modale de transmission avec envoi pré-rempli via Gmail (`contact@appalacarte.fr`), messagerie locale (`mailto:`) et copie du message type avec mot de passe temporaire.
+  - **Séparation claire avec l'icône de partage (`Share2`)** : Le bouton de partage est désormais dédié à la copie directe dans le presse-papier du lien de connexion individualisé (`/login?email=...`), avec confirmation visuelle immédiate par coche verte.
+  - **Ajout dans la modale de partage d'accès direct** : Bouton d'envoi par email également disponible dans l'onglet *Lien direct* de la boîte de dialogue de partage.
+
+### Corrigé (Purge Finale de SoPlan et Harmonisation Email Éditeur)
+- **Remplacement de l'adresse par défaut par l'email officiel ([supabase.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/lib/supabase.ts), [LoginScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/components/auth/LoginScreen.tsx), [DatabaseAdminScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/admin/DatabaseAdminScreen.tsx))** :
+  - `DEFAULT_PASSWORD_REQUEST_EMAIL` passe officiellement à `contact@appalacarte.fr` (suppression de l'ancien reliquat `soplanapp1@gmail.com`).
+  - **Purge dynamique du `localStorage`** : Dans `getPasswordRequestEmail()`, tout reliquat local contenant `soplan` est immédiatement détecté, nettoyé et réinitialisé automatiquement sur `contact@appalacarte.fr`.
+  - **Formulaire de connexion et demande de nouveau mot de passe** : L'adresse affichée en bas du formulaire de connexion et dans l'écran de mot de passe oublié est désormais `contact@appalacarte.fr`.
+  - **Administration des bases** : Mise à jour du placeholder et du bouton de réinitialisation par défaut vers `contact@appalacarte.fr`.
+  - **Documentation interne** : Purge de la référence SoPlan dans `password.ts`.
+- **Conformité & Versioning** :
+  - Passage à la version `v1.8.3` synchronisée dans `package.json` et `src/version.ts`.
+  - Contrôle et maintien de l'exactitude des mentions légales (App à la Carte — Hervé CHAMPAGNE EI, SIREN 132 021 098).
+
 ## [1.8.2] - 2026-11-02
 
 ### Ajouté (Affichage de la version sous le nom de l'application)

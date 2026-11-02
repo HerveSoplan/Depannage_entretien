@@ -1265,7 +1265,7 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
                 required
                 value={passwordRequestEmail}
                 onChange={(e) => setPasswordRequestEmailState(e.target.value)}
-                placeholder="soplanapp1@gmail.com"
+                placeholder="contact@appalacarte.fr"
                 className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium text-gray-800"
               />
             </div>
@@ -1286,7 +1286,7 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
                 variant="ghost"
                 onClick={handleResetPasswordRequestEmail}
                 className="py-2 px-2 text-xs text-gray-600 hover:text-gray-900 border border-gray-200"
-                title="Rétablir l'adresse par défaut (soplanapp1@gmail.com)"
+                title="Rétablir l'adresse par défaut (contact@appalacarte.fr)"
               >
                 Rétablir défaut
               </Button>

@@ -1,5 +1,5 @@
 /**
- * Validation et gestion des mots de passe (Supabase Auth & SoPlan)
+ * Validation et gestion des mots de passe (Supabase Auth & Dépannage_entretien)
  * Conforme aux règles de sécurité de l'éditeur App à la Carte
  */
 

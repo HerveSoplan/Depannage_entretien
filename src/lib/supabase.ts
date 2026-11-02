@@ -27,7 +27,7 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-a
 // Si les clés Supabase sont configurées dans l'environnement (Vercel ou .env), la connexion Supabase en direct est active.
 export const isLiveSupabaseActive = (): boolean => {
   if (typeof window !== 'undefined') {
-    const forced = localStorage.getItem('depannage_use_live_supabase') || localStorage.getItem('soplan_use_live_supabase');
+    const forced = localStorage.getItem('depannage_use_live_supabase');
     if (forced === 'true') return true;
     if (forced === 'false') return false;
   }
@@ -43,12 +43,18 @@ export const setLiveSupabaseActive = (active: boolean) => {
 };
 
 // Configuration de l'email officiel pour les demandes de nouveau mot de passe (paramétrable depuis DatabaseAdminScreen)
-export const DEFAULT_PASSWORD_REQUEST_EMAIL = 'soplanapp1@gmail.com';
+export const DEFAULT_PASSWORD_REQUEST_EMAIL = 'contact@appalacarte.fr';
 
 export const getPasswordRequestEmail = (): string => {
   if (typeof window !== 'undefined') {
     const stored = localStorage.getItem('depannage_password_request_email');
-    if (stored && stored.trim()) return stored.trim();
+    if (stored && stored.trim() && !stored.toLowerCase().includes('soplan')) {
+      return stored.trim();
+    }
+    // Purge automatique de tout résidu "soplan" en mémoire locale
+    if (stored && stored.toLowerCase().includes('soplan')) {
+      localStorage.setItem('depannage_password_request_email', DEFAULT_PASSWORD_REQUEST_EMAIL);
+    }
   }
   return DEFAULT_PASSWORD_REQUEST_EMAIL;
 };

@@ -291,6 +291,14 @@ contact@appalacarte.fr`.trim();
     });
   };
 
+  // Copier directement le lien d'accès personnalisé dans le presse-papier
+  const handleCopyDirectLoginLink = async (user: any) => {
+    if (!user.email) return;
+    const appUrl = getAppBaseUrl();
+    const loginLink = `${appUrl}/login?email=${encodeURIComponent(user.email.trim())}&action=login`;
+    await copyToClipboard(loginLink, `invite-${user._id || user.id}`);
+  };
+
   // Réinitialisation du mot de passe temporaire par l'administrateur ou responsable technique
   const handleResetUserTempPassword = async (user: any) => {
     const tempMdp = generateTemporaryPassword(user.prenom || 'technicien');
@@ -1066,13 +1074,25 @@ contact@appalacarte.fr`.trim();
                           </Button>
                         )}
 
-                        {/* Copier le lien d'invitation personnalisé */}
-                        {!isPending && (
+                        {/* Renvoyer l'email de connexion avec identifiants (Enveloppe) */}
+                        {user.email && (
                           <button
                             onClick={() => handleSendInvitation(user)}
-                            disabled={!user.email}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="Copier le message et le lien de connexion directe"
+                            className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
+                            title={isPending ? "Envoyer le mail de connexion et identifiants" : "Renvoyer le mail de connexion (identifiants & lien direct)"}
+                            aria-label="Renvoyer le mail de connexion"
+                          >
+                            <Mail size={18} />
+                          </button>
+                        )}
+
+                        {/* Copier le lien direct de connexion dans le presse-papier */}
+                        {!isPending && user.email && (
+                          <button
+                            onClick={() => handleCopyDirectLoginLink(user)}
+                            className="p-2 text-teal-600 hover:text-teal-800 hover:bg-teal-50 rounded-lg transition-colors"
+                            title="Copier le lien direct de connexion"
+                            aria-label="Copier le lien direct de connexion"
                           >
                             {copiedKey === `invite-${user._id || user.id}` ? (
                               <Check size={18} className="text-green-600" />
@@ -1495,6 +1515,24 @@ Cordialement,
                         <span>{copiedKey === 'link-direct' ? 'Copié !' : 'Copier'}</span>
                       </Button>
                     </div>
+
+                    <div className="pt-1 flex justify-end">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const found = activeUsers.find((u) => u.email === selectedDirectUserEmail);
+                          if (found) {
+                            setShowLinkModal(false);
+                            handleSendInvitation(found);
+                          }
+                        }}
+                        className="text-xs text-blue-700 border-blue-200 hover:bg-blue-50 flex items-center gap-1.5"
+                      >
+                        <Mail size={14} />
+                        <span>Renvoyer les accès par email</span>
+                      </Button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -1609,7 +1647,7 @@ Cordialement,
 
             {/* Boutons d'actions */}
             <div className="pt-2 border-t border-gray-100 flex flex-wrap gap-2 justify-end">
-              {/* Envoi direct via Gmail avec le compte automatique soplanapp1@gmail.com */}
+              {/* Envoi direct via Gmail avec le compte officiel contact@appalacarte.fr */}
               <a
                 href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(createdCredentialsModal.email)}&su=${encodeURIComponent(`Vos accès à l'application ${APP_NAME}`)}&body=${encodeURIComponent(formatInvitationMessage(createdCredentialsModal))}&authuser=${encodeURIComponent(getPasswordRequestEmail())}`}
                 target="_blank"
