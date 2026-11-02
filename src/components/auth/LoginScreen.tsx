@@ -31,7 +31,7 @@ import {
   generateTemporaryPassword,
   getPasswordRequestEmail
 } from '../../lib/supabase';
-import { APP_NAME } from '../../version';
+import { APP_NAME, APP_VERSION } from '../../version';
 
 interface LoginScreenProps {
   onLoginSuccess: (userData?: any) => void;
@@ -308,6 +308,9 @@ export function LoginScreen({
             <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">
               {APP_NAME}
             </h1>
+            <span className="inline-block text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full mt-1.5">
+              v{APP_VERSION}
+            </span>
             <p className="text-xs text-gray-500 mt-1">
               Portail professionnel — Accès sécurisé
             </p>

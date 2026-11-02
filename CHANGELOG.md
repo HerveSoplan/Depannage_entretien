@@ -4,6 +4,17 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.8.2] - 2026-11-02
+
+### Ajouté (Affichage de la version sous le nom de l'application)
+- **Affichage de la version en petit sous « Dépannage_entretien » ([Navigation.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/components/common/Navigation.tsx), [LoginScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/components/auth/LoginScreen.tsx))** :
+  - **Menu latéral Desktop (`Navigation.tsx`)** : Ajout discret de la version active `v1.8.2` sous le titre `Dépannage_entretien` dans la barre latérale.
+  - **Barre supérieure Mobile (`Navigation.tsx`)** : Ajout de la version `v1.8.2` sous le titre pour les vues smartphones et tablettes.
+  - **Écran de connexion (`LoginScreen.tsx`)** : Affichage d'un badge élégant `v1.8.2` sous le titre officiel de l'application.
+- **Conformité & Versioning** :
+  - Passage à la version `v1.8.2` synchronisée dans `package.json` et `src/version.ts`.
+  - Contrôle et maintien de l'exactitude des mentions légales (App à la Carte — Hervé CHAMPAGNE EI, SIREN 132 021 098).
+
 ## [1.8.1] - 2026-11-02
 
 ### Corrigé (Persistance des Utilisateurs dans Supabase & Mises à Jour Partielles)

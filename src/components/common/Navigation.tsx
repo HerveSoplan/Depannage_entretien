@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { LayoutDashboard, Users, Wrench, FileText, Package, HelpCircle, Settings, Database, Menu, X, ShieldAlert } from 'lucide-react';
 import { useTranslation } from '../../hooks/useTranslation';
 import { db } from '../../lib/supabase';
-import { APP_NAME } from '../../version';
+import { APP_NAME, APP_VERSION } from '../../version';
 
 interface NavigationProps {
   onNavigate?: (screen: string) => void;
@@ -59,10 +59,13 @@ export function Navigation({ onNavigate, currentScreen }: NavigationProps) {
             onClick={() => onNavigate?.('dashboard')}
             className="flex items-center flex-shrink-0 px-4 mb-6 cursor-pointer"
           >
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white mr-2.5 shadow-sm">
+            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white mr-2.5 shadow-sm flex-shrink-0">
               <Wrench className="w-4 h-4" />
             </div>
-            <h1 className="text-lg font-bold text-gray-900">{APP_NAME}</h1>
+            <div className="flex flex-col min-w-0">
+              <h1 className="text-lg font-bold text-gray-900 leading-tight truncate">{APP_NAME}</h1>
+              <span className="text-[11px] text-gray-500 font-medium leading-none mt-1">v{APP_VERSION}</span>
+            </div>
           </div>
 
           <nav className="flex-1 px-2 space-y-1">
@@ -102,10 +105,13 @@ export function Navigation({ onNavigate, currentScreen }: NavigationProps) {
           onClick={() => onNavigate?.('dashboard')}
           className="flex items-center cursor-pointer"
         >
-          <div className="w-7 h-7 rounded-md bg-blue-600 flex items-center justify-center text-white mr-2">
+          <div className="w-7 h-7 rounded-md bg-blue-600 flex items-center justify-center text-white mr-2 flex-shrink-0">
             <Wrench className="w-3.5 h-3.5" />
           </div>
-          <h1 className="text-base font-bold text-blue-600">{APP_NAME}</h1>
+          <div className="flex flex-col min-w-0">
+            <h1 className="text-base font-bold text-blue-600 leading-tight">{APP_NAME}</h1>
+            <span className="text-[10px] text-gray-500 font-medium leading-none">v{APP_VERSION}</span>
+          </div>
         </div>
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
