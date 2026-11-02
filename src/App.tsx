@@ -144,6 +144,16 @@ export default function App() {
       const storedAuth = localStorage.getItem('maintenance_authenticated');
       const storedUser = localStorage.getItem('maintenance_current_user');
       if (storedAuth === 'true' && storedUser) {
+        try {
+          const u = JSON.parse(storedUser);
+          if (u.doitChangerMotDePasse === true) {
+            localStorage.removeItem('maintenance_authenticated');
+            if (mounted) setIsAuthenticated(false);
+            return;
+          }
+        } catch {
+          // ignore
+        }
         if (mounted) setIsAuthenticated(true);
         return;
       }

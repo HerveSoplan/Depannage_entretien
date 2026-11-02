@@ -4,6 +4,28 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.7.3] - 2026-11-02
+
+### Sécurité & Simplification (Authentification & Mentions Légales)
+- **Simplification radicale de l'écran de connexion (`LoginScreen.tsx`)** :
+  - Interface recentrée sur un flux simple et direct : adresse email et mot de passe.
+  - Suppression de tout bouton superflu ou déroutant (suppression du bouton d'accès direct administrateur sans mot de passe et du bouton lien par email OTP).
+  - Deux onglets limpides : « Se connecter » et « Demande d'accès ».
+- **Règle stricte : Aucun accès sans mot de passe** :
+  - Interdiction absolue d'accéder à l'application sans saisir un mot de passe valide (champ requis côté client et validation stricte côté service).
+  - Blocage de toute session locale si un changement de mot de passe obligatoire est en attente.
+- **Mot de passe temporaire technicien (`prenom2027`) & Changement obligatoire** :
+  - Application stricte de la règle : prénom du technicien en minuscules (sans accent, sans espace) suivi de 2027 (ex : `thomas2027`, `herve2027`).
+  - Détection automatique et redirection immédiate vers l'écran de changement obligatoire de mot de passe lors de l'utilisation du mot de passe temporaire.
+  - Impossibilité formelle d'accéder aux fonctionnalités de l'application tant que le nouveau mot de passe personnel conforme aux critères de sécurité n'a pas été défini et confirmé.
+- **Procédure « Mot de passe oublié » optimisée** :
+  - Réinitialisation simplifiée avec réactivation du mot de passe temporaire officiel (`prenom2027`) et indicateur de changement obligatoire.
+  - Bouton direct permettant de se reconnecter immédiatement avec le mot de passe temporaire réactivé pour définir son nouveau mot de passe personnel.
+- **Vérification et conformité Mentions Légales (Skill `mentions-legales`)** :
+  - Contrôle et maintien de la page `/mentions-legales` accessible publiquement hors connexion.
+  - Conformité certifiée des mentions légales de référence de l'éditeur App à la Carte — Hervé CHAMPAGNE EI (SIREN 132 021 098, 173 rue de Courcelles 75017 Paris, contact@appalacarte.fr, hébergement Vercel Inc., aucun numéro de téléphone).
+  - Présence et bon fonctionnement du lien légal dans le pied de page (footer) sur l'ensemble des écrans et sur tous les appareils (mobile, tablette, desktop).
+
 ## [1.7.2] - 2026-11-02
 
 ### Modifié

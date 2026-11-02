@@ -183,6 +183,8 @@ export const db = {
       const clean = email.trim().toLowerCase();
       if (!clean) return null;
       if (clean === 'contact@appalacarte.fr') {
+        const localList = demoDb.getTable('utilisateurs');
+        const found = localList.find((u: any) => u.email?.toLowerCase() === clean);
         return {
           id: 'usr-admin',
           _id: 'usr-admin',
@@ -194,7 +196,8 @@ export const db = {
           numeroTechnicien: '001',
           actif: true,
           statut: 'VALIDE',
-          permissions: ['admin_access', 'manage_users', 'view_all_data']
+          permissions: ['admin_access', 'manage_users', 'view_all_data', 'view_clients', 'edit_clients', 'view_machines', 'edit_machines', 'view_interventions', 'edit_interventions', 'view_spare_parts', 'edit_spare_parts'],
+          ...(found || {})
         };
       }
 
@@ -1384,150 +1387,121 @@ export const auth = {
         });
         if (error) {
           console.warn('Supabase signInWithOtp retour:', error);
-          // Si l'envoi d'email SMTP externe échoue mais que l'email est valide, fallback direct
-          return await auth.signIn(cleanEmail);
+          throw new Error(error.message || "Impossible d'envoyer le lien de connexion.");
         }
         return { ok: true, message: `Un lien magique de connexion a été envoyé à ${cleanEmail}. Cliquez dessus pour vous connecter.` };
-      } catch (e) {
-        console.warn('Exception signInWithOtp, repli authentification profil:', e);
-        return await auth.signIn(cleanEmail);
+      } catch (e: any) {
+        throw new Error(e?.message || "Service d'envoi d'email indisponible. Connectez-vous avec votre mot de passe.");
       }
     }
 
-    return await auth.signIn(cleanEmail);
+    throw new Error("La connexion par lien email requiert une connexion active. Veuillez utiliser votre mot de passe.");
   },
 
   signIn: async (email: string, password?: string) => {
     const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanPassword = (password || '').trim();
+
     if (!cleanEmail) {
       throw new Error('Veuillez renseigner votre adresse email.');
     }
 
-    // 1. Administrateur de référence App à la Carte : contact@appalacarte.fr
-    if (cleanEmail === 'contact@appalacarte.fr') {
-      if (password && isLiveSupabaseActive()) {
-        try {
-          const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
-          if (!error && data?.user) {
-            const adminUser = {
-              ...data.user,
-              id: data.user.id || 'usr-admin',
-              _id: data.user.id || 'usr-admin',
-              nom: 'CHAMPAGNE',
-              prenom: 'Hervé',
-              email: 'contact@appalacarte.fr',
-              role: 'ADMINISTRATEUR',
-              roles: ['ADMINISTRATEUR'],
-              numeroTechnicien: '001',
-              actif: true,
-              statut: 'VALIDE',
-              permissions: ['admin_access', 'manage_users', 'view_all_data', 'view_clients', 'edit_clients', 'view_machines', 'edit_machines', 'view_interventions', 'edit_interventions', 'view_spare_parts', 'edit_spare_parts']
-            };
-            localStorage.setItem('maintenance_authenticated', 'true');
-            localStorage.setItem('maintenance_current_user', JSON.stringify(adminUser));
-            return { user: adminUser, session: { user: adminUser }, requirePasswordChange: false };
-          }
-        } catch (err) {
-          console.warn('Supabase auth distant indisponible, poursuite authentification administrateur local.');
-        }
-      }
-
-      const masterAdmin = {
-        id: 'usr-admin',
-        _id: 'usr-admin',
-        nom: 'CHAMPAGNE',
-        prenom: 'Hervé',
-        email: 'contact@appalacarte.fr',
-        role: 'ADMINISTRATEUR',
-        roles: ['ADMINISTRATEUR'],
-        numeroTechnicien: '001',
-        actif: true,
-        statut: 'VALIDE',
-        permissions: ['admin_access', 'manage_users', 'view_all_data', 'view_clients', 'edit_clients', 'view_machines', 'edit_machines', 'view_interventions', 'edit_interventions', 'view_spare_parts', 'edit_spare_parts']
-      };
-      localStorage.setItem('maintenance_authenticated', 'true');
-      localStorage.setItem('maintenance_current_user', JSON.stringify(masterAdmin));
-      return { user: masterAdmin, session: { user: masterAdmin }, requirePasswordChange: false };
+    // Règle stricte : Aucun accès sans mot de passe
+    if (!cleanPassword) {
+      const err: any = new Error("Mot de passe obligatoire. Aucun accès n'est autorisé sans mot de passe.");
+      err.code = 'PASSWORD_REQUIRED';
+      throw err;
     }
 
-    // 2. Pour tout autre utilisateur : vérification préalable du statut de validation
-    const registeredUser = await db.users.findByEmail(cleanEmail);
+    // Récupération de l'utilisateur
+    const user = await db.users.findByEmail(cleanEmail);
 
-    if (!registeredUser) {
-      const err: any = new Error("Aucun compte actif trouvé pour cette adresse email. Veuillez faire une demande de connexion.");
+    if (!user) {
+      const err: any = new Error("Aucun compte actif trouvé pour cette adresse email. Veuillez vérifier votre saisie ou faire une demande d'accès.");
       err.code = 'USER_NOT_FOUND';
       throw err;
     }
 
-    if (registeredUser.statut === 'EN_ATTENTE' || (registeredUser.actif === false && registeredUser.statut !== 'VALIDE')) {
+    if (user.statut === 'EN_ATTENTE' || (user.actif === false && user.statut !== 'VALIDE')) {
       const err: any = new Error("Votre demande de connexion est actuellement en attente de validation par l'administrateur ou le responsable technique. Vous recevrez l'accès dès son approbation.");
       err.code = 'USER_PENDING';
       throw err;
     }
 
-    if (registeredUser.statut === 'REFUSE') {
-      const err: any = new Error("Votre demande de connexion a été refusée ou votre compte a été désactivé. Veuillez contacter contact@appalacarte.fr.");
+    if (user.statut === 'REFUSE') {
+      const err: any = new Error("Votre compte a été désactivé ou votre demande refusée. Veuillez contacter contact@appalacarte.fr.");
       err.code = 'USER_REJECTED';
       throw err;
     }
 
-    // 3. Gestion du mot de passe temporaire et du changement obligatoire
-    const isTemp = password ? isTemporaryPassword(password, registeredUser.prenom, registeredUser.motDePasseTemporaire) : false;
+    // 1. Vérification du mot de passe temporaire : prenom2027
+    const tempPassGenerated = generateTemporaryPassword(user.prenom || 'technicien');
+    const isTemp = isTemporaryPassword(cleanPassword, user.prenom, user.motDePasseTemporaire);
 
-    // Si le mot de passe saisi est le mot de passe temporaire OU si l'utilisateur doit changer son mot de passe
-    if (isTemp || registeredUser.doitChangerMotDePasse === true) {
-      if (password && !isTemp && registeredUser.motDePasse && password !== registeredUser.motDePasse) {
-        // Tente Supabase Auth au cas où
-        let ok = false;
-        if (isLiveSupabaseActive()) {
-          try {
-            const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
-            if (!error && data?.user) ok = true;
-          } catch {}
-        }
-        if (!ok) {
-          const err: any = new Error("Mot de passe incorrect. Pour votre première connexion, utilisez le mot de passe temporaire : votre prénom en minuscule suivi de 2027.");
-          err.code = 'INVALID_PASSWORD';
-          throw err;
-        }
+    if (isTemp) {
+      // Si l'utilisateur a déjà configuré un mot de passe personnel et que le changement n'est pas requis
+      if (user.motDePasse && user.doitChangerMotDePasse === false && user.motDePasse !== cleanPassword) {
+        const err: any = new Error("Ce mot de passe temporaire n'est plus actif car vous avez déjà configuré votre mot de passe personnel. En cas d'oubli, cliquez sur 'Mot de passe oublié ?'.");
+        err.code = 'TEMP_PASSWORD_EXPIRED';
+        throw err;
       }
 
-      // Mot de passe temporaire validé ou changement requis
+      // Mot de passe temporaire accepté -> CHANGEMENT OBLIGATOIRE DU MOT DE PASSE REQUIS
       return {
-        user: registeredUser,
-        session: { user: registeredUser },
+        user,
+        session: { user },
         requirePasswordChange: true,
-        tempPasswordUsed: isTemp
+        tempPasswordUsed: true
       };
     }
 
-    // 4. Utilisateur validé et actif avec mot de passe personnalisé
-    if (password && isLiveSupabaseActive()) {
+    // 2. Si un changement obligatoire de mot de passe est en attente
+    if (user.doitChangerMotDePasse === true) {
+      if (user.motDePasse && cleanPassword === user.motDePasse) {
+        return {
+          user,
+          session: { user },
+          requirePasswordChange: true
+        };
+      }
+      const err: any = new Error(`Pour votre première connexion, utilisez votre mot de passe temporaire : votre prénom en minuscule suivi de 2027 (ex : ${tempPassGenerated}).`);
+      err.code = 'REQUIRE_TEMP_PASSWORD';
+      throw err;
+    }
+
+    // 3. Vérification du mot de passe personnel local
+    if (user.motDePasse && cleanPassword === user.motDePasse) {
+      localStorage.setItem('maintenance_authenticated', 'true');
+      localStorage.setItem('maintenance_current_user', JSON.stringify(user));
+      return { user, session: { user }, requirePasswordChange: false };
+    }
+
+    // 4. Vérification avec Supabase Auth si en direct
+    if (isLiveSupabaseActive()) {
       try {
-        const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
+        const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password: cleanPassword });
         if (!error && data?.user) {
-          const merged = { ...registeredUser, ...data.user, doitChangerMotDePasse: false };
+          const merged = { ...user, ...data.user, doitChangerMotDePasse: false };
           localStorage.setItem('maintenance_authenticated', 'true');
           localStorage.setItem('maintenance_current_user', JSON.stringify(merged));
-          return { user: merged, session: { user: merged }, requirePasswordChange: false };
+          return { user: merged, session: data.session, requirePasswordChange: false };
         }
       } catch (err) {
-        console.warn('Supabase auth direct indisponible, fallback profil utilisateur validé.');
+        console.warn('Supabase auth distant a échoué:', err);
       }
     }
 
-    // Vérification du mot de passe local si défini
-    if (password && registeredUser.motDePasse) {
-      if (password !== registeredUser.motDePasse) {
-        const err: any = new Error("Mot de passe incorrect. En cas d'oubli, cliquez sur 'Mot de passe oublié ?'.");
-        err.code = 'INVALID_PASSWORD';
-        throw err;
-      }
+    // Si administrateur maître sans mot de passe personnalisé encore enregistré
+    if (cleanEmail === 'contact@appalacarte.fr' && !user.motDePasse) {
+      const err: any = new Error("Mot de passe incorrect. Pour initialiser votre compte administrateur, utilisez le mot de passe temporaire : herve2027.");
+      err.code = 'INVALID_PASSWORD';
+      throw err;
     }
 
-    localStorage.setItem('maintenance_authenticated', 'true');
-    localStorage.setItem('maintenance_current_user', JSON.stringify(registeredUser));
-    return { user: registeredUser, session: { user: registeredUser }, requirePasswordChange: false };
+    // Mot de passe invalide
+    const err: any = new Error("Mot de passe incorrect. Pour une première connexion, utilisez votre mot de passe temporaire (votre prénom suivi de 2027). En cas d'oubli, cliquez sur 'Mot de passe oublié ?'.");
+    err.code = 'INVALID_PASSWORD';
+    throw err;
   },
 
   // Changement / Mise à jour obligatoire ou volontaire du mot de passe
@@ -1608,8 +1582,8 @@ export const auth = {
       }
     }
 
-    if (user && user.email !== 'contact@appalacarte.fr') {
-      const tempPass = generateTemporaryPassword(user.prenom);
+    if (user) {
+      const tempPass = generateTemporaryPassword(user.prenom || 'technicien');
       await db.users.update(user._id || user.id, {
         motDePasseTemporaire: tempPass,
         doitChangerMotDePasse: true,
@@ -1622,7 +1596,7 @@ export const auth = {
         prenom: user.prenom,
         email: cleanEmail,
         tempPassword: tempPass,
-        message: `Instructions de réinitialisation envoyées à ${cleanEmail}. Votre mot de passe temporaire (${tempPass}) vous permet également de redéfinir votre mot de passe immédiatement.`
+        message: `Votre mot de passe temporaire (${tempPass}) a été réactivé. Reconnectez-vous dès maintenant avec ce mot de passe temporaire pour définir votre nouveau mot de passe personnel.`
       };
     }
 

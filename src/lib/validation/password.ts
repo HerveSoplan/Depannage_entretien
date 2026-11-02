@@ -8,22 +8,22 @@ export const PASSWORD_MAX = 72;
 export const SYMBOL_REGEX = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?~`]/;
 
 /**
- * Génère le mot de passe temporaire officiel selon la règle :
- * "Le prénom en minuscule suivi de 2027" (ex : thomas -> thomas2027, alexandre -> alexandre2027)
+ * Génère le mot de passe temporaire officiel selon la règle stricte :
+ * "Le prénom du technicien en minuscule suivi de 2027" (ex : thomas -> thomas2027, herve -> herve2027)
  */
 export function generateTemporaryPassword(prenom: string): string {
   const cleanPrenom = (prenom || '')
     .trim()
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]/g, '');
+    .replace(/[\u0300-\u036f]/g, '') // supprime les accents
+    .replace(/[^a-z0-9]/g, '');      // supprime tirets, espaces, caractères spéciaux
 
   return (cleanPrenom || 'technicien') + '2027';
 }
 
 /**
- * Vérifie si le mot de passe saisi correspond au mot de passe temporaire
+ * Vérifie si le mot de passe saisi correspond au mot de passe temporaire officiel (prenom2027)
  */
 export function isTemporaryPassword(
   enteredPassword?: string,
@@ -31,17 +31,32 @@ export function isTemporaryPassword(
   storedTempPassword?: string
 ): boolean {
   if (!enteredPassword) return false;
-  const cleanEntered = enteredPassword.trim().toLowerCase();
+  const cleanEntered = enteredPassword
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
 
-  if (storedTempPassword && cleanEntered === storedTempPassword.trim().toLowerCase()) {
-    return true;
+  if (storedTempPassword) {
+    const cleanStored = storedTempPassword
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+    if (cleanEntered === cleanStored) {
+      return true;
+    }
   }
 
   if (prenom) {
     const generated = generateTemporaryPassword(prenom);
     if (cleanEntered === generated.toLowerCase()) return true;
 
-    const rawEntered = prenom.trim().toLowerCase() + '2027';
+    const rawEntered = prenom
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') + '2027';
     if (cleanEntered === rawEntered) return true;
   }
 
