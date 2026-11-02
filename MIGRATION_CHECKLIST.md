@@ -1,7 +1,7 @@
-# ✅ Checklist de Migration - Lumi vers Supabase
+# ✅ Checklist de Migration - Vers Supabase & Vercel
 
 ## 🎯 Objectif
-Migrer l'application Soplan de Lumi vers Supabase et déployer en production.
+Déployer l'application Dépannage_entretien sur Supabase et héberger en production.
 
 ---
 
@@ -25,7 +25,7 @@ Migrer l'application Soplan de Lumi vers Supabase et déployer en production.
 
 ### Création du projet
 - [ ] Projet Supabase créé
-  - Nom : `soplan-maintenance`
+  - Nom : `depannage-entretien`
   - Région : Europe (Paris/Frankfurt)
   - Mot de passe de base de données sauvegardé
 - [ ] Projet actif et accessible
@@ -61,7 +61,7 @@ Migrer l'application Soplan de Lumi vers Supabase et déployer en production.
 
 ### Création utilisateur admin
 - [ ] Script SQL de création d'utilisateur exécuté
-- [ ] Email : `admin@soplanelevage.fr` créé
+- [ ] Email administrateur créé (`contact@appalacarte.fr`)
 - [ ] Mot de passe défini et sauvegardé
 - [ ] Utilisateur visible dans Auth > Users
 
@@ -126,7 +126,7 @@ Migrer l'application Soplan de Lumi vers Supabase et déployer en production.
 
 ### Test de connexion
 - [ ] Page de login affichée
-- [ ] Connexion avec `admin@soplanelevage.fr` réussie
+- [ ] Connexion administrateur réussie (`contact@appalacarte.fr`)
 - [ ] Redirection vers le dashboard
 - [ ] Déconnexion fonctionne
 
@@ -332,8 +332,8 @@ Si toutes les cases sont cochées, votre migration est complète !
 4. Restaurer depuis le backup si nécessaire
 
 ### Support
-- Documentation : Dans le projet `/docs`
-- Email : support@soplanelevage.fr
+- Documentation interne
+- Email : contact@appalacarte.fr
 - GitHub Issues : (si configuré)
 
 ---

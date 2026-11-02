@@ -25,9 +25,13 @@ import {
   ShieldCheck,
   UserCheck,
   AlertTriangle,
-  Send
+  Send,
+  KeyRound,
+  RefreshCw,
+  Lock
 } from 'lucide-react';
-import { db } from '../../lib/supabase';
+import { db, generateTemporaryPassword } from '../../lib/supabase';
+import { APP_NAME } from '../../version';
 
 interface UsersScreenProps {
   onNavigate: (screen: string, params?: any) => void;
@@ -75,6 +79,7 @@ export function UsersScreen({ onNavigate }: UsersScreenProps) {
   const [customInviteEmail, setCustomInviteEmail] = useState('');
   const [selectedDirectUserEmail, setSelectedDirectUserEmail] = useState('');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [createdCredentialsModal, setCreatedCredentialsModal] = useState<any>(null);
 
   const [formData, setFormData] = useState({
     nom: '',
@@ -175,30 +180,56 @@ export function UsersScreen({ onNavigate }: UsersScreenProps) {
     setApprovalNumeroTechnicien(user.numeroTechnicien || '');
   };
 
+  // Formatage officiel du message d'invitation avec mot de passe temporaire
+  const formatInvitationMessage = (u: any) => {
+    const appUrl = window.location.origin;
+    const loginLink = `${appUrl}/login?email=${encodeURIComponent(u.email || '')}&action=login`;
+    const tempMdp = u.tempPassword || u.motDePasseTemporaire || generateTemporaryPassword(u.prenom || 'technicien');
+    const roleLabel = roles.find((r) => r.value === u.role)?.label || u.role || 'Technicien';
+
+    return `Bonjour ${u.prenom} ${u.nom},
+
+Votre compte d'accès à l'application ${APP_NAME} a été configuré avec le rôle : ${roleLabel}.
+
+📱 Vos identifiants pour vous connecter depuis votre téléphone, tablette ou PC :
+- Lien de connexion direct : ${loginLink}
+- Identifiant (Email) : ${u.email}
+- Mot de passe temporaire : ${tempMdp}
+
+⚠️ Première connexion : Dès votre connexion avec ce mot de passe temporaire, l'application vous demandera immédiatement de définir votre mot de passe personnel définitif.
+
+Bien cordialement,
+App à la Carte — Hervé CHAMPAGNE EI
+contact@appalacarte.fr`.trim();
+  };
+
   const handleConfirmApproval = async () => {
     if (!approvingUser) return;
     setLoading(true);
     try {
+      const tempPassword = generateTemporaryPassword(approvingUser.prenom || 'technicien');
       await db.users.approve(approvingUser._id || approvingUser.id, {
         role: approvalRole,
         numeroTechnicien: approvalNumeroTechnicien.trim(),
         approvedBy: currentUser?.email || 'contact@appalacarte.fr'
       });
 
+      await db.users.update(approvingUser._id || approvingUser.id, {
+        motDePasseTemporaire: tempPassword,
+        doitChangerMotDePasse: true
+      });
+
       await fetchUsers();
 
-      const appUrl = window.location.origin;
-      const loginLink = `${appUrl}/?action=login&email=${encodeURIComponent(approvingUser.email)}`;
-      const confirmationMsg = `Bonjour ${approvingUser.prenom},\n\nVotre accès à l'application Maintenance & Dépannage a été validé avec le rôle ${roles.find(r => r.value === approvalRole)?.label || approvalRole}.\n\nVous pouvez maintenant vous connecter directement via ce lien :\n${loginLink}\n\nÀ très vite !`;
-
-      try {
-        await navigator.clipboard.writeText(confirmationMsg);
-        alert(`✅ Utilisateur validé avec succès !\n\nLe message de confirmation contenant le lien de connexion a été copié dans votre presse-papiers.`);
-      } catch {
-        alert(`✅ Utilisateur ${approvingUser.prenom} ${approvingUser.nom} validé avec succès !`);
-      }
+      const userWithCreds = {
+        ...approvingUser,
+        role: approvalRole,
+        numeroTechnicien: approvalNumeroTechnicien.trim(),
+        tempPassword
+      };
 
       setApprovingUser(null);
+      setCreatedCredentialsModal(userWithCreds);
     } catch (error) {
       console.error('Erreur validation utilisateur:', error);
       alert('Erreur lors de la validation.');
@@ -236,31 +267,38 @@ export function UsersScreen({ onNavigate }: UsersScreenProps) {
     }
   };
 
+  // Transmettre les accès au technicien (ouverture de la modale de transmission avec mot de passe temporaire)
   const handleSendInvitation = async (user: any) => {
     if (!user.email) {
       alert("Cet utilisateur n'a pas d'adresse email !");
       return;
     }
+    const tempPassword = user.motDePasseTemporaire || generateTemporaryPassword(user.prenom || 'technicien');
+    setCreatedCredentialsModal({
+      ...user,
+      tempPassword
+    });
+  };
 
-    const appUrl = window.location.origin;
-    const invitationLink = `${appUrl}/?action=login&email=${encodeURIComponent(user.email)}`;
-
-    const invitationMessage = `
-Bonjour ${user.prenom} ${user.nom},
-
-Votre accès à l'application Maintenance & Dépannage est validé en tant que ${roles.find((r) => r.value === user.role)?.label || user.role}.
-
-Lien pour vous connecter directement :
-${invitationLink}
-
-Copiez et collez ce lien dans votre navigateur pour accéder à vos interventions.
-
----
-Maintenance & Dépannage — App à la Carte
-Contact : contact@appalacarte.fr
-    `.trim();
-
-    copyToClipboard(invitationMessage, `invite-${user._id || user.id}`);
+  // Réinitialisation du mot de passe temporaire par l'administrateur ou responsable technique
+  const handleResetUserTempPassword = async (user: any) => {
+    const tempMdp = generateTemporaryPassword(user.prenom || 'technicien');
+    if (!confirm(`Confirmez-vous la réinitialisation du mot de passe temporaire pour ${user.prenom} ${user.nom} ?\n\nNouveau mot de passe temporaire : ${tempMdp}\n(L'utilisateur devra obligatoirement le changer à sa prochaine connexion)`)) {
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await db.users.resetTemporaryPassword(user._id || user.id);
+      await fetchUsers();
+      setCreatedCredentialsModal({
+        ...user,
+        tempPassword: res.tempPassword
+      });
+    } catch (e) {
+      alert("Erreur lors de la réinitialisation du mot de passe temporaire.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -268,11 +306,17 @@ Contact : contact@appalacarte.fr
     setLoading(true);
 
     try {
+      const tempPass = generateTemporaryPassword(formData.prenom || 'technicien');
+      const chosenRole = formData.roles.length > 0 ? formData.roles[0] : formData.role;
+      const chosenRoles = formData.roles.length > 0 ? formData.roles : formData.role ? [formData.role] : [];
+
       const userData = {
         ...formData,
-        role: formData.roles.length > 0 ? formData.roles[0] : formData.role,
-        roles: formData.roles.length > 0 ? formData.roles : formData.role ? [formData.role] : [],
+        role: chosenRole,
+        roles: chosenRoles,
         statut: formData.actif ? 'VALIDE' : 'EN_ATTENTE',
+        motDePasseTemporaire: tempPass,
+        doitChangerMotDePasse: true,
         creator: currentUser?.email || 'system',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -280,13 +324,19 @@ Contact : contact@appalacarte.fr
 
       if (editingUser) {
         await db.users.update(editingUser._id || editingUser.id, userData);
+        resetForm();
+        alert('Utilisateur modifié avec succès !');
       } else {
-        await db.users.create(userData);
+        const created = await db.users.create(userData);
+        resetForm();
+        setCreatedCredentialsModal({
+          ...userData,
+          id: created?.id || created?._id,
+          tempPassword: tempPass
+        });
       }
 
       await fetchUsers();
-      resetForm();
-      alert(editingUser ? 'Utilisateur modifié !' : 'Utilisateur créé !');
     } catch (error) {
       console.error('Erreur:', error);
       alert("Erreur lors de l'enregistrement");
@@ -649,6 +699,34 @@ Contact : contact@appalacarte.fr
               </div>
             </div>
 
+            {/* Encadré mot de passe temporaire automatique */}
+            <div className="p-3.5 bg-blue-50/80 border border-blue-200 rounded-xl flex items-start gap-3">
+              <div className="p-2 bg-blue-600 text-white rounded-lg flex-shrink-0 mt-0.5 shadow-sm">
+                <KeyRound size={18} />
+              </div>
+              <div className="flex-1 text-xs text-blue-950 space-y-1">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="font-bold text-sm text-blue-900 flex items-center gap-2">
+                    <span>Mot de passe temporaire :</span>
+                    <span className="font-mono bg-white px-2.5 py-0.5 rounded-md border border-blue-300 text-blue-700 font-extrabold text-sm tracking-wide shadow-xs">
+                      {generateTemporaryPassword(formData.prenom || 'prenom')}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(generateTemporaryPassword(formData.prenom || 'prenom'), 'temp-pass-form')}
+                    className="text-[11px] font-semibold text-blue-700 hover:text-blue-900 bg-white px-2 py-1 rounded border border-blue-200 hover:bg-blue-100/50 flex items-center gap-1 transition-colors"
+                  >
+                    {copiedKey === 'temp-pass-form' ? <Check size={12} className="text-green-600" /> : <Copy size={12} />}
+                    <span>{copiedKey === 'temp-pass-form' ? 'Copié !' : 'Copier'}</span>
+                  </button>
+                </div>
+                <p className="text-slate-600 leading-relaxed text-[11px]">
+                  Règle automatique : <strong>prénom en minuscule suivi de 2027</strong>. Le technicien l'utilise pour sa 1ère connexion depuis son téléphone, sa tablette ou son PC. Le changement de mot de passe sera exigé immédiatement après sa connexion.
+                </p>
+              </div>
+            </div>
+
             <div className="flex items-center gap-2 pt-2">
               <input
                 type="checkbox"
@@ -795,6 +873,12 @@ Contact : contact@appalacarte.fr
                                 N° {user.numeroTechnicien}
                               </span>
                             )}
+                            {user.email !== 'contact@appalacarte.fr' && (user.doitChangerMotDePasse || user.motDePasseTemporaire) && (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-amber-50 text-amber-900 border border-amber-300 px-2 py-0.5 rounded-full">
+                                <KeyRound className="w-3 h-3 text-amber-600" />
+                                <span>MDP temp : <strong className="font-mono">{user.motDePasseTemporaire || generateTemporaryPassword(user.prenom)}</strong></span>
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -838,6 +922,17 @@ Contact : contact@appalacarte.fr
                             ) : (
                               <Share2 size={18} />
                             )}
+                          </button>
+                        )}
+
+                        {/* Réinitialiser le mot de passe temporaire et transmettre */}
+                        {!isPending && user.email !== 'contact@appalacarte.fr' && canValidate && (
+                          <button
+                            onClick={() => handleResetUserTempPassword(user)}
+                            className="p-2 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-lg transition-colors"
+                            title="Réinitialiser le mot de passe temporaire (prénom2027) et transmettre les accès"
+                          >
+                            <RefreshCw size={18} />
                           </button>
                         )}
 
@@ -1251,6 +1346,125 @@ Cordialement,
                 type="button"
                 variant="ghost"
                 onClick={() => setShowLinkModal(false)}
+                className="text-xs"
+              >
+                Fermer
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* ================= MODALE TRANSMISSION IDENTIFIANTS TECHNICIEN ================= */}
+      {createdCredentialsModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <Card className="w-full max-w-lg shadow-2xl border-blue-200 bg-white p-6 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center">
+                  <KeyRound className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900 text-base">
+                    Identifiants d'accès du technicien
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    Compte prêt pour smartphone, tablette ou ordinateur
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setCreatedCredentialsModal(null)}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Récapitulatif visuel */}
+            <div className="p-4 bg-gradient-to-br from-blue-50/80 to-indigo-50/60 border border-blue-200 rounded-xl space-y-2.5 text-xs text-slate-800">
+              <div className="grid grid-cols-2 gap-2 pb-2 border-b border-blue-100">
+                <div>
+                  <span className="text-gray-500 block text-[11px]">Technicien / Utilisateur :</span>
+                  <strong className="text-sm text-gray-900">{createdCredentialsModal.prenom} {createdCredentialsModal.nom}</strong>
+                </div>
+                <div>
+                  <span className="text-gray-500 block text-[11px]">Rôle attribué :</span>
+                  <span className="inline-block px-2 py-0.5 bg-blue-100 text-blue-800 font-semibold rounded text-[11px]">
+                    {roles.find(r => r.value === createdCredentialsModal.role)?.label || createdCredentialsModal.role}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between bg-white p-2 rounded-lg border border-blue-100">
+                  <span className="text-gray-600">Email (identifiant) :</span>
+                  <span className="font-mono font-semibold text-gray-900">{createdCredentialsModal.email}</span>
+                </div>
+
+                <div className="flex items-center justify-between bg-white p-2 rounded-lg border border-blue-200 shadow-xs">
+                  <div className="flex items-center gap-1.5">
+                    <KeyRound className="w-4 h-4 text-blue-600" />
+                    <span className="text-blue-900 font-semibold">Mot de passe temporaire :</span>
+                  </div>
+                  <span className="font-mono font-bold text-sm bg-blue-50 text-blue-700 px-2 py-0.5 rounded border border-blue-200">
+                    {createdCredentialsModal.tempPassword || generateTemporaryPassword(createdCredentialsModal.prenom)}
+                  </span>
+                </div>
+              </div>
+
+              <p className="text-[11px] text-blue-900/80 italic pt-1">
+                ℹ️ Dès la 1ère connexion avec ce mot de passe temporaire, l'application demandera immédiatement au technicien de saisir son mot de passe personnel définitif.
+              </p>
+            </div>
+
+            {/* Message type à copier ou envoyer */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-gray-700">Message complet prêt à envoyer :</label>
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard(formatInvitationMessage(createdCredentialsModal), 'creds-msg')}
+                  className="text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1"
+                >
+                  {copiedKey === 'creds-msg' ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
+                  <span>{copiedKey === 'creds-msg' ? 'Message copié !' : 'Copier le message'}</span>
+                </button>
+              </div>
+
+              <pre className="text-[11px] text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-200 whitespace-pre-wrap font-sans max-h-36 overflow-y-auto leading-relaxed">
+                {formatInvitationMessage(createdCredentialsModal)}
+              </pre>
+            </div>
+
+            {/* Boutons d'actions */}
+            <div className="pt-2 border-t border-gray-100 flex flex-col sm:flex-row gap-2 justify-end">
+              <a
+                href={`mailto:${encodeURIComponent(createdCredentialsModal.email)}?subject=${encodeURIComponent(`Vos accès à l'application ${APP_NAME}`)}&body=${encodeURIComponent(formatInvitationMessage(createdCredentialsModal))}`}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <Mail size={15} />
+                <span>Envoyer par email</span>
+              </a>
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  const appUrl = window.location.origin;
+                  const link = `${appUrl}/login?email=${encodeURIComponent(createdCredentialsModal.email)}&action=login`;
+                  copyToClipboard(link, 'creds-link');
+                }}
+                className="text-xs flex items-center justify-center gap-1.5"
+              >
+                {copiedKey === 'creds-link' ? <Check size={14} className="text-green-600" /> : <Link size={14} />}
+                <span>{copiedKey === 'creds-link' ? 'Lien copié !' : 'Copier lien d\'accès'}</span>
+              </Button>
+
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setCreatedCredentialsModal(null)}
                 className="text-xs"
               >
                 Fermer

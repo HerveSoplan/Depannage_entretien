@@ -386,7 +386,7 @@ console.log('Count:', data, error);
 - `DEPLOYMENT_GUIDE.md` dans le projet
 
 ### Support
-- Email : support@soplanelevage.fr
+- Email : contact@appalacarte.fr
 - Issues : GitHub (si configuré)
 
 ### Avant de contacter le support

@@ -1,5 +1,5 @@
 -- ==============================================================================
--- Migration Supabase : Authentification et Validation des Utilisateurs (SoPlan)
+-- Migration Supabase : Authentification et Validation des Utilisateurs (Dépannage_entretien)
 -- Auteur : App à la Carte — Hervé CHAMPAGNE EI
 -- Date : 2026-11-01
 -- Description :

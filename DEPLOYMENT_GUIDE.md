@@ -1,4 +1,4 @@
-# 🚀 Guide de Déploiement Soplan - De Lumi à Supabase
+# 🚀 Guide de Déploiement Dépannage_entretien - Supabase & Vercel
 
 ## 📋 Table des matières
 
@@ -46,7 +46,7 @@ supabase --version
 1. **Aller sur https://supabase.com**
 2. **Se connecter / Créer un compte**
 3. **Créer un nouveau projet** :
-   - Nom du projet : `soplan-maintenance`
+   - Nom du projet : `depannage-entretien`
    - Database Password : (choisir un mot de passe fort)
    - Région : Europe (Paris ou Frankfurt recommandé)
    - Plan : Free tier pour commencer
@@ -103,7 +103,7 @@ INSERT INTO auth.users (
   role
 ) VALUES (
   gen_random_uuid(),
-  'admin@soplanelevage.fr',
+  'contact@appalacarte.fr',
   crypt('VotreMotDePasse123!', gen_salt('bf')),
   NOW(),
   NOW(),
@@ -122,9 +122,9 @@ INSERT INTO public.utilisateurs (
   permissions,
   actif
 ) VALUES (
-  'admin@soplanelevage.fr',
-  'Admin',
-  'Système',
+  'contact@appalacarte.fr',
+  'CHAMPAGNE',
+  'Hervé',
   'admin',
   ARRAY['admin_access', 'manage_users', 'view_all_data'],
   true
@@ -139,8 +139,8 @@ INSERT INTO public.utilisateurs (
 
 ```bash
 # Créer un dossier pour le projet
-mkdir soplan-app
-cd soplan-app
+mkdir depannage-entretien
+cd depannage-entretien
 
 # Copier tous les fichiers depuis Lumi
 # (Utiliser FTP, copier-coller, ou récupérer l'archive zip)
@@ -439,8 +439,8 @@ sudo npm install -g pm2
 
 ```bash
 # Cloner le repo (depuis GitHub/GitLab)
-git clone https://github.com/votre-compte/soplan-app.git
-cd soplan-app
+git clone https://github.com/votre-compte/depannage-entretien.git
+cd depannage-entretien
 
 # Installer les dépendances
 npm install
@@ -453,7 +453,7 @@ nano .env
 npm run build
 
 # Servir avec PM2
-pm2 serve dist 3000 --name soplan-app --spa
+pm2 serve dist 3000 --name depannage-entretien --spa
 
 # Sauvegarder la config PM2
 pm2 save
@@ -464,7 +464,7 @@ pm2 startup
 
 ```bash
 # Créer la configuration
-sudo nano /etc/nginx/sites-available/soplan
+sudo nano /etc/nginx/sites-available/depannage-entretien
 
 # Coller cette configuration :
 ```
@@ -474,7 +474,7 @@ server {
     listen 80;
     server_name votre-domaine.com;
     
-    root /home/user/soplan-app/dist;
+    root /home/user/depannage-entretien/dist;
     index index.html;
     
     location / {
@@ -495,7 +495,7 @@ server {
 
 ```bash
 # Activer le site
-sudo ln -s /etc/nginx/sites-available/soplan /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/depannage-entretien /etc/nginx/sites-enabled/
 
 # Tester la config
 sudo nginx -t
@@ -541,7 +541,7 @@ sudo certbot --nginx -d votre-domaine.com
 
 **1. Test de connexion :**
 ```
-- Se connecter avec admin@soplanelevage.fr
+- Se connecter avec un compte administrateur validé (ex: contact@appalacarte.fr)
 - Vérifier l'accès au dashboard
 - Se déconnecter
 ```
@@ -632,18 +632,18 @@ WITH CHECK (true);
 
 ## 🎉 Félicitations !
 
-Votre application Soplan est maintenant déployée sur Supabase !
+Votre application Dépannage_entretien est maintenant déployée sur Supabase !
 
 **Prochaines étapes :**
-1. Importer vos données existantes depuis Lumi
+1. Importer vos données existantes
 2. Former vos utilisateurs
 3. Configurer les sauvegardes automatiques
 4. Mettre en place le monitoring
 
 **Support :**
-- Documentation : `/docs`
+- Documentation interne
 - Issues : Créer un ticket sur GitHub
-- Email : support@soplanelevage.fr
+- Email : contact@appalacarte.fr
 
 ---
 

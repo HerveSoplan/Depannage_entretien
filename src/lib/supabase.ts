@@ -1,8 +1,22 @@
 // src/lib/supabase.ts
 import { createClient } from '@supabase/supabase-js';
 import { demoDb } from '../services/demoDatabase';
+import {
+  generateTemporaryPassword,
+  isTemporaryPassword,
+  validatePassword,
+  passwordErrorMessage,
+  passwordRules
+} from './validation/password';
 
-export { demoDb };
+export {
+  demoDb,
+  generateTemporaryPassword,
+  isTemporaryPassword,
+  validatePassword,
+  passwordErrorMessage,
+  passwordRules
+};
 
 // Récupération stricte depuis les variables d'environnement (aucun secret ni clé en dur dans le code source)
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
@@ -12,7 +26,7 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-a
 // Si les clés Supabase sont configurées dans l'environnement (Vercel ou .env), la connexion Supabase en direct est active.
 export const isLiveSupabaseActive = (): boolean => {
   if (typeof window !== 'undefined') {
-    const forced = localStorage.getItem('soplan_use_live_supabase');
+    const forced = localStorage.getItem('depannage_use_live_supabase') || localStorage.getItem('soplan_use_live_supabase');
     if (forced === 'true') return true;
     if (forced === 'false') return false;
   }
@@ -23,7 +37,7 @@ export const isLiveSupabaseActive = (): boolean => {
 
 export const setLiveSupabaseActive = (active: boolean) => {
   if (typeof window !== 'undefined') {
-    localStorage.setItem('soplan_use_live_supabase', active ? 'true' : 'false');
+    localStorage.setItem('depannage_use_live_supabase', active ? 'true' : 'false');
   }
 };
 
@@ -319,11 +333,21 @@ export const db = {
     },
 
     create: async (userData: any) => {
+      // Génération automatique du mot de passe temporaire : prénom en minuscules suivi de 2027
+      const tempPassword = userData.motDePasseTemporaire || generateTemporaryPassword(userData.prenom || 'technicien');
+      const enrichedData = {
+        ...userData,
+        motDePasseTemporaire: tempPassword,
+        doitChangerMotDePasse: userData.doitChangerMotDePasse !== undefined ? userData.doitChangerMotDePasse : true,
+        createdAt: userData.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
       if (isLiveSupabaseActive()) {
         try {
           const { data, error } = await supabase
             .from('utilisateurs')
-            .insert(toSnakeCase(userData))
+            .insert(toSnakeCase(enrichedData))
             .select()
             .single();
           if (!error && data) return toCamelCase(data);
@@ -331,7 +355,19 @@ export const db = {
           // Fallback démo
         }
       }
-      return demoDb.insert('utilisateurs', userData);
+      return demoDb.insert('utilisateurs', enrichedData);
+    },
+
+    resetTemporaryPassword: async (id: string) => {
+      const user = await db.users.get(id);
+      if (!user) throw new Error('Utilisateur non trouvé');
+      const tempPassword = generateTemporaryPassword(user.prenom || 'technicien');
+      const updated = await db.users.update(id, {
+        motDePasseTemporaire: tempPassword,
+        doitChangerMotDePasse: true,
+        updatedAt: new Date().toISOString()
+      });
+      return { user: updated, tempPassword };
     },
 
     update: async (id: string, userData: any) => {
@@ -1389,7 +1425,7 @@ export const auth = {
             };
             localStorage.setItem('maintenance_authenticated', 'true');
             localStorage.setItem('maintenance_current_user', JSON.stringify(adminUser));
-            return { user: adminUser, session: { user: adminUser } };
+            return { user: adminUser, session: { user: adminUser }, requirePasswordChange: false };
           }
         } catch (err) {
           console.warn('Supabase auth distant indisponible, poursuite authentification administrateur local.');
@@ -1411,7 +1447,7 @@ export const auth = {
       };
       localStorage.setItem('maintenance_authenticated', 'true');
       localStorage.setItem('maintenance_current_user', JSON.stringify(masterAdmin));
-      return { user: masterAdmin, session: { user: masterAdmin } };
+      return { user: masterAdmin, session: { user: masterAdmin }, requirePasswordChange: false };
     }
 
     // 2. Pour tout autre utilisateur : vérification préalable du statut de validation
@@ -1435,24 +1471,172 @@ export const auth = {
       throw err;
     }
 
-    // 3. Utilisateur validé et actif
+    // 3. Gestion du mot de passe temporaire et du changement obligatoire
+    const isTemp = password ? isTemporaryPassword(password, registeredUser.prenom, registeredUser.motDePasseTemporaire) : false;
+
+    // Si le mot de passe saisi est le mot de passe temporaire OU si l'utilisateur doit changer son mot de passe
+    if (isTemp || registeredUser.doitChangerMotDePasse === true) {
+      if (password && !isTemp && registeredUser.motDePasse && password !== registeredUser.motDePasse) {
+        // Tente Supabase Auth au cas où
+        let ok = false;
+        if (isLiveSupabaseActive()) {
+          try {
+            const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
+            if (!error && data?.user) ok = true;
+          } catch {}
+        }
+        if (!ok) {
+          const err: any = new Error("Mot de passe incorrect. Pour votre première connexion, utilisez le mot de passe temporaire : votre prénom en minuscule suivi de 2027.");
+          err.code = 'INVALID_PASSWORD';
+          throw err;
+        }
+      }
+
+      // Mot de passe temporaire validé ou changement requis
+      return {
+        user: registeredUser,
+        session: { user: registeredUser },
+        requirePasswordChange: true,
+        tempPasswordUsed: isTemp
+      };
+    }
+
+    // 4. Utilisateur validé et actif avec mot de passe personnalisé
     if (password && isLiveSupabaseActive()) {
       try {
         const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
         if (!error && data?.user) {
-          const merged = { ...registeredUser, ...data.user };
+          const merged = { ...registeredUser, ...data.user, doitChangerMotDePasse: false };
           localStorage.setItem('maintenance_authenticated', 'true');
           localStorage.setItem('maintenance_current_user', JSON.stringify(merged));
-          return { user: merged, session: { user: merged } };
+          return { user: merged, session: { user: merged }, requirePasswordChange: false };
         }
       } catch (err) {
         console.warn('Supabase auth direct indisponible, fallback profil utilisateur validé.');
       }
     }
 
+    // Vérification du mot de passe local si défini
+    if (password && registeredUser.motDePasse) {
+      if (password !== registeredUser.motDePasse) {
+        const err: any = new Error("Mot de passe incorrect. En cas d'oubli, cliquez sur 'Mot de passe oublié ?'.");
+        err.code = 'INVALID_PASSWORD';
+        throw err;
+      }
+    }
+
     localStorage.setItem('maintenance_authenticated', 'true');
     localStorage.setItem('maintenance_current_user', JSON.stringify(registeredUser));
-    return { user: registeredUser, session: { user: registeredUser } };
+    return { user: registeredUser, session: { user: registeredUser }, requirePasswordChange: false };
+  },
+
+  // Changement / Mise à jour obligatoire ou volontaire du mot de passe
+  updatePassword: async (newPassword: string, userOrEmail?: any) => {
+    const validation = validatePassword(newPassword);
+    if (!validation.valid) {
+      throw new Error(validation.errors[0] || 'Mot de passe non conforme.');
+    }
+
+    let targetUser: any = null;
+    if (typeof userOrEmail === 'string') {
+      targetUser = await db.users.findByEmail(userOrEmail);
+    } else if (userOrEmail && (userOrEmail.email || userOrEmail.id)) {
+      targetUser = userOrEmail;
+    } else {
+      const stored = localStorage.getItem('maintenance_current_user');
+      targetUser = stored ? JSON.parse(stored) : null;
+    }
+
+    if (!targetUser) {
+      throw new Error('Utilisateur non identifié pour le changement de mot de passe.');
+    }
+
+    // 1. Supabase Auth en direct si disponible
+    if (isLiveSupabaseActive()) {
+      try {
+        const { error } = await supabase.auth.updateUser({ password: newPassword });
+        if (error) {
+          console.warn('Supabase auth.updateUser note:', error.message);
+          try {
+            await supabase.auth.signUp({ email: targetUser.email, password: newPassword });
+          } catch {}
+        }
+      } catch (e) {
+        console.warn('Exception Supabase updateUser:', e);
+      }
+    }
+
+    // 2. Mise à jour de la fiche utilisateur
+    const updated = await db.users.update(targetUser._id || targetUser.id, {
+      motDePasse: newPassword,
+      motDePasseTemporaire: null,
+      doitChangerMotDePasse: false,
+      derniereConnexion: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
+
+    const finalUser = {
+      ...targetUser,
+      ...updated,
+      doitChangerMotDePasse: false,
+      motDePasseTemporaire: null
+    };
+
+    localStorage.setItem('maintenance_authenticated', 'true');
+    localStorage.setItem('maintenance_current_user', JSON.stringify(finalUser));
+    sessionStorage.removeItem('pending_auth_email');
+
+    return { ok: true, user: finalUser };
+  },
+
+  // Procédure Mot de passe oublié
+  resetPasswordForEmail: async (email: string) => {
+    const cleanEmail = (email || '').trim().toLowerCase();
+    if (!cleanEmail) {
+      throw new Error('Veuillez renseigner votre adresse email.');
+    }
+
+    const user = await db.users.findByEmail(cleanEmail);
+
+    if (isLiveSupabaseActive()) {
+      try {
+        await supabase.auth.resetPasswordForEmail(cleanEmail, {
+          redirectTo: `${window.location.origin}/login?type=recovery&email=${encodeURIComponent(cleanEmail)}`
+        });
+      } catch (e) {
+        console.warn('Supabase resetPasswordForEmail warning:', e);
+      }
+    }
+
+    if (user && user.email !== 'contact@appalacarte.fr') {
+      const tempPass = generateTemporaryPassword(user.prenom);
+      await db.users.update(user._id || user.id, {
+        motDePasseTemporaire: tempPass,
+        doitChangerMotDePasse: true,
+        updatedAt: new Date().toISOString()
+      });
+
+      return {
+        ok: true,
+        userFound: true,
+        prenom: user.prenom,
+        email: cleanEmail,
+        tempPassword: tempPass,
+        message: `Instructions de réinitialisation envoyées à ${cleanEmail}. Votre mot de passe temporaire (${tempPass}) vous permet également de redéfinir votre mot de passe immédiatement.`
+      };
+    }
+
+    return {
+      ok: true,
+      userFound: false,
+      email: cleanEmail,
+      message: `Si cette adresse email est enregistrée, les instructions de réinitialisation y ont été envoyées.`
+    };
+  },
+
+  // Réinitialisation du mot de passe temporaire par l'administrateur ou responsable technique
+  adminResetTemporaryPassword: async (userId: string) => {
+    return await db.users.resetTemporaryPassword(userId);
   },
 
   requestAccess: async (data: { email: string; nom: string; prenom: string; telephone?: string; role?: string; motifDemande?: string }) => {

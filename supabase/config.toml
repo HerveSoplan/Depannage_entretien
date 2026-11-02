@@ -1,5 +1,5 @@
 # Supabase local configuration
-project_id = "soplan-maintenance"
+project_id = "depannage-entretien"
 
 [api]
 enabled = true

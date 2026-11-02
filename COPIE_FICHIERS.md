@@ -169,13 +169,13 @@ App.tsx                           → src/App.tsx
 ```batch
 REM Ouvrir deux explorateurs de fichiers
 REM 1. Votre ancien projet Lumi
-REM 2. Ce nouveau projet soplan-app
+REM 2. Ce nouveau projet depannage-entretien
 
 REM Copier-coller les dossiers :
-REM - src/components → soplan-app/src/components
-REM - src/screens → soplan-app/src/screens
-REM - src/hooks → soplan-app/src/hooks
-REM - src/services → soplan-app/src/services
+REM - src/components → depannage-entretien/src/components
+REM - src/screens → depannage-entretien/src/screens
+REM - src/hooks → depannage-entretien/src/hooks
+REM - src/services → depannage-entretien/src/services
 ```
 
 #### Sous Mac/Linux :
@@ -184,19 +184,19 @@ REM - src/services → soplan-app/src/services
 cd /chemin/vers/votre-ancien-projet-lumi
 
 # Copier les composants
-cp -r src/components/* /chemin/vers/soplan-app/src/components/
+cp -r src/components/* /chemin/vers/depannage-entretien/src/components/
 
 # Copier les écrans
-cp -r src/screens/* /chemin/vers/soplan-app/src/screens/
+cp -r src/screens/* /chemin/vers/depannage-entretien/src/screens/
 
 # Copier les hooks
-cp -r src/hooks/* /chemin/vers/soplan-app/src/hooks/
+cp -r src/hooks/* /chemin/vers/depannage-entretien/src/hooks/
 
 # Copier les services
-cp -r src/services/* /chemin/vers/soplan-app/src/services/
+cp -r src/services/* /chemin/vers/depannage-entretien/src/services/
 
 # Copier App.tsx
-cp src/App.tsx /chemin/vers/soplan-app/src/
+cp src/App.tsx /chemin/vers/depannage-entretien/src/
 ```
 
 ### Option 2 : Depuis Lumi (si vous avez un export)
@@ -214,7 +214,7 @@ Si vous avez téléchargé une archive depuis Lumi :
 Vérifier que vous avez bien ces dossiers :
 
 ```
-soplan-app/
+depannage-entretien/
 ├── src/
 │   ├── components/
 │   │   ├── common/

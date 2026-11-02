@@ -1,6 +1,6 @@
 ╔═══════════════════════════════════════════════════════════════╗
 ║                                                               ║
-║         📦 PACKAGE DE MIGRATION SOPLAN                       ║
+║         📦 APPLICATION DÉPANNAGE_ENTRETIEN                  ║
 ║         Lumi → Supabase + Déploiement                        ║
 ║                                                               ║
 ║         Version 1.0 - 07/02/2026                             ║
@@ -58,7 +58,7 @@
 2️⃣  STRUCTURE DU PACKAGE
 ═══════════════════════════════════════════════════════════════
 
-soplan-app/
+depannage-entretien/
 │
 ├── 📄 DOCUMENTS DE RÉFÉRENCE
 │   ├── LISEZMOI.txt                    ← COMMENCER ICI
@@ -266,27 +266,23 @@ Temps total estimé : 6-8 heures
 🎯 OBJECTIF FINAL
 ═══════════════════════════════════════════════════════════════
 
-Application Soplan :
+Application Dépannage_entretien :
 ✅ Fonctionnant sur Supabase
 ✅ Déployée en production (HTTPS)
 ✅ Accessible par tous les utilisateurs
-✅ Données migrées depuis Lumi
-✅ Performante et sécurisée
+✅ Données sécurisées
+✅ Performante et maintenable
 ✅ Équipe formée
 
 
 🎉 BON COURAGE !
 ═══════════════════════════════════════════════════════════════
 
-Vous avez tout ce qu'il faut pour réussir votre migration.
+Vous avez tout ce qu'il faut pour exploiter votre application.
 Suivez le guide, prenez votre temps, et n'hésitez pas à
 consulter les différents documents de référence.
 
-La migration peut sembler longue, mais le résultat en vaut
-la peine : une application moderne, performante, et facile
-à maintenir !
-
 ═══════════════════════════════════════════════════════════════
-Package créé par Claude - 07/02/2026
-Soplan Élevage © 2026
+App à la Carte — Hervé CHAMPAGNE EI
+contact@appalacarte.fr
 ═══════════════════════════════════════════════════════════════

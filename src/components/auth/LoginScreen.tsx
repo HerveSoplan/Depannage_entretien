@@ -9,6 +9,7 @@ import {
   Mail,
   KeyRound,
   ArrowRight,
+  ArrowLeft,
   UserPlus,
   Clock,
   CheckCircle2,
@@ -16,9 +17,23 @@ import {
   ShieldCheck,
   User,
   Phone,
-  Send
+  Send,
+  Eye,
+  EyeOff,
+  Lock,
+  RefreshCw,
+  Copy,
+  Check
 } from 'lucide-react';
-import { auth, isLiveSupabaseActive } from '../../lib/supabase';
+import {
+  auth,
+  isLiveSupabaseActive,
+  validatePassword,
+  passwordRules,
+  passwordErrorMessage,
+  generateTemporaryPassword
+} from '../../lib/supabase';
+import { APP_NAME } from '../../version';
 
 interface LoginScreenProps {
   onLoginSuccess: (userData?: any) => void;
@@ -33,18 +48,33 @@ export function LoginScreen({
   onContinueToApp,
   currentUser
 }: LoginScreenProps) {
-  // Mode : 'login' | 'demande'
-  const [activeTab, setActiveTab] = useState<'login' | 'demande'>('login');
+  // Onglet / mode actif : 'login' | 'demande' | 'forgot_password' | 'change_password'
+  const [activeTab, setActiveTab] = useState<'login' | 'demande' | 'forgot_password' | 'change_password'>('login');
 
   // Champs Connexion
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
   const [otpMessage, setOtpMessage] = useState<string | null>(null);
   const [pendingGoogleEmail, setPendingGoogleEmail] = useState<string | null>(null);
   const [showLegal, setShowLegal] = useState(false);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  // Champs Changement obligatoire de mot de passe (première connexion ou réinitialisation)
+  const [targetUserForPasswordChange, setTargetUserForPasswordChange] = useState<any>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordChangeSuccess, setPasswordChangeSuccess] = useState(false);
+
+  // Champs Mot de passe oublié
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotSuccessMessage, setForgotSuccessMessage] = useState<string | null>(null);
+  const [forgotTemporaryPassword, setForgotTemporaryPassword] = useState<string | null>(null);
 
   // Champs Demande d'accès
   const [demandeEmail, setDemandeEmail] = useState('');
@@ -60,20 +90,27 @@ export function LoginScreen({
     try {
       if (typeof window !== 'undefined') {
         const params = new URLSearchParams(window.location.search);
+        const hash = window.location.hash || '';
         const action = params.get('action');
         const inviteEmail = params.get('email');
         const inviteNom = params.get('nom');
         const invitePrenom = params.get('prenom');
+        const isRecovery = params.get('type') === 'recovery' || hash.includes('type=recovery');
 
         if (inviteEmail) {
           setEmail(inviteEmail);
           setDemandeEmail(inviteEmail);
+          setForgotEmail(inviteEmail);
         }
         if (inviteNom) setDemandeNom(inviteNom);
         if (invitePrenom) setDemandePrenom(invitePrenom);
 
-        if (action === 'demande' || params.get('demande') === 'true' || params.get('invite')) {
+        if (isRecovery) {
+          setActiveTab('change_password');
+        } else if (action === 'demande' || params.get('demande') === 'true' || params.get('invite')) {
           setActiveTab('demande');
+        } else if (action === 'forgot' || params.get('forgot') === 'true') {
+          setActiveTab('forgot_password');
         }
 
         const pending = sessionStorage.getItem('pending_auth_email');
@@ -85,6 +122,17 @@ export function LoginScreen({
       console.warn('Erreur lecture paramètres URL:', e);
     }
   }, []);
+
+  // Copie d'un texte dans le presse-papier avec confirmation visuelle
+  const copyToClipboard = async (text: string, key: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedKey(key);
+      setTimeout(() => setCopiedKey(null), 2500);
+    } catch {
+      alert(`Texte à copier :\n\n${text}`);
+    }
+  };
 
   // Connexion Google OAuth
   const handleGoogleSignIn = async () => {
@@ -122,7 +170,17 @@ export function LoginScreen({
     }
 
     try {
-      const res = await auth.signIn(cleanEmail, password || undefined);
+      const res: any = await auth.signIn(cleanEmail, password || undefined);
+
+      // Si mot de passe temporaire ou changement de mot de passe obligatoire requis
+      if (res?.requirePasswordChange) {
+        setTargetUserForPasswordChange(res.user);
+        setActiveTab('change_password');
+        setError(null);
+        setErrorCode(null);
+        return;
+      }
+
       if (res?.user) {
         sessionStorage.removeItem('pending_auth_email');
         onLoginSuccess(res.user);
@@ -135,6 +193,71 @@ export function LoginScreen({
       if (err?.code) {
         setErrorCode(err.code);
       }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Soumission du nouveau mot de passe
+  const handleChangePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    if (newPassword !== confirmPassword) {
+      setError('Les deux mots de passe ne correspondent pas.');
+      setLoading(false);
+      return;
+    }
+
+    const validation = validatePassword(newPassword);
+    if (!validation.valid) {
+      setError(validation.errors[0] || 'Le mot de passe ne respecte pas les critères de sécurité.');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const targetUser = targetUserForPasswordChange || (await auth.getUser()) || email;
+      const res = await auth.updatePassword(newPassword, targetUser);
+      setPasswordChangeSuccess(true);
+
+      setTimeout(() => {
+        sessionStorage.removeItem('pending_auth_email');
+        onLoginSuccess(res.user);
+      }, 1400);
+    } catch (err: any) {
+      console.error('Erreur mise à jour mot de passe:', err);
+      setError(passwordErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Soumission mot de passe oublié
+  const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    setForgotSuccessMessage(null);
+    setForgotTemporaryPassword(null);
+
+    const clean = forgotEmail.trim().toLowerCase();
+    if (!clean) {
+      setError('Veuillez renseigner votre adresse email.');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const res = await auth.resetPasswordForEmail(clean);
+      setForgotSuccessMessage(res.message);
+      if (res.tempPassword) {
+        setForgotTemporaryPassword(res.tempPassword);
+      }
+    } catch (err: any) {
+      console.error('Erreur mot de passe oublié:', err);
+      setError(err?.message || 'Erreur lors de la réinitialisation.');
     } finally {
       setLoading(false);
     }
@@ -226,7 +349,7 @@ export function LoginScreen({
         sessionStorage.removeItem('pending_auth_email');
         onLoginSuccess(res.user);
       }
-    } catch (err: any) {
+    } catch {
       setError('Erreur lors de la connexion administrateur.');
     } finally {
       setLoading(false);
@@ -247,10 +370,10 @@ export function LoginScreen({
               <Wrench className="w-7 h-7" />
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">
-              Maintenance & Dépannage
+              {APP_NAME}
             </h1>
             <p className="text-xs sm:text-sm text-gray-500 mt-1">
-              Portail professionnel certifié — Authentification Google & Email Validé
+              Portail professionnel — Accès sécurisé multi-supports (téléphone, tablette, PC)
             </p>
           </div>
 
@@ -275,8 +398,8 @@ export function LoginScreen({
             </div>
           )}
 
-          {/* Onglets de sélection : Connexion / Demande d'accès */}
-          {!demandeSuccessData && (
+          {/* Onglets principaux Connexion / Demande (masqués lors du changement de mot de passe ou mot de passe oublié) */}
+          {!demandeSuccessData && activeTab !== 'change_password' && activeTab !== 'forgot_password' && (
             <div className="flex rounded-xl bg-gray-100 p-1 mb-5 border border-gray-200">
               <button
                 type="button"
@@ -347,7 +470,7 @@ export function LoginScreen({
                     <span>Demande en attente de validation</span>
                   </div>
                   <p className="text-xs text-amber-800 leading-relaxed">
-                    Votre demande de connexion a bien été enregistrée pour votre adresse email. Elle est actuellement examinée par l'administrateur ou le responsable technique.
+                    Votre compte a été enregistré mais est actuellement en attente de validation par l'administrateur ou le responsable technique.
                   </p>
                 </div>
               ) : errorCode === 'USER_NOT_FOUND' ? (
@@ -373,7 +496,7 @@ export function LoginScreen({
                   </button>
                 </div>
               ) : (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm flex items-start gap-2">
+                <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs sm:text-sm flex items-start gap-2 shadow-xs">
                   <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
                   <span>{error}</span>
                 </div>
@@ -381,8 +504,258 @@ export function LoginScreen({
             </div>
           )}
 
-          {/* Écran de confirmation de demande d'accès réussie */}
-          {demandeSuccessData ? (
+          {/* ================= ÉCRAN 1 : CHANGEMENT OBLIGATOIRE DE MOT DE PASSE ================= */}
+          {activeTab === 'change_password' ? (
+            <div className="space-y-4">
+              <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
+                <div className="p-2 bg-amber-600 text-white rounded-lg flex-shrink-0 mt-0.5">
+                  <Lock size={18} />
+                </div>
+                <div className="text-xs text-amber-950 space-y-1">
+                  <h3 className="font-bold text-sm text-amber-900">
+                    Définition de votre nouveau mot de passe
+                  </h3>
+                  <p className="text-amber-800 leading-relaxed">
+                    {targetUserForPasswordChange?.prenom ? (
+                      <>Bienvenue <strong>{targetUserForPasswordChange.prenom}</strong> ! </>
+                    ) : null}
+                    Pour votre sécurité sur l'ensemble de vos appareils (smartphone, tablette, PC), veuillez remplacer votre mot de passe temporaire par votre mot de passe personnel définitif.
+                  </p>
+                </div>
+              </div>
+
+              {passwordChangeSuccess ? (
+                <div className="p-5 bg-green-50 border border-green-200 rounded-xl text-center space-y-2">
+                  <CheckCircle2 className="w-10 h-10 text-green-600 mx-auto" />
+                  <h4 className="font-bold text-gray-900 text-sm">Mot de passe enregistré avec succès !</h4>
+                  <p className="text-xs text-gray-600">
+                    Votre nouveau mot de passe est désormais actif sur votre téléphone, votre tablette et votre PC. Connexion en cours...
+                  </p>
+                </div>
+              ) : (
+                <form onSubmit={handleChangePasswordSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wider">
+                      Nouveau mot de passe personnel *
+                    </label>
+                    <div className="relative">
+                      <Lock className="w-4 h-4 text-gray-400 absolute left-3 top-3 pointer-events-none" />
+                      <input
+                        type={showNewPassword ? 'text' : 'password'}
+                        autoComplete="new-password"
+                        required
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="Nouveau mot de passe"
+                        className="w-full pl-9 pr-10 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 p-0.5"
+                        aria-label={showNewPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                      >
+                        {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wider">
+                      Confirmer le nouveau mot de passe *
+                    </label>
+                    <div className="relative">
+                      <Lock className="w-4 h-4 text-gray-400 absolute left-3 top-3 pointer-events-none" />
+                      <input
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        autoComplete="new-password"
+                        required
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="Confirmer mot de passe"
+                        className="w-full pl-9 pr-10 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 p-0.5"
+                        aria-label={showConfirmPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                      >
+                        {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Checklist dynamique de sécurité */}
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-1.5 text-xs">
+                    <p className="font-semibold text-slate-800 text-[11px] uppercase tracking-wider">
+                      Critères de sécurité requis :
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[11px]">
+                      {passwordRules.map((rule) => {
+                        const passed = rule.test(newPassword);
+                        return (
+                          <div
+                            key={rule.id}
+                            className={`flex items-center gap-1.5 ${
+                              passed ? 'text-green-700 font-medium' : 'text-slate-500'
+                            }`}
+                          >
+                            <span className="text-xs">{passed ? '✓' : '○'}</span>
+                            <span>{rule.label}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="pt-2 flex flex-col sm:flex-row gap-2">
+                    <Button
+                      type="submit"
+                      disabled={loading || !newPassword || !confirmPassword}
+                      className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md"
+                    >
+                      <CheckCircle2 size={16} />
+                      <span>{loading ? 'Enregistrement...' : 'Enregistrer mon mot de passe et continuer'}</span>
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => {
+                        setActiveTab('login');
+                        setError(null);
+                      }}
+                      className="text-xs"
+                    >
+                      Annuler
+                    </Button>
+                  </div>
+                </form>
+              )}
+            </div>
+          ) : activeTab === 'forgot_password' ? (
+            /* ================= ÉCRAN 2 : MOT DE PASSE OUBLIÉ ================= */
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('login');
+                    setError(null);
+                  }}
+                  className="p-1 text-gray-500 hover:text-gray-800 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  <ArrowLeft size={18} />
+                </button>
+                <div>
+                  <h3 className="font-bold text-gray-900 text-base">Mot de passe oublié</h3>
+                  <p className="text-xs text-gray-500">
+                    Réinitialisez votre mot de passe pour tous vos appareils
+                  </p>
+                </div>
+              </div>
+
+              {forgotSuccessMessage ? (
+                <div className="space-y-3.5">
+                  <div className="p-4 bg-green-50 border border-green-200 rounded-xl space-y-2 text-xs text-green-900">
+                    <div className="flex items-center gap-2 font-bold text-green-950 text-sm">
+                      <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
+                      <span>Demande prise en compte</span>
+                    </div>
+                    <p className="leading-relaxed">{forgotSuccessMessage}</p>
+
+                    {forgotTemporaryPassword && (
+                      <div className="p-3 bg-white border border-green-300 rounded-lg space-y-1.5 mt-2 shadow-xs">
+                        <span className="text-gray-600 font-semibold block text-[11px]">
+                          Votre mot de passe temporaire a été réactivé :
+                        </span>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-mono font-bold text-sm text-blue-700 bg-blue-50 px-2.5 py-1 rounded border border-blue-200">
+                            {forgotTemporaryPassword}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard(forgotTemporaryPassword, 'forgot-temp')}
+                            className="text-[11px] text-blue-600 font-semibold underline flex items-center gap-1"
+                          >
+                            {copiedKey === 'forgot-temp' ? <Check size={12} className="text-green-600" /> : <Copy size={12} />}
+                            <span>{copiedKey === 'forgot-temp' ? 'Copié !' : 'Copier'}</span>
+                          </button>
+                        </div>
+                        <p className="text-[11px] text-gray-500 italic pt-1">
+                          Connectez-vous avec ce mot de passe temporaire pour définir votre nouveau mot de passe immédiatement.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setEmail(forgotEmail);
+                      if (forgotTemporaryPassword) {
+                        setPassword(forgotTemporaryPassword);
+                      }
+                      setActiveTab('login');
+                      setForgotSuccessMessage(null);
+                    }}
+                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md"
+                  >
+                    <span>Se connecter maintenant</span>
+                    <ArrowRight size={16} />
+                  </Button>
+                </div>
+              ) : (
+                <form onSubmit={handleForgotPasswordSubmit} className="space-y-4">
+                  <p className="text-xs text-gray-600 leading-relaxed">
+                    Saisissez l'adresse email rattachée à votre compte. Vous recevrez les instructions de réinitialisation et votre mot de passe temporaire sera réactivé si besoin.
+                  </p>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wider">
+                      Votre adresse email *
+                    </label>
+                    <div className="relative">
+                      <Mail className="w-4 h-4 text-gray-400 absolute left-3 top-3 pointer-events-none" />
+                      <Input
+                        type="email"
+                        required
+                        value={forgotEmail}
+                        onChange={(e) => setForgotEmail(e.target.value)}
+                        placeholder="technicien@entreprise.fr"
+                        className="pl-9 text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="pt-2 flex flex-col sm:flex-row gap-2">
+                    <Button
+                      type="submit"
+                      disabled={loading || !forgotEmail.trim()}
+                      className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md"
+                    >
+                      <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+                      <span>{loading ? 'Envoi en cours...' : 'Réinitialiser mon mot de passe'}</span>
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => {
+                        setActiveTab('login');
+                        setError(null);
+                      }}
+                      className="text-xs"
+                    >
+                      Retour
+                    </Button>
+                  </div>
+                </form>
+              )}
+            </div>
+          ) : demandeSuccessData ? (
+            /* ================= ÉCRAN 3 : CONFIRMATION DEMANDE D'ACCÈS ================= */
             <div className="space-y-5 text-center py-4">
               <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
                 <CheckCircle2 className="w-9 h-9" />
@@ -403,10 +776,7 @@ export function LoginScreen({
                   <span>Prochaine étape : Validation technique</span>
                 </div>
                 <p className="leading-relaxed">
-                  L'administrateur (<span className="text-blue-600 font-medium">contact@appalacarte.fr</span>) ou le responsable technique valide chaque demande pour attribuer les droits d'accès correspondants.
-                </p>
-                <p className="text-gray-500">
-                  Une fois approuvée, vous pourrez vous connecter directement avec votre adresse email ou compte Google.
+                  L'administrateur (<span className="text-blue-600 font-medium">contact@appalacarte.fr</span>) ou le responsable technique valide chaque demande et vous transmettra votre mot de passe temporaire pour votre première connexion.
                 </p>
               </div>
 
@@ -424,9 +794,9 @@ export function LoginScreen({
               </Button>
             </div>
           ) : activeTab === 'login' ? (
-            /* ================= FORMULAIRE DE CONNEXION ================= */
+            /* ================= ÉCRAN 4 : FORMULAIRE DE CONNEXION PRINCIPAL ================= */
             <div className="space-y-4">
-              {/* 1. Bouton Google Sign-In */}
+              {/* Connexion Google Sign-In */}
               <div>
                 <button
                   type="button"
@@ -455,7 +825,7 @@ export function LoginScreen({
                   <span>Continuer avec le compte Google</span>
                 </button>
                 <p className="text-[11px] text-gray-400 text-center mt-1">
-                  Connexion instantanée avec Google (contact@appalacarte.fr ou compte validé)
+                  Connexion instantanée Google (contact@appalacarte.fr ou compte validé)
                 </p>
               </div>
 
@@ -466,7 +836,7 @@ export function LoginScreen({
                 </div>
                 <div className="relative flex justify-center text-[11px] uppercase tracking-wider">
                   <span className="bg-white px-3 text-gray-400 font-medium">
-                    ou avec une adresse email validée
+                    ou avec email & mot de passe
                   </span>
                 </div>
               </div>
@@ -474,7 +844,7 @@ export function LoginScreen({
               <form onSubmit={handleSubmitLogin} className="space-y-3.5">
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wider">
-                    Adresse email validée
+                    Adresse email validée *
                   </label>
                   <div className="relative">
                     <Mail className="w-4 h-4 text-gray-400 absolute left-3 top-3 pointer-events-none" />
@@ -492,22 +862,42 @@ export function LoginScreen({
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                      Mot de passe
+                      Mot de passe *
                     </label>
-                    <span className="text-[11px] text-gray-400">
-                      Optionnel si authentification par lien magique
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setForgotEmail(email);
+                        setActiveTab('forgot_password');
+                        setError(null);
+                      }}
+                      className="text-[11px] text-blue-600 hover:text-blue-800 hover:underline font-semibold"
+                    >
+                      Mot de passe oublié ?
+                    </button>
                   </div>
                   <div className="relative">
                     <KeyRound className="w-4 h-4 text-gray-400 absolute left-3 top-3 pointer-events-none" />
-                    <Input
-                      type="password"
+                    <input
+                      type={showLoginPassword ? 'text' : 'password'}
+                      autoComplete="current-password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="pl-9 text-sm"
+                      placeholder="Mot de passe ou prénom2027"
+                      className="w-full pl-9 pr-10 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowLoginPassword(!showLoginPassword)}
+                      className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 p-0.5"
+                      aria-label={showLoginPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                    >
+                      {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
+                  <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
+                    Première connexion ? Utilisez votre mot de passe temporaire : <em>votre prénom en minuscule suivi de 2027</em> (ex : <span className="font-mono font-semibold text-blue-600">{generateTemporaryPassword('thomas')}</span>).
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
@@ -525,7 +915,7 @@ export function LoginScreen({
                     onClick={handleSendOtp}
                     disabled={loading || !email.trim()}
                     className="w-full py-2.5 px-2 bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-300 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Recevoir un lien de connexion sur votre adresse email validée"
+                    title="Recevoir un lien de connexion magique sur votre adresse email"
                   >
                     <Send className="w-3.5 h-3.5 text-blue-600" />
                     <span>Lien par email (OTP)</span>
@@ -567,10 +957,10 @@ export function LoginScreen({
               </form>
             </div>
           ) : (
-            /* ================= FORMULAIRE DEMANDE D'ACCÈS ================= */
+            /* ================= ÉCRAN 5 : FORMULAIRE DEMANDE D'ACCÈS ================= */
             <form onSubmit={handleSubmitDemande} className="space-y-3.5">
               <div className="p-3 bg-blue-50/70 border border-blue-100 rounded-lg text-xs text-blue-800 leading-relaxed mb-1">
-                <strong>Demande unique de connexion :</strong> Renseignez votre identité et votre email. Votre compte sera validé par l'administrateur (contact@appalacarte.fr) ou le responsable technique avant votre première connexion.
+                <strong>Demande unique de connexion :</strong> Renseignez votre identité et votre email. Votre compte sera validé par l'administrateur (contact@appalacarte.fr) ou le responsable technique qui vous fournira votre mot de passe temporaire pour votre première connexion.
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { LayoutDashboard, Users, Wrench, FileText, Package, HelpCircle, Settings, Database, Menu, X, ShieldAlert } from 'lucide-react';
 import { useTranslation } from '../../hooks/useTranslation';
 import { db } from '../../lib/supabase';
+import { APP_NAME } from '../../version';
 
 interface NavigationProps {
   onNavigate?: (screen: string) => void;
@@ -61,7 +62,7 @@ export function Navigation({ onNavigate, currentScreen }: NavigationProps) {
             <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white mr-2.5 shadow-sm">
               <Wrench className="w-4 h-4" />
             </div>
-            <h1 className="text-lg font-bold text-gray-900">Maintenance & Dépannage</h1>
+            <h1 className="text-lg font-bold text-gray-900">{APP_NAME}</h1>
           </div>
 
           <nav className="flex-1 px-2 space-y-1">
@@ -104,7 +105,7 @@ export function Navigation({ onNavigate, currentScreen }: NavigationProps) {
           <div className="w-7 h-7 rounded-md bg-blue-600 flex items-center justify-center text-white mr-2">
             <Wrench className="w-3.5 h-3.5" />
           </div>
-          <h1 className="text-base font-bold text-blue-600">Maintenance & Dépannage</h1>
+          <h1 className="text-base font-bold text-blue-600">{APP_NAME}</h1>
         </div>
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}

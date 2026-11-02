@@ -1,4 +1,4 @@
--- Migration initiale - Schéma de base de données Soplan
+-- Migration initiale - Schéma de base de données Dépannage_entretien
 -- Créé le: 2026-02-07
 
 -- Activation des extensions nécessaires
@@ -433,12 +433,12 @@ LEFT JOIN clients c ON m.client_id = c.id;
 
 -- Créer un utilisateur admin par défaut
 INSERT INTO utilisateurs (email, nom, prenom, role, permissions) VALUES
-  ('admin@soplanelevage.fr', 'Admin', 'Système', 'admin', ARRAY['admin_access', 'manage_users', 'view_all_data'])
+  ('contact@appalacarte.fr', 'CHAMPAGNE', 'Hervé', 'admin', ARRAY['admin_access', 'manage_users', 'view_all_data'])
 ON CONFLICT (email) DO NOTHING;
 
 -- Message de succès
 DO $$
 BEGIN
   RAISE NOTICE 'Migration initiale terminée avec succès!';
-  RAISE NOTICE 'Base de données Soplan prête à l''emploi.';
+  RAISE NOTICE 'Base de données Dépannage_entretien prête à l''emploi.';
 END $$;
