@@ -4,6 +4,30 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.11.0] - 2026-11-02
+
+### Ajouté & Amélioré (Montage Collaboratif Multi-Techniciens, Multi-Machines & Collation PDF Finale)
+- **Collaboration simultanée multi-techniciens sur mobile ([InstallationProtocolScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/interventions/InstallationProtocolScreen.tsx), [MachineTasksView.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/installation/MachineTasksView.tsx))** :
+  - **Saisie indépendante par smartphone** : Chaque technicien intervenant chez le client se connecte avec son propre compte sur son téléphone et renseigne ses heures de façon autonome sur chaque machine.
+  - **Prise en charge multi-machines chez le même client** : Possibilité d'associer et d'administrer plusieurs machines (machine de référence maître, machines esclaves ou équipements distincts) au sein d'un même chantier de montage.
+  - **Fusion concurrente intelligente (`saveMontage`)** : Lors de la sauvegarde depuis un téléphone, fusion automatique avec la version la plus récente en base pour préserver les saisies simultanées réalisées par d'autres techniciens sur la même machine ou sur d'autres machines du chantier (aucune perte d'heures ou d'écrasement).
+  - **Synchronisation automatique et bouton d'actualisation** : Ajout d'une synchronisation périodique et d'un bouton « Synchroniser » permettant aux intervenants de voir en temps réel l'avancement et les heures saisies par leurs collègues.
+  - **Correction du filtrage utilisateur** : Résolution du cas où l'identifiant utilisateur (`_id` vs `id`) pouvait fausser l'affichage des techniciens tiers sur la fiche machine.
+- **Collation consolidée sur le PDF final de fin de montage ([pdfGenerator.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/utils/pdfGenerator.ts))** :
+  - **Calcul dynamique de collation globale** : Calcul automatique des heures cumulées par technicien et par tâche à travers l'ensemble des machines du chantier, même si le compte-rendu est généré avant la clôture définitive.
+  - **Synthèse multi-niveaux exhaustive** :
+    - Fiche récapitulative du chantier et du client.
+    - Liste complète des machines installées.
+    - Tableau de synthèse globale des heures par technicien.
+    - Tableau de synthèse globale des heures par tâche (électricité, plomberie, monteur, frigoriste, etc.).
+    - Détail complet machine par machine avec la ventilation nominative de chaque technicien intervenu et de ses tâches.
+    - Encadré du total global définitif en heures et minutes.
+  - **Disponibilité immédiate du PDF** : Bouton d'export PDF accessible à tout moment (« PDF Synthèse » en cours de chantier, « PDF Compte-rendu » une fois clôturé).
+  - **Pied de page légal officiel** : Intégration de la mention légale de l'éditeur sur toutes les pages (`App à la Carte — Hervé CHAMPAGNE EI | SIREN : 132 021 098 | contact@appalacarte.fr | TVA non applicable, art. 293 B du CGI`).
+- **Conformité & Versioning** :
+  - Incrémentation SemVer vers la version mineure `v1.11.0` synchronisée dans `package.json`, `src/version.ts`, `public/version.json` et le footer applicatif.
+  - Vérification continue des mentions légales (EI Hervé CHAMPAGNE, SIREN 132 021 098).
+
 ## [1.10.5] - 2026-11-02
 
 ### Simplifié & Épuré (Transmission des Accès Techniciens)

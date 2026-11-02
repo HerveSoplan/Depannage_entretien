@@ -1,4 +1,4 @@
-﻿//src/utils/pdfGenerator.ts - VERSION CORRIGÉE
+//src/utils/pdfGenerator.ts - VERSION CORRIGÉE
 
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -451,14 +451,14 @@ export const generateInstallationReportPDF = async (data: InstallationReportData
     doc.setFont('helvetica', 'italic');
     if (responsableTechnique?.email) {
       doc.text(
-        Destinataire : ${responsableTechnique?.prenom || ''} ${responsableTechnique?.nom || ''} (${responsableTechnique?.email}),
+        `Destinataire : ${responsableTechnique?.prenom || ''} ${responsableTechnique?.nom || ''} (${responsableTechnique?.email})`,
         105,
         282,
         { align: 'center' }
       );
     }
     doc.text(
-      Page ${i} / ${pageCount} - Genere le ${new Date().toLocaleString('fr-FR')} - Compte-rendu de montage,
+      `Page ${i} / ${pageCount} - Genere le ${new Date().toLocaleString('fr-FR')} - Compte-rendu de montage`,
       105,
       286,
       { align: 'center' }
@@ -470,11 +470,6 @@ export const generateInstallationReportPDF = async (data: InstallationReportData
       'App a la Carte - Herve CHAMPAGNE EI | SIREN : 132 021 098 | contact@appalacarte.fr | TVA non applicable, art. 293 B du CGI',
       105,
       290,
-      { align: 'center' }
-    );
-  }bleTechnique?.prenom} ${responsableTechnique?.nom} (${responsableTechnique?.email})`,
-      105,
-      285,
       { align: 'center' }
     );
   }
