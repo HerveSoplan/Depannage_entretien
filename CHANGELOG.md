@@ -4,9 +4,23 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.7.1] - 2026-11-02
+
+### Modifié & Nettoyé (Rebranding)
+- **Nouveau nom officiel de l'application : « Dépannage_entretien »** :
+  - Remplacement de l'ancien nom et purge intégrale de la désignation « soplan-app » de l'ensemble de l'application et de ses métadonnées.
+  - Mise à jour du nom du package dans `package.json` (`depannage-entretien`).
+  - Titre de la page web dans `index.html` mis à jour en `Dépannage_entretien - Gestion de Maintenance et Entretien`.
+  - Centralisation de `APP_NAME = 'Dépannage_entretien'` dans `src/version.ts`.
+  - Affichage dynamique du nom dans la barre latérale de navigation (`Navigation.tsx`), la barre mobile et l'écran de connexion (`LoginScreen.tsx`).
+- **Harmonisation et conformité documentaire** :
+  - Nettoyage et mise à jour complète de `README.md`, `DEPLOYMENT_GUIDE.md`, `COPIE_FICHIERS.md`, `INDEX.txt`, `LISEZMOI.txt`, `MIGRATION_CHECKLIST.md` et `TROUBLESHOOTING.md`.
+  - Remplacement des adresses de contact par l'adresse officielle de l'éditeur `contact@appalacarte.fr`.
+  - Migration de la clé de stockage local vers `depannage_use_live_supabase` avec rétrocompatibilité.
+
 ## [1.7.0] - 2026-11-02
 
-### Ajouté & Amélioré
+### Ajouté & Amélioré (Authentification & Mots de Passe)
 - **Gestion des mots de passe temporaires techniciens (`prenom2027`)** :
   - Génération automatique du mot de passe temporaire dès la création d'un utilisateur par l'administrateur ou le responsable technique selon la règle officielle : prénom en minuscules suivi de `2027` (ex : `thomas2027`).
   - Affichage direct et bouton de copie du mot de passe temporaire dans la fiche utilisateur (`UsersScreen.tsx`).
@@ -24,20 +38,6 @@ Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/)
 - **Sécurité et validation Supabase Auth (`src/lib/validation/password.ts`)** :
   - Module centralisé de validation et normalisation des mots de passe respectant les règles strictes d'authentification.
   - Script de migration SQL Supabase fourni (`supabase_mot_de_passe_temporaire_et_securite.sql`).
-
-## [1.6.3] - 2026-11-02
-
-### Modifié & Nettoyé
-- **Nouveau nom officiel de l'application : « Dépannage_entretien »** :
-  - Remplacement de l'ancien nom et purge intégrale de la désignation `soplan-app` de l'ensemble de l'application et de ses métadonnées.
-  - Mise à jour du nom du package dans `package.json` (`depannage-entretien`).
-  - Titre de la page web dans `index.html` mis à jour en `Dépannage_entretien - Gestion de Maintenance et Entretien`.
-  - Centralisation de `APP_NAME = 'Dépannage_entretien'` dans `src/version.ts`.
-  - Affichage dynamique du nom dans la barre latérale de navigation (`Navigation.tsx`), la barre mobile et l'écran de connexion (`LoginScreen.tsx`).
-- **Harmonisation et conformité documentaire** :
-  - Mise à jour complète de `README.md`, `DEPLOYMENT_GUIDE.md`, `COPIE_FICHIERS.md`, `INDEX.txt`, `LISEZMOI.txt`, `MIGRATION_CHECKLIST.md` et `TROUBLESHOOTING.md`.
-  - Remplacement des adresses de contact par l'adresse officielle de l'éditeur `contact@appalacarte.fr`.
-  - Migration de la clé de stockage local vers `depannage_use_live_supabase` avec rétrocompatibilité.
 
 ## [1.6.2] - 2026-11-01
 
