@@ -103,28 +103,32 @@ BEGIN
   IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'machines') THEN
     ALTER TABLE public.machines ENABLE ROW LEVEL SECURITY;
     DROP POLICY IF EXISTS "Accès machines authentifiés" ON public.machines;
-    DROP POLICY IF EXISTS "Accès complet machines app" ON public.machines FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+    DROP POLICY IF EXISTS "Accès complet machines app" ON public.machines;
+    CREATE POLICY "Accès complet machines app" ON public.machines FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
   END IF;
 
   -- Interventions
   IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'interventions') THEN
     ALTER TABLE public.interventions ENABLE ROW LEVEL SECURITY;
     DROP POLICY IF EXISTS "Accès interventions authentifiés" ON public.interventions;
-    DROP POLICY IF EXISTS "Accès complet interventions app" ON public.interventions FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+    DROP POLICY IF EXISTS "Accès complet interventions app" ON public.interventions;
+    CREATE POLICY "Accès complet interventions app" ON public.interventions FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
   END IF;
 
   -- Protocoles installation
   IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'installation_protocols') THEN
     ALTER TABLE public.installation_protocols ENABLE ROW LEVEL SECURITY;
     DROP POLICY IF EXISTS "Accès protocoles installation" ON public.installation_protocols;
-    DROP POLICY IF EXISTS "Accès complet protocoles installation app" ON public.installation_protocols FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+    DROP POLICY IF EXISTS "Accès complet protocoles installation app" ON public.installation_protocols;
+    CREATE POLICY "Accès complet protocoles installation app" ON public.installation_protocols FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
   END IF;
 
   -- Protocoles mise en service
   IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'commissioning_protocols') THEN
     ALTER TABLE public.commissioning_protocols ENABLE ROW LEVEL SECURITY;
     DROP POLICY IF EXISTS "Accès protocoles mise en service" ON public.commissioning_protocols;
-    DROP POLICY IF EXISTS "Accès complet protocoles mise en service app" ON public.commissioning_protocols FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+    DROP POLICY IF EXISTS "Accès complet protocoles mise en service app" ON public.commissioning_protocols;
+    CREATE POLICY "Accès complet protocoles mise en service app" ON public.commissioning_protocols FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
   END IF;
 
   -- Pièces détachées

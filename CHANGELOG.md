@@ -4,6 +4,16 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.8.5] - 2026-11-02
+
+### Corrigé (Syntaxe SQL des Politiques RLS Supabase)
+- **Correction de la syntaxe SQL des politiques RLS ([repairScript.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/lib/sql/repairScript.ts), [supabase_correction_complete_utilisateurs_et_rls.sql](file:///d:/Aplli/D%C3%A9pannage_entretien/supabase_correction_complete_utilisateurs_et_rls.sql))** :
+  - **Résolution de l'erreur PostgreSQL `42601 syntax error at or near "FOR"`** : Séparation stricte des clauses `DROP POLICY IF EXISTS ... ON ...;` et `CREATE POLICY ... ON ... FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);` pour les tables `machines`, `interventions`, `installation_protocols` et `commissioning_protocols`.
+  - **Exécution sans erreur garantie** : Le script SQL de déblocage s'exécute désormais avec un succès total dans l'éditeur SQL de Supabase.
+- **Conformité & Versioning** :
+  - Passage à la version `v1.8.5` synchronisée dans `package.json` et `src/version.ts`.
+  - Contrôle et maintien de l'exactitude des mentions légales (App à la Carte — Hervé CHAMPAGNE EI, SIREN 132 021 098).
+
 ## [1.8.4] - 2026-11-02
 
 ### Corrigé (Persistance Totale des Utilisateurs & Gestion Complète dans la Base de Données)
