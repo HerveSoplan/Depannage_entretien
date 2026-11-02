@@ -4,6 +4,29 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.8.0] - 2026-11-02
+
+### Ajouté (Logigramme Interactif d'Affectation des Rôles Techniciens)
+- **Nouvel onglet « Logigramme des Rôles » dans la gestion des Utilisateurs ([UsersScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/users/UsersScreen.tsx), [RoleLogigramTab.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/users/RoleLogigramTab.tsx))** :
+  - **Réservé aux profils autorisés** : Accessible exclusivement aux Administrateurs, Responsables Techniques et comptes dotés des droits d'administration (`canValidate`).
+  - **Arborescence visuelle par niveaux hiérarchiques** :
+    - *Niveau 1* : Direction & Administration Maître (`ADMINISTRATEUR`, `DIRECTEUR`).
+    - *Niveau 2* : Encadrement Technique & Coordination (`RESPONSABLE_TECHNIQUE`, `RESPONSABLE`).
+    - *Niveau 3* : Responsables de Pôles Métiers (`CHEF_TECHNICIEN_CMS`, `CHEF_TECHNICIEN_VMS`, `CHEF_MONTEUR`).
+    - *Niveau 4* : Équipes Opérationnelles de Terrain (`TECHNICIEN_CMS`, `TECHNICIEN_VMS`, `MONTEUR`).
+    - *Niveau 5* : Support Logistique & Magasin (`MAGASINIER`).
+    - *Niveau 6* : Espace Usagers & Éleveurs (`CLIENT`).
+    - Prise en charge automatique des rôles personnalisés.
+  - **Liaison et changement de rôle en 1 clic** :
+    - Bouton `+ Lier un technicien` sur chaque bloc de rôle ouvrant une modale de sélection rapide.
+    - Menu déroulant instantané directement sur chaque fiche technicien pour transférer un utilisateur vers un autre rôle.
+    - Bouton de désaffectation/retrait rapide d'un rôle.
+    - Bac interactif des techniciens sans rôle ou en attente d'affectation pour les lier rapidement à une fonction.
+  - **Synchronisation temps réel** : Mise à jour immédiate dans la base de données Supabase (`db.users.update`) et actualisation de l'état local avec notifications visuelles.
+- **Conformité & Versioning** :
+  - Passage à la version `v1.8.0`.
+  - Vérification des mentions légales et de l'identité officielle d'App à la Carte — Hervé CHAMPAGNE EI (SIREN 132 021 098).
+
 ## [1.7.8] - 2026-11-02
 
 ### Sécurisé & Redirection Automatique (Élimination totale de soplan-app)

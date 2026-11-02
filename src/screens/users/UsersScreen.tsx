@@ -31,11 +31,13 @@ import {
   Lock,
   Database,
   ExternalLink,
-  FileCode2
+  FileCode2,
+  Workflow
 } from 'lucide-react';
 import { db, generateTemporaryPassword, getPasswordRequestEmail, isLiveSupabaseActive } from '../../lib/supabase';
 import { SUPABASE_REPAIR_SQL } from '../../lib/sql/repairScript';
 import { APP_NAME, getAppBaseUrl } from '../../version';
+import { RoleLogigramTab } from './RoleLogigramTab';
 
 interface UsersScreenProps {
   onNavigate: (screen: string, params?: any) => void;
@@ -67,8 +69,8 @@ export function UsersScreen({ onNavigate }: UsersScreenProps) {
   const [saisieRole, setSaisieRole] = useState('');
   const [showSaisieRole, setShowSaisieRole] = useState(false);
   
-  // Onglet de filtrage principal : 'tous' | 'en_attente' | 'valides'
-  const [activeTab, setActiveTab] = useState<'tous' | 'en_attente' | 'valides'>('tous');
+  // Onglet de filtrage principal : 'tous' | 'en_attente' | 'valides' | 'logigramme'
+  const [activeTab, setActiveTab] = useState<'tous' | 'en_attente' | 'valides' | 'logigramme'>('tous');
 
   // Modale de validation d'une demande d'accès
   const [approvingUser, setApprovingUser] = useState<any>(null);
@@ -460,6 +462,35 @@ contact@appalacarte.fr`.trim();
     }
   };
 
+  // Mise à jour rapide du rôle d'un technicien depuis le Logigramme
+  const handleUpdateUserRole = async (userId: string, newRole: string, allRoles?: string[]) => {
+    try {
+      const rolesArray = allRoles && allRoles.length > 0 ? allRoles : (newRole ? [newRole] : []);
+      await db.users.update(userId, {
+        role: newRole,
+        roles: rolesArray,
+        updatedAt: new Date().toISOString()
+      });
+
+      // Synchronisation immédiate de l'état local
+      setUsers((prevUsers) =>
+        prevUsers.map((u) => {
+          if ((u._id || u.id) === userId) {
+            return {
+              ...u,
+              role: newRole,
+              roles: rolesArray
+            };
+          }
+          return u;
+        })
+      );
+    } catch (error: any) {
+      console.error('Erreur mise à jour rôle technicien:', error);
+      throw error;
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       nom: '',
@@ -634,6 +665,21 @@ contact@appalacarte.fr`.trim();
             >
               Validés / Actifs ({activeUsers.length})
             </button>
+
+            {canValidate && (
+              <button
+                onClick={() => setActiveTab('logigramme')}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 ${
+                  activeTab === 'logigramme'
+                    ? 'bg-blue-600 text-white shadow-sm font-bold'
+                    : 'text-blue-700 hover:bg-blue-50 hover:text-blue-900'
+                }`}
+                title="Logigramme visuel et affectation des rôles par technicien"
+              >
+                <Workflow className="w-3.5 h-3.5" />
+                <span>Logigramme des Rôles</span>
+              </button>
+            )}
           </div>
 
           <SearchBar
@@ -843,31 +889,42 @@ contact@appalacarte.fr`.trim();
         </Card>
       )}
 
-      {/* Liste des utilisateurs filtrée */}
+      {/* Contenu principal selon onglet : Logigramme vs Liste standard des utilisateurs */}
       {!showForm && (
         <>
-          {loading ? (
-            <Card className="text-center py-12">
-              <p className="text-gray-500 text-sm">Chargement des utilisateurs...</p>
-            </Card>
-          ) : filteredUsers.length === 0 ? (
-            <Card className="text-center py-12 border-dashed">
-              <Users size={48} className="mx-auto text-gray-300 mb-3" />
-              <p className="text-gray-600 font-medium">
-                {searchQuery
-                  ? 'Aucun utilisateur ne correspond à votre recherche'
-                  : activeTab === 'en_attente'
-                  ? 'Aucune demande en attente de validation'
-                  : 'Aucun utilisateur enregistré'}
-              </p>
-              {activeTab === 'en_attente' && (
-                <p className="text-xs text-gray-400 mt-1">
-                  Les nouvelles demandes formulées via le lien d'accès apparaîtront ici.
-                </p>
-              )}
-            </Card>
+          {activeTab === 'logigramme' ? (
+            <RoleLogigramTab
+              users={users}
+              rolesPersonnalises={rolesPersonnalises}
+              onUpdateUserRole={handleUpdateUserRole}
+              onRefreshUsers={fetchUsers}
+              canValidate={canValidate}
+              currentUserEmail={currentUser?.email}
+            />
           ) : (
-            <div className="space-y-3">
+            <>
+              {loading ? (
+                <Card className="text-center py-12">
+                  <p className="text-gray-500 text-sm">Chargement des utilisateurs...</p>
+                </Card>
+              ) : filteredUsers.length === 0 ? (
+                <Card className="text-center py-12 border-dashed">
+                  <Users size={48} className="mx-auto text-gray-300 mb-3" />
+                  <p className="text-gray-600 font-medium">
+                    {searchQuery
+                      ? 'Aucun utilisateur ne correspond à votre recherche'
+                      : activeTab === 'en_attente'
+                      ? 'Aucune demande en attente de validation'
+                      : 'Aucun utilisateur enregistré'}
+                  </p>
+                  {activeTab === 'en_attente' && (
+                    <p className="text-xs text-gray-400 mt-1">
+                      Les nouvelles demandes formulées via le lien d'accès apparaîtront ici.
+                    </p>
+                  )}
+                </Card>
+              ) : (
+                <div className="space-y-3">
               {filteredUsers.map((user) => {
                 const isPending = user.statut === 'EN_ATTENTE' || (user.actif === false && user.statut !== 'REFUSE' && user.email !== 'contact@appalacarte.fr');
                 const isMaster = user.email?.toLowerCase() === 'contact@appalacarte.fr';
@@ -1096,6 +1153,8 @@ contact@appalacarte.fr`.trim();
                 );
               })}
             </div>
+          )}
+            </>
           )}
         </>
       )}
