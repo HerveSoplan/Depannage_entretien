@@ -122,61 +122,97 @@ export const toSnakeCase = (obj: any): any => {
 };
 
 // Assainissement strict pour la table public.utilisateurs de Supabase (exclut les champs locaux et gère les schémas)
-export const sanitizeUserDataForSupabase = (userData: any, options: { excludePasswordFields?: boolean } = {}) => {
+export const sanitizeUserDataForSupabase = (
+  userData: any,
+  options: { excludePasswordFields?: boolean; isUpdate?: boolean } = {}
+) => {
   if (!userData || typeof userData !== 'object') return {};
 
-  const cleanRole = userData.role || (Array.isArray(userData.roles) && userData.roles[0]) || 'TECHNICIEN_CMS';
-  const cleanEmail = (userData.email || '').trim().toLowerCase();
-
   const payload: Record<string, any> = {
-    nom: (userData.nom || '').trim(),
-    prenom: (userData.prenom || '').trim(),
-    email: cleanEmail,
-    role: cleanRole,
-    numero_technicien: userData.numeroTechnicien || userData.numero_technicien || null,
-    telephone: userData.telephone || null,
-    actif: userData.actif !== undefined ? Boolean(userData.actif) : true,
-    permissions: Array.isArray(userData.permissions) ? userData.permissions : [],
-    statut: userData.statut || (userData.actif !== false ? 'VALIDE' : 'EN_ATTENTE'),
     updated_at: new Date().toISOString()
   };
 
-  if (userData.motifDemande || userData.motif_demande) {
-    payload.motif_demande = userData.motifDemande || userData.motif_demande;
-  }
-  if (userData.dateDemande || userData.date_demande) {
-    payload.date_demande = userData.dateDemande || userData.date_demande;
-  }
-  if (userData.validePar || userData.valide_par) {
-    payload.valide_par = userData.validePar || userData.valide_par;
-  }
-  if (userData.valideLe || userData.valide_le) {
-    payload.valide_le = userData.valideLe || userData.valide_le;
-  }
-  if (userData.createdAt || userData.created_at) {
-    payload.created_at = userData.createdAt || userData.created_at;
+  if (!options.isUpdate) {
+    // Mode CRÉATION : valeurs par défaut obligatoires
+    const cleanRole = userData.role || (Array.isArray(userData.roles) && userData.roles[0]) || 'TECHNICIEN_CMS';
+    const cleanEmail = (userData.email || '').trim().toLowerCase();
+
+    payload.nom = (userData.nom || '').trim();
+    payload.prenom = (userData.prenom || '').trim();
+    payload.email = cleanEmail;
+    payload.role = cleanRole;
+    payload.numero_technicien = userData.numeroTechnicien || userData.numero_technicien || null;
+    payload.telephone = userData.telephone || null;
+    payload.actif = userData.actif !== undefined ? Boolean(userData.actif) : true;
+    payload.permissions = Array.isArray(userData.permissions) ? userData.permissions : [];
+    payload.statut = userData.statut || (userData.actif !== false ? 'VALIDE' : 'EN_ATTENTE');
+  } else {
+    // Mode MISE À JOUR (PATCH) : ne mettre à jour STRICTEMENT QUE les champs fournis pour éviter d'écraser nom/email !
+    if (userData.nom !== undefined) {
+      payload.nom = String(userData.nom).trim();
+    }
+    if (userData.prenom !== undefined) {
+      payload.prenom = String(userData.prenom).trim();
+    }
+    if (userData.email !== undefined) {
+      payload.email = String(userData.email).trim().toLowerCase();
+    }
+    if (userData.role !== undefined || (Array.isArray(userData.roles) && userData.roles.length > 0)) {
+      payload.role = userData.role || (Array.isArray(userData.roles) && userData.roles[0]) || 'TECHNICIEN_CMS';
+    }
+    if (userData.numeroTechnicien !== undefined || userData.numero_technicien !== undefined) {
+      payload.numero_technicien = userData.numeroTechnicien !== undefined ? userData.numeroTechnicien : userData.numero_technicien;
+    }
+    if (userData.telephone !== undefined) {
+      payload.telephone = userData.telephone;
+    }
+    if (userData.actif !== undefined) {
+      payload.actif = Boolean(userData.actif);
+    }
+    if (userData.permissions !== undefined) {
+      payload.permissions = Array.isArray(userData.permissions) ? userData.permissions : [];
+    }
+    if (userData.statut !== undefined) {
+      payload.statut = userData.statut;
+    }
   }
 
-  // Ne transmettre l'UUID que si c'est un format UUID valide
+  if (userData.motifDemande !== undefined || userData.motif_demande !== undefined) {
+    payload.motif_demande = userData.motifDemande !== undefined ? userData.motifDemande : userData.motif_demande;
+  }
+  if (userData.dateDemande !== undefined || userData.date_demande !== undefined) {
+    payload.date_demande = userData.dateDemande !== undefined ? userData.dateDemande : userData.date_demande;
+  }
+  if (userData.validePar !== undefined || userData.valide_par !== undefined) {
+    payload.valide_par = userData.validePar !== undefined ? userData.validePar : userData.valide_par;
+  }
+  if (userData.valideLe !== undefined || userData.valide_le !== undefined) {
+    payload.valide_le = userData.valideLe !== undefined ? userData.valideLe : userData.valide_le;
+  }
+  if (userData.createdAt !== undefined || userData.created_at !== undefined) {
+    payload.created_at = userData.createdAt !== undefined ? userData.createdAt : userData.created_at;
+  }
+
+  // Ne transmettre l'UUID que si c'est un format UUID valide (en création)
   const isUuid = (val: any) => typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(val);
   const potentialId = userData.id || userData._id;
-  if (potentialId && isUuid(potentialId)) {
+  if (potentialId && isUuid(potentialId) && !options.isUpdate) {
     payload.id = potentialId;
   }
 
   // Champs de gestion de mot de passe (si non exclus pour compatibilité avec schémas existants)
   if (!options.excludePasswordFields) {
-    if (userData.motDePasseTemporaire || userData.mot_de_passe_temporaire) {
-      payload.mot_de_passe_temporaire = userData.motDePasseTemporaire || userData.mot_de_passe_temporaire;
+    if (userData.motDePasseTemporaire !== undefined || userData.mot_de_passe_temporaire !== undefined) {
+      payload.mot_de_passe_temporaire = userData.motDePasseTemporaire !== undefined ? userData.motDePasseTemporaire : userData.mot_de_passe_temporaire;
     }
     if (userData.doitChangerMotDePasse !== undefined) {
       payload.doit_changer_mot_de_passe = Boolean(userData.doitChangerMotDePasse);
     }
-    if (userData.motDePasse || userData.mot_de_passe) {
-      payload.mot_de_passe = userData.motDePasse || userData.mot_de_passe;
+    if (userData.motDePasse !== undefined || userData.mot_de_passe !== undefined) {
+      payload.mot_de_passe = userData.motDePasse !== undefined ? userData.motDePasse : userData.mot_de_passe;
     }
-    if (userData.derniereConnexion || userData.derniere_connexion) {
-      payload.derniere_connexion = userData.derniereConnexion || userData.derniere_connexion;
+    if (userData.derniereConnexion !== undefined || userData.derniere_connexion !== undefined) {
+      payload.derniere_connexion = userData.derniereConnexion !== undefined ? userData.derniereConnexion : userData.derniere_connexion;
     }
   }
 
@@ -202,7 +238,20 @@ export const db = {
         }
       }
       if (!rawList || rawList.length === 0) {
-        rawList = demoDb.getTable('utilisateurs');
+        rawList = demoDb.getTable('utilisateurs') || [];
+      } else {
+        // Fusion de sécurité : intégrer les utilisateurs locaux non encore synchronisés
+        try {
+          const localList = demoDb.getTable('utilisateurs') || [];
+          localList.forEach((localU: any) => {
+            const localEmail = localU.email?.toLowerCase().trim();
+            if (localEmail && !rawList.some((u: any) => u.email?.toLowerCase().trim() === localEmail)) {
+              rawList.push(localU);
+            }
+          });
+        } catch {
+          // ignore
+        }
       }
 
       // Harmonisation des utilisateurs
@@ -520,7 +569,7 @@ export const db = {
       let supabaseError: any = null;
 
       if (isLiveSupabaseActive()) {
-        const payloadFull = sanitizeUserDataForSupabase(userData);
+        const payloadFull = sanitizeUserDataForSupabase(userData, { isUpdate: true });
         delete payloadFull.id;
 
         try {
@@ -536,7 +585,7 @@ export const db = {
           } else if (error) {
             console.warn('Erreur Supabase utilisateurs.update tentative 1:', error);
             if (error.code === 'PGRST204') {
-              const payloadClean = sanitizeUserDataForSupabase(userData, { excludePasswordFields: true });
+              const payloadClean = sanitizeUserDataForSupabase(userData, { excludePasswordFields: true, isUpdate: true });
               delete payloadClean.id;
               const retryRes = await supabase
                 .from('utilisateurs')

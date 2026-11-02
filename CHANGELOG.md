@@ -4,6 +4,16 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.8.1] - 2026-11-02
+
+### Corrigé (Persistance des Utilisateurs dans Supabase & Mises à Jour Partielles)
+- **Correction critique de l'écrasement des données dans `public.utilisateurs` ([supabase.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/lib/supabase.ts))** :
+  - **Support du mode `isUpdate` dans `sanitizeUserDataForSupabase`** : Lors d'une mise à jour partielle (approbation d'accès, changement de rôle dans le logigramme, configuration du mot de passe temporaire ou bascule de permissions), les champs non spécifiés (`nom`, `prenom`, `email`, etc.) ne sont plus écrasés avec des chaînes vides `""`.
+  - **Préservation de l'identité des techniciens** : Les fiches utilisateurs restent 100% complètes et pérennes dans Supabase après toute modification ou validation.
+  - **Fusion de résilience locale dans `db.users.list()`** : Les utilisateurs locaux créés récemment sont automatiquement fusionnés et conservés en cas de latence réseau pour garantir qu'aucun technicien n'échappe à la vue.
+  - **Bascule automatique d'onglet après création ([UsersScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/users/UsersScreen.tsx))** : Si un technicien est créé avec le statut actif, l'onglet se positionne automatiquement sur *Validés* pour afficher immédiatement la nouvelle fiche.
+  - **Nettoyage des entrées corrompues** : Suppression dans Supabase des lignes fantômes ayant subi un écrasement antérieur.
+
 ## [1.8.0] - 2026-11-02
 
 ### Ajouté (Logigramme Interactif d'Affectation des Rôles Techniciens)
