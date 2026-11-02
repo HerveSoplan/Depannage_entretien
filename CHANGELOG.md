@@ -4,6 +4,17 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.10.3] - 2026-11-02
+
+### Clarifié & Amélioré (Transmission des Identifiants Technicien & Explication de l'Envoi)
+- **Clarification du mode d'envoi des invitations ([UsersScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/users/UsersScreen.tsx))** :
+  - **Suppression du libellé ambigu « Compte d'envoi automatique »** : Remplacé par « Email officiel de support & contact », évitant de faire croire à l'administrateur qu'un envoi silencieux s'effectue sans action de sa part.
+  - **Ajout d'un guide explicatif clair** : Encadré d'instruction stipulant qu'aucun email n'est expédié sans action de l'utilisateur, et invitant à cliquer sur le bouton de messagerie désiré (Outlook / Hotmail, Gmail ou Messagerie locale) ou à copier le message / lien direct.
+  - **Intitulés de boutons explicites** : Remplacement des boutons par « Envoyer via Outlook / Hotmail » et « Envoyer via Gmail » pour guider directement l'action d'envoi.
+- **Conformité & Versioning** :
+  - Incrémentation SemVer vers la version `v1.10.3` synchronisée dans `package.json`, `src/version.ts`, `public/version.json` et le footer.
+  - Vérification continue des mentions légales (EI Hervé CHAMPAGNE, SIREN 132 021 098).
+
 ## [1.10.2] - 2026-11-02
 
 ### Corrigé & Amélioré (Messages d'Invitation Technicien & Authentification Multi-Messageries)

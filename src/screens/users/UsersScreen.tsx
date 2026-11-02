@@ -1654,11 +1654,22 @@ Cordialement,
               </pre>
             </div>
 
-            {/* Compte d'envoi automatique configuré */}
+            {/* Guide d'envoi explicite pour éviter toute confusion */}
+            <div className="p-3 bg-amber-50/90 border border-amber-200 rounded-xl text-xs text-amber-950 space-y-1.5">
+              <div className="flex items-center gap-1.5 font-bold text-amber-900">
+                <Send size={15} className="text-amber-700 flex-shrink-0" />
+                <span>Comment transmettre ces accès au technicien :</span>
+              </div>
+              <p className="text-[11.5px] text-amber-900/90 leading-relaxed">
+                ℹ️ <strong>Aucun email n'est envoyé automatiquement sans action de votre part</strong>. Pour expédier ces identifiants au technicien, cliquez ci-dessous sur le bouton de votre choix (<strong>Envoyer via Outlook / Hotmail</strong>, <strong>Envoyer via Gmail</strong> ou <strong>Messagerie locale</strong>), ou copiez le message / le lien direct pour le coller dans vos échanges (email, SMS, WhatsApp).
+              </p>
+            </div>
+
+            {/* Email officiel de support & contact */}
             <div className="flex items-center justify-between p-2.5 bg-blue-50/70 border border-blue-200 rounded-lg text-xs text-blue-900">
               <span className="flex items-center gap-1.5 font-medium">
                 <Mail size={14} className="text-blue-600" />
-                <span>Compte d'envoi automatique :</span>
+                <span>Email officiel de support & contact :</span>
               </span>
               <strong className="font-mono text-blue-700 bg-white px-2 py-0.5 rounded border border-blue-200">
                 {getPasswordRequestEmail()}
@@ -1673,10 +1684,10 @@ Cordialement,
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-3.5 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-semibold shadow-sm flex items-center justify-center gap-1.5 transition-colors"
-                title="Ouvrir dans Outlook.com / Hotmail"
+                title="Ouvrir dans Outlook.com / Hotmail avec le message pré-rempli"
               >
                 <Mail size={15} />
-                <span>Outlook / Hotmail</span>
+                <span>Envoyer via Outlook / Hotmail</span>
               </a>
 
               {/* Envoi direct via Gmail Web */}
@@ -1685,10 +1696,10 @@ Cordialement,
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm flex items-center justify-center gap-1.5 transition-colors"
-                title="Ouvrir dans Google Gmail"
+                title="Ouvrir dans Google Gmail avec le message pré-rempli"
               >
                 <Mail size={15} />
-                <span>Gmail</span>
+                <span>Envoyer via Gmail</span>
               </a>
 
               {/* Option alternative mailto client local */}
