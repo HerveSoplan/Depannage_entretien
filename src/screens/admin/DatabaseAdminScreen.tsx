@@ -25,6 +25,7 @@ import {
   setPasswordRequestEmail,
   DEFAULT_PASSWORD_REQUEST_EMAIL
 } from '../../lib/supabase';
+import { SUPABASE_REPAIR_SQL } from '../../lib/sql/repairScript';
 
 
 interface DatabaseAdminScreenProps {
@@ -1164,9 +1165,23 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
           </Card>
         )}
         {supabaseHealth && supabaseHealth.connected && (
-          <div className="flex items-center gap-2 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5 w-fit">
-            <CheckCircle2 size={16} className="text-emerald-600" />
-            <span>Supabase en ligne et opérationnel</span>
+          <div className="flex items-center justify-between flex-wrap gap-2 text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl p-3 shadow-xs">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={16} className="text-emerald-600 flex-shrink-0" />
+              <span>Supabase connecté en direct — Projet : <code className="font-mono bg-white px-1.5 py-0.5 rounded border border-emerald-200">{supabaseHealth.url}</code></span>
+            </div>
+            <button
+              type="button"
+              onClick={async () => {
+                await navigator.clipboard.writeText(SUPABASE_REPAIR_SQL);
+                alert("Script SQL officiel de déblocage Supabase copié !\n\nCollez-le dans votre console Supabase (SQL Editor) et cliquez sur 'Run' pour débloquer les enregistrements d'utilisateurs et de données.");
+              }}
+              className="px-3 py-1 bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs"
+              title="Copier le script SQL pour débloquer RLS et aligner les colonnes de Supabase"
+            >
+              <Database size={13} className="text-emerald-600" />
+              <span>Copier script SQL Déblocage RLS</span>
+            </button>
           </div>
         )}
 

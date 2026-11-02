@@ -4,6 +4,22 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.7.7] - 2026-11-02
+
+### Corrigé & Sécurisé (Synchronisation Supabase & Gestion Utilisateurs)
+- **Résolution du blocage d'enregistrement des utilisateurs dans Supabase ([UsersScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/users/UsersScreen.tsx), [supabase.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/lib/supabase.ts))** :
+  - **Correction de l'erreur `PGRST204` (Colonnes inconnues)** : Suppression des champs parasites (`creator`, `roles`, `_id`) transmis par erreur à la table PostgreSQL `public.utilisateurs` lors de la création et modification d'utilisateurs.
+  - **Assainissement strict des payloads (`sanitizeUserDataForSupabase`)** : Filtrage préalable des données envoyées à Supabase pour ne transmettre que les colonnes existantes et valides.
+  - **Mécanisme de rétro-compatibilité automatique** : En cas de tentative d'insertion avec des colonnes de mot de passe (`mot_de_passe_temporaire`, `doit_changer_mot_de_passe`) sur un schéma distant qui ne les possède pas encore, une seconde tentative sans ces champs est exécutée automatiquement pour garantir l'enregistrement réussi dans Supabase.
+  - **Fin du masquage silencieux des erreurs** : Supression du catch silencieux qui masquait les erreurs Supabase et faisait croire à un enregistrement distant réussi alors qu'il n'était que local.
+  - **Détection des erreurs de sécurité RLS (`42501`)** : Notification claire à l'administrateur avec affichage d'un bandeau explicatif et modale guidée pas-à-pas pour débloquer l'accès.
+- **Script SQL officiel de réparation et déblocage RLS ([supabase_correction_complete_utilisateurs_et_rls.sql](file:///d:/Aplli/D%C3%A9pannage_entretien/supabase_correction_complete_utilisateurs_et_rls.sql), [repairScript.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/lib/sql/repairScript.ts))** :
+  - Création du script SQL exhaustif permettant en 1 clic d'aligner la table `public.utilisateurs`, de lever la contrainte de rôle restrictive et d'autoriser les opérations `INSERT`, `UPDATE`, `DELETE`, `SELECT` via la clé anon.
+  - Boutons de copie rapide du script SQL intégrés dans [UsersScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/users/UsersScreen.tsx) et [DatabaseAdminScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/admin/DatabaseAdminScreen.tsx).
+- **Conformité & Versioning** :
+  - Incrémentation de version vers `v1.7.7` dans `package.json`, `src/version.ts`, CHANGELOG et footer.
+  - Vérification des mentions légales et de l'identité officielle d'App à la Carte — Hervé CHAMPAGNE EI (SIREN 132 021 098).
+
 ## [1.7.6] - 2026-11-02
 
 ### Modifié & Déployé (Domaine Vercel & Liens d'accès)

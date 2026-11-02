@@ -120,6 +120,68 @@ export const toSnakeCase = (obj: any): any => {
   return obj;
 };
 
+// Assainissement strict pour la table public.utilisateurs de Supabase (exclut les champs locaux et gère les schémas)
+export const sanitizeUserDataForSupabase = (userData: any, options: { excludePasswordFields?: boolean } = {}) => {
+  if (!userData || typeof userData !== 'object') return {};
+
+  const cleanRole = userData.role || (Array.isArray(userData.roles) && userData.roles[0]) || 'TECHNICIEN_CMS';
+  const cleanEmail = (userData.email || '').trim().toLowerCase();
+
+  const payload: Record<string, any> = {
+    nom: (userData.nom || '').trim(),
+    prenom: (userData.prenom || '').trim(),
+    email: cleanEmail,
+    role: cleanRole,
+    numero_technicien: userData.numeroTechnicien || userData.numero_technicien || null,
+    telephone: userData.telephone || null,
+    actif: userData.actif !== undefined ? Boolean(userData.actif) : true,
+    permissions: Array.isArray(userData.permissions) ? userData.permissions : [],
+    statut: userData.statut || (userData.actif !== false ? 'VALIDE' : 'EN_ATTENTE'),
+    updated_at: new Date().toISOString()
+  };
+
+  if (userData.motifDemande || userData.motif_demande) {
+    payload.motif_demande = userData.motifDemande || userData.motif_demande;
+  }
+  if (userData.dateDemande || userData.date_demande) {
+    payload.date_demande = userData.dateDemande || userData.date_demande;
+  }
+  if (userData.validePar || userData.valide_par) {
+    payload.valide_par = userData.validePar || userData.valide_par;
+  }
+  if (userData.valideLe || userData.valide_le) {
+    payload.valide_le = userData.valideLe || userData.valide_le;
+  }
+  if (userData.createdAt || userData.created_at) {
+    payload.created_at = userData.createdAt || userData.created_at;
+  }
+
+  // Ne transmettre l'UUID que si c'est un format UUID valide
+  const isUuid = (val: any) => typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(val);
+  const potentialId = userData.id || userData._id;
+  if (potentialId && isUuid(potentialId)) {
+    payload.id = potentialId;
+  }
+
+  // Champs de gestion de mot de passe (si non exclus pour compatibilité avec schémas existants)
+  if (!options.excludePasswordFields) {
+    if (userData.motDePasseTemporaire || userData.mot_de_passe_temporaire) {
+      payload.mot_de_passe_temporaire = userData.motDePasseTemporaire || userData.mot_de_passe_temporaire;
+    }
+    if (userData.doitChangerMotDePasse !== undefined) {
+      payload.doit_changer_mot_de_passe = Boolean(userData.doitChangerMotDePasse);
+    }
+    if (userData.motDePasse || userData.mot_de_passe) {
+      payload.mot_de_passe = userData.motDePasse || userData.mot_de_passe;
+    }
+    if (userData.derniereConnexion || userData.derniere_connexion) {
+      payload.derniere_connexion = userData.derniereConnexion || userData.derniere_connexion;
+    }
+  }
+
+  return payload;
+};
+
 // API universelle avec bascule automatique Démo instantanée / Supabase en ligne
 export const db = {
   // Utilisateurs & Gestion des accès
@@ -133,8 +195,9 @@ export const db = {
             .select('*')
             .order('nom', { ascending: true });
           if (!error && data) rawList = toCamelCase(data);
+          else if (error) console.warn('Supabase users.list a échoué:', error);
         } catch (e) {
-          // Fallback démo
+          console.warn('Exception Supabase users.list:', e);
         }
       }
       if (!rawList || rawList.length === 0) {
@@ -280,39 +343,49 @@ export const db = {
         }
       }
 
-      const newId = 'usr_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
       const chosenRole = data.role || 'TECHNICIEN_CMS';
-      const userRecord = {
-        id: newId,
-        _id: newId,
+      const userPayload = sanitizeUserDataForSupabase({
         email: cleanEmail,
         nom: data.nom.trim(),
         prenom: data.prenom.trim(),
-        telephone: data.telephone?.trim() || '',
+        telephone: data.telephone?.trim() || null,
         role: chosenRole,
-        roles: [chosenRole],
-        numeroTechnicien: '',
         statut: 'EN_ATTENTE',
         actif: false,
-        motifDemande: data.motifDemande?.trim() || '',
+        motifDemande: data.motifDemande?.trim() || null,
         dateDemande: new Date().toISOString(),
         permissions: ['view_clients', 'view_machines', 'view_interventions'],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
-      };
+      }, { excludePasswordFields: true });
 
+      let createdSupabase: any = null;
       if (isLiveSupabaseActive()) {
         try {
-          const { error } = await supabase
+          const { data: inserted, error } = await supabase
             .from('utilisateurs')
-            .insert(toSnakeCase(userRecord));
+            .insert(userPayload)
+            .select()
+            .single();
+
           if (error) {
             console.warn('Erreur insertion Supabase demande accès, repli local:', error);
+          } else if (inserted) {
+            createdSupabase = toCamelCase(inserted);
           }
         } catch (e) {
           console.warn('Exception insertion Supabase demande accès:', e);
         }
       }
+
+      const newId = createdSupabase?.id || 'usr_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+      const userRecord = {
+        ...userPayload,
+        id: newId,
+        _id: newId,
+        roles: [chosenRole],
+        ...createdSupabase
+      };
 
       demoDb.insert('utilisateurs', userRecord);
 
@@ -349,7 +422,7 @@ export const db = {
       const payload = {
         statut: 'REFUSE',
         actif: false,
-        motifRefus: reason || 'Refusé par la direction technique',
+        motifDemande: reason || 'Refusé par la direction technique',
         updatedAt: new Date().toISOString()
       };
       return await db.users.update(id, payload);
@@ -366,19 +439,67 @@ export const db = {
         updatedAt: new Date().toISOString()
       };
 
+      let supabaseCreatedUser: any = null;
+      let supabaseError: any = null;
+
       if (isLiveSupabaseActive()) {
+        const payloadFull = sanitizeUserDataForSupabase(enrichedData);
         try {
           const { data, error } = await supabase
             .from('utilisateurs')
-            .insert(toSnakeCase(enrichedData))
+            .insert(payloadFull)
             .select()
             .single();
-          if (!error && data) return toCamelCase(data);
-        } catch (e) {
-          // Fallback démo
+
+          if (!error && data) {
+            supabaseCreatedUser = toCamelCase(data);
+          } else if (error) {
+            console.warn('Erreur Supabase utilisateurs.create tentative 1:', error);
+            // Si colonne manquante (PGRST204), on retente sans les champs de mot de passe
+            if (error.code === 'PGRST204') {
+              const payloadClean = sanitizeUserDataForSupabase(enrichedData, { excludePasswordFields: true });
+              const retryRes = await supabase
+                .from('utilisateurs')
+                .insert(payloadClean)
+                .select()
+                .single();
+
+              if (!retryRes.error && retryRes.data) {
+                supabaseCreatedUser = toCamelCase(retryRes.data);
+              } else {
+                supabaseError = retryRes.error || error;
+              }
+            } else {
+              supabaseError = error;
+            }
+          }
+        } catch (e: any) {
+          console.error('Exception Supabase utilisateurs.create:', e);
+          supabaseError = e;
         }
       }
-      return demoDb.insert('utilisateurs', enrichedData);
+
+      // Sauvegarde dans le stockage local pour ne jamais perdre la saisie
+      const localResult = demoDb.insert('utilisateurs', {
+        ...enrichedData,
+        id: supabaseCreatedUser?.id || enrichedData.id || `usr_${Date.now()}`
+      });
+
+      // Si Supabase était actif et a échoué (ex: RLS 42501), propager l'erreur explicite
+      if (isLiveSupabaseActive() && supabaseError) {
+        console.error('Échec enregistrement Supabase utilisateurs.create:', supabaseError);
+        const err: any = new Error(
+          supabaseError.code === '42501'
+            ? "L'enregistrement dans Supabase a été bloqué par les politiques de sécurité RLS (erreur 42501). Veuillez exécuter le script SQL de déblocage Supabase pour autoriser l'enregistrement en ligne."
+            : `Erreur d'enregistrement Supabase : ${supabaseError.message || supabaseError.code || 'Erreur inconnue'}`
+        );
+        err.code = supabaseError.code;
+        err.supabaseError = supabaseError;
+        err.localUser = localResult;
+        throw err;
+      }
+
+      return supabaseCreatedUser || localResult;
     },
 
     resetTemporaryPassword: async (id: string) => {
@@ -394,31 +515,96 @@ export const db = {
     },
 
     update: async (id: string, userData: any) => {
+      let supabaseUpdated: any = null;
+      let supabaseError: any = null;
+
       if (isLiveSupabaseActive()) {
+        const payloadFull = sanitizeUserDataForSupabase(userData);
+        delete payloadFull.id;
+
         try {
           const { data, error } = await supabase
             .from('utilisateurs')
-            .update(toSnakeCase(userData))
+            .update(payloadFull)
             .eq('id', id)
             .select()
             .single();
-          if (!error && data) return toCamelCase(data);
-        } catch (e) {
-          // Fallback démo
+
+          if (!error && data) {
+            supabaseUpdated = toCamelCase(data);
+          } else if (error) {
+            console.warn('Erreur Supabase utilisateurs.update tentative 1:', error);
+            if (error.code === 'PGRST204') {
+              const payloadClean = sanitizeUserDataForSupabase(userData, { excludePasswordFields: true });
+              delete payloadClean.id;
+              const retryRes = await supabase
+                .from('utilisateurs')
+                .update(payloadClean)
+                .eq('id', id)
+                .select()
+                .single();
+
+              if (!retryRes.error && retryRes.data) {
+                supabaseUpdated = toCamelCase(retryRes.data);
+              } else {
+                supabaseError = retryRes.error || error;
+              }
+            } else {
+              supabaseError = error;
+            }
+          }
+        } catch (e: any) {
+          console.error('Exception Supabase utilisateurs.update:', e);
+          supabaseError = e;
         }
       }
-      return demoDb.update('utilisateurs', id, userData);
+
+      const localResult = demoDb.update('utilisateurs', id, userData);
+
+      if (isLiveSupabaseActive() && supabaseError) {
+        console.error('Échec mise à jour Supabase utilisateurs.update:', supabaseError);
+        const err: any = new Error(
+          supabaseError.code === '42501'
+            ? "La modification dans Supabase a été bloquée par les politiques RLS (erreur 42501). Veuillez exécuter le script SQL de déblocage Supabase."
+            : `Erreur mise à jour Supabase : ${supabaseError.message || supabaseError.code}`
+        );
+        err.code = supabaseError.code;
+        err.supabaseError = supabaseError;
+        throw err;
+      }
+
+      return supabaseUpdated || localResult;
     },
 
     delete: async (id: string) => {
+      let supabaseError: any = null;
       if (isLiveSupabaseActive()) {
         try {
-          await supabase.from('utilisateurs').delete().eq('id', id);
-        } catch (e) {
-          // Fallback démo
+          const { error } = await supabase.from('utilisateurs').delete().eq('id', id);
+          if (error) {
+            console.error('Erreur Supabase utilisateurs.delete:', error);
+            supabaseError = error;
+          }
+        } catch (e: any) {
+          console.error('Exception Supabase utilisateurs.delete:', e);
+          supabaseError = e;
         }
       }
-      return demoDb.delete('utilisateurs', id);
+
+      const localResult = demoDb.delete('utilisateurs', id);
+
+      if (isLiveSupabaseActive() && supabaseError) {
+        const err: any = new Error(
+          supabaseError.code === '42501'
+            ? "La suppression dans Supabase a été bloquée par les politiques RLS (erreur 42501). Veuillez exécuter le script SQL de déblocage Supabase."
+            : `Erreur suppression Supabase : ${supabaseError.message || supabaseError.code}`
+        );
+        err.code = supabaseError.code;
+        err.supabaseError = supabaseError;
+        throw err;
+      }
+
+      return localResult;
     }
   },
 

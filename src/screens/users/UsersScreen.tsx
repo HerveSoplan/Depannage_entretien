@@ -28,9 +28,13 @@ import {
   Send,
   KeyRound,
   RefreshCw,
-  Lock
+  Lock,
+  Database,
+  ExternalLink,
+  FileCode2
 } from 'lucide-react';
-import { db, generateTemporaryPassword, getPasswordRequestEmail } from '../../lib/supabase';
+import { db, generateTemporaryPassword, getPasswordRequestEmail, isLiveSupabaseActive } from '../../lib/supabase';
+import { SUPABASE_REPAIR_SQL } from '../../lib/sql/repairScript';
 import { APP_NAME } from '../../version';
 
 interface UsersScreenProps {
@@ -80,6 +84,8 @@ export function UsersScreen({ onNavigate }: UsersScreenProps) {
   const [selectedDirectUserEmail, setSelectedDirectUserEmail] = useState('');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [createdCredentialsModal, setCreatedCredentialsModal] = useState<any>(null);
+  const [showSqlModal, setShowSqlModal] = useState(false);
+  const [supabaseAlert, setSupabaseAlert] = useState<{ message: string; isError: boolean } | null>(null);
 
   const [formData, setFormData] = useState({
     nom: '',
@@ -307,6 +313,7 @@ contact@appalacarte.fr`.trim();
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setSupabaseAlert(null);
 
     try {
       const tempPass = generateTemporaryPassword(formData.prenom || 'technicien');
@@ -326,23 +333,54 @@ contact@appalacarte.fr`.trim();
       };
 
       if (editingUser) {
-        await db.users.update(editingUser._id || editingUser.id, userData);
-        resetForm();
-        alert('Utilisateur modifié avec succès !');
+        try {
+          await db.users.update(editingUser._id || editingUser.id, userData);
+          resetForm();
+          alert('Utilisateur modifié avec succès !');
+        } catch (updateErr: any) {
+          if (updateErr.supabaseError || updateErr.code === '42501') {
+            resetForm();
+            setSupabaseAlert({
+              message: "L'utilisateur a été modifié en local, mais Supabase a bloqué la mise à jour (Sécurité RLS active). Cliquez sur 'Script SQL Supabase' ci-dessus pour débloquer l'accès.",
+              isError: true
+            });
+          } else {
+            throw updateErr;
+          }
+        }
       } else {
-        const created = await db.users.create(userData);
-        resetForm();
-        setCreatedCredentialsModal({
-          ...userData,
-          id: created?.id || created?._id,
-          tempPassword: tempPass
-        });
+        try {
+          const created = await db.users.create(userData);
+          resetForm();
+          setCreatedCredentialsModal({
+            ...userData,
+            id: created?.id || created?._id,
+            tempPassword: tempPass
+          });
+        } catch (createErr: any) {
+          // Si Supabase a levé une exception de sécurité RLS ou PGRST204
+          if (createErr.supabaseError || createErr.code === '42501') {
+            resetForm();
+            setSupabaseAlert({
+              message: "L'utilisateur a été enregistré en mémoire locale, mais Supabase a bloqué l'insertion (Sécurité RLS active). Cliquez sur 'Script SQL Supabase' ci-dessus pour débloquer l'enregistrement en ligne.",
+              isError: true
+            });
+            // Ouvrir quand même la modale des identifiants avec les données locales
+            setCreatedCredentialsModal({
+              ...userData,
+              id: createErr.localUser?.id || `usr_${Date.now()}`,
+              tempPassword: tempPass
+            });
+          } else {
+            throw createErr;
+          }
+        }
       }
 
       await fetchUsers();
-    } catch (error) {
-      console.error('Erreur:', error);
-      alert("Erreur lors de l'enregistrement");
+    } catch (error: any) {
+      console.error('Erreur handleSubmit:', error);
+      alert(error?.message || "Erreur lors de l'enregistrement de l'utilisateur");
     } finally {
       setLoading(false);
     }
@@ -462,25 +500,74 @@ contact@appalacarte.fr`.trim();
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {/* Bouton Script SQL de déblocage Supabase */}
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => setShowSqlModal(true)}
+            className="flex items-center gap-1.5 border border-emerald-300 text-emerald-800 bg-emerald-50/70 hover:bg-emerald-100 shadow-xs text-xs font-semibold"
+            title="Afficher le script SQL de synchronisation et déblocage RLS Supabase"
+          >
+            <Database className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Script SQL Supabase</span>
+          </Button>
+
           {/* Bouton Partager / Générer un lien d'accès */}
           <Button
             type="button"
             variant="ghost"
             onClick={() => setShowLinkModal(true)}
-            className="flex items-center gap-2 border border-blue-300 text-blue-700 bg-blue-50/60 hover:bg-blue-100 shadow-sm"
+            className="flex items-center gap-2 border border-blue-300 text-blue-700 bg-blue-50/60 hover:bg-blue-100 shadow-sm text-xs font-semibold"
           >
             <Share2 className="w-4 h-4 text-blue-600" />
             <span>Donner un lien d'accès</span>
           </Button>
 
           {!showForm && (
-            <Button onClick={() => setShowForm(true)} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700">
+            <Button onClick={() => setShowForm(true)} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-xs font-semibold">
               <Plus size={18} />
               <span>Ajouter un utilisateur</span>
             </Button>
           )}
         </div>
       </div>
+
+      {/* Alerte si blocage Supabase (RLS ou colonnes) */}
+      {supabaseAlert && (
+        <div className="p-4 bg-amber-50 border-l-4 border-amber-500 rounded-r-xl shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-amber-100 text-amber-800 rounded-lg flex-shrink-0 mt-0.5">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="font-bold text-amber-900 text-sm">
+                Synchronisation Supabase en ligne requise
+              </p>
+              <p className="text-xs text-amber-800 mt-1 leading-relaxed">
+                {supabaseAlert.message}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 self-end sm:self-center flex-shrink-0">
+            <Button
+              size="sm"
+              onClick={() => setShowSqlModal(true)}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs flex items-center gap-1.5"
+            >
+              <FileCode2 size={14} />
+              <span>Voir le script SQL</span>
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setSupabaseAlert(null)}
+              className="text-xs text-gray-500 hover:text-gray-700"
+            >
+              Fermer
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Bandeau d'alerte si des demandes sont en attente */}
       {pendingUsers.length > 0 && (
@@ -1494,6 +1581,83 @@ Cordialement,
                 onClick={() => setCreatedCredentialsModal(null)}
                 className="text-xs"
               >
+                Fermer
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Modale d'aide et script SQL Supabase pour débloquer l'enregistrement */}
+      {showSqlModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <Card className="w-full max-w-2xl bg-white shadow-2xl border-blue-100 max-h-[90vh] flex flex-col p-6">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-emerald-100 text-emerald-700 rounded-lg">
+                  <Database size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-gray-900">
+                    Déblocage Supabase — Script SQL à exécuter
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    Ajoute les colonnes manquantes et débloque les politiques RLS pour autoriser l'enregistrement
+                  </p>
+                </div>
+              </div>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setShowSqlModal(false)}>
+                <X size={18} />
+              </Button>
+            </div>
+
+            <div className="py-4 space-y-4 overflow-y-auto flex-1 text-xs">
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl space-y-2">
+                <p className="font-bold text-blue-900 text-xs">
+                  👉 Instructions pas-à-pas (moins d'1 minute) :
+                </p>
+                <ol className="list-decimal list-inside space-y-1 text-blue-800 leading-relaxed pl-1">
+                  <li>
+                    Ouvrez votre console Supabase :{' '}
+                    <a
+                      href="https://supabase.com/dashboard/project/syrznjjxyvbbkahaavdf/sql/new"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 font-bold underline text-blue-700 hover:text-blue-900"
+                    >
+                      <span>Supabase SQL Editor</span>
+                      <ExternalLink size={12} />
+                    </a>
+                  </li>
+                  <li>Cliquez sur le bouton ci-dessous <strong>« Copier le script SQL »</strong>.</li>
+                  <li>Collez le texte dans l'éditeur SQL de Supabase et cliquez sur <strong>« Run »</strong> (Ctrl + Entrée).</li>
+                </ol>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-gray-700">Contenu du script SQL :</span>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(SUPABASE_REPAIR_SQL, 'repair-sql')}
+                    className="flex items-center gap-1.5 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs shadow-xs transition-colors"
+                  >
+                    {copiedKey === 'repair-sql' ? <Check size={14} /> : <Copy size={14} />}
+                    <span>{copiedKey === 'repair-sql' ? 'Script copié !' : 'Copier le script SQL'}</span>
+                  </button>
+                </div>
+
+                <pre className="p-3 bg-slate-900 text-emerald-400 font-mono text-[11px] rounded-xl overflow-x-auto max-h-60 border border-slate-800 whitespace-pre leading-relaxed select-all">
+                  {SUPABASE_REPAIR_SQL}
+                </pre>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
+              <span className="text-[11px] text-gray-500">
+                Fichier source : <code className="font-mono bg-gray-100 px-1 py-0.5 rounded">supabase_correction_complete_utilisateurs_et_rls.sql</code>
+              </span>
+              <Button type="button" variant="outline" size="sm" onClick={() => setShowSqlModal(false)}>
                 Fermer
               </Button>
             </div>
