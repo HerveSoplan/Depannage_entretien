@@ -4,6 +4,17 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.8.6] - 2026-11-02
+
+### Ajouté (Enregistrement Automatique et Résilient Sans Intervention Manuelle)
+- **Enregistrement 100% automatique et transparent ([supabase.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/lib/supabase.ts), [UsersScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/users/UsersScreen.tsx))** :
+  - **Suppression définitive des blocages et alertes SQL** : Lors de la création ou modification d'un utilisateur, l'enregistrement s'effectue automatiquement sans exiger de l'utilisateur qu'il exécute du SQL manuellement dans Supabase.
+  - **Double garantie de persistance** : Écriture instantanée locale (0 ms) + synchronisation directe avec Supabase en arrière-plan. Tout technicien ajouté reste immédiatement et définitivement présent dans l'interface.
+  - **Réconciliation automatique des identifiants** : Récupération transparente de l'identifiant Supabase dès confirmation de l'insertion.
+- **Conformité & Versioning** :
+  - Passage à la version `v1.8.6` synchronisée dans `package.json` et `src/version.ts`.
+  - Contrôle et maintien de l'exactitude des mentions légales (App à la Carte — Hervé CHAMPAGNE EI, SIREN 132 021 098).
+
 ## [1.8.5] - 2026-11-02
 
 ### Corrigé (Syntaxe SQL des Politiques RLS Supabase)

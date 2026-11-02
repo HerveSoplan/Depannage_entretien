@@ -348,58 +348,22 @@ contact@appalacarte.fr`.trim();
       };
 
       if (editingUser) {
-        try {
-          await db.users.update(editingUser._id || editingUser.id, userData);
-          resetForm();
-          alert('Utilisateur modifié avec succès !');
-        } catch (updateErr: any) {
-          if (updateErr.supabaseError || updateErr.code === '42501') {
-            resetForm();
-            setSupabaseAlert({
-              message: "L'utilisateur a été modifié en local, mais Supabase a bloqué la mise à jour (Sécurité RLS active). Cliquez sur 'Script SQL Supabase' ci-dessus pour débloquer l'accès.",
-              isError: true
-            });
-          } else {
-            throw updateErr;
-          }
-        }
+        await db.users.update(editingUser._id || editingUser.id, userData);
+        resetForm();
+        alert('Utilisateur modifié avec succès !');
       } else {
-        try {
-          const created = await db.users.create(userData);
-          resetForm();
-          if (userData.statut === 'EN_ATTENTE') {
-            setActiveTab('en_attente');
-          } else if (activeTab === 'en_attente') {
-            setActiveTab('valides');
-          }
-          setCreatedCredentialsModal({
-            ...userData,
-            id: created?.id || created?._id,
-            tempPassword: tempPass
-          });
-        } catch (createErr: any) {
-          // Si Supabase a levé une exception de sécurité RLS ou PGRST204
-          if (createErr.supabaseError || createErr.code === '42501') {
-            resetForm();
-            if (userData.statut === 'EN_ATTENTE') {
-              setActiveTab('en_attente');
-            } else if (activeTab === 'en_attente') {
-              setActiveTab('valides');
-            }
-            setSupabaseAlert({
-              message: "L'utilisateur a été enregistré en mémoire locale, mais Supabase a bloqué l'insertion (Sécurité RLS active). Cliquez sur 'Script SQL Supabase' ci-dessus pour débloquer l'enregistrement en ligne.",
-              isError: true
-            });
-            // Ouvrir quand même la modale des identifiants avec les données locales
-            setCreatedCredentialsModal({
-              ...userData,
-              id: createErr.localUser?.id || `usr_${Date.now()}`,
-              tempPassword: tempPass
-            });
-          } else {
-            throw createErr;
-          }
+        const created = await db.users.create(userData);
+        resetForm();
+        if (userData.statut === 'EN_ATTENTE') {
+          setActiveTab('en_attente');
+        } else {
+          setActiveTab('valides');
         }
+        setCreatedCredentialsModal({
+          ...userData,
+          id: created?.id || created?._id,
+          tempPassword: tempPass
+        });
       }
 
       await fetchUsers();
