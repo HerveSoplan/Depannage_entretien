@@ -4,6 +4,19 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.8.8] - 2026-11-02
+
+### Corrigé (Purge Totale du Cache Navigateur & Déploiement Direct Vercel Production)
+- **Résolution définitive du cache récalcitrant sur PC et Téléphone mobile ([vercel.json](file:///d:/Aplli/D%C3%A9pannage_entretien/vercel.json), [index.html](file:///d:/Aplli/D%C3%A9pannage_entretien/index.html), [version.json](file:///d:/Aplli/D%C3%A9pannage_entretien/public/version.json))** :
+  - **En-têtes HTTP anti-cache stricts dans Vercel** : Ajout des directives `Cache-Control: no-cache, no-store, must-revalidate`, `Pragma: no-cache` et `Expires: 0` pour `index.html` et les fichiers racine. Le navigateur mobile et desktop interroge désormais systématiquement le serveur pour récupérer la dernière version sans jamais réutiliser un vieux fichier HTML en cache disque.
+  - **Balises méta anti-cache dans `index.html`** : Protection renforcée au niveau DOM contre la mise en mémoire cache locale par les navigateurs mobiles et navigateurs intégrés (WebViews).
+  - **Détection automatique en direct des mises à jour ([App.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/App.tsx))** : Vérification régulière en arrière-plan du fichier `/version.json`. Dès qu'une nouvelle version est détectée, le cache navigateur (`caches.delete`) est purgé et la page est rechargée automatiquement avec la dernière version active.
+  - **Bouton d'actualisation forcée dans le Footer ([Footer.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/components/common/Footer.tsx))** : Un clic direct sur le numéro de version (`v1.8.8`) dans le pied de page force immédiatement le vidage du cache de stockage local et recharge l'application avec un paramètre anti-cache unique.
+  - **Déploiement direct sur l'alias officiel de production Vercel** : Déploiement immédiat en production (`vercel --prod`) assurant la mise à jour instantanée de `https://depannage-entretien.vercel.app`.
+- **Conformité & Versioning** :
+  - Passage à la version `v1.8.8` synchronisée dans `package.json` et `src/version.ts`.
+  - Contrôle et maintien de l'exactitude des mentions légales (App à la Carte — Hervé CHAMPAGNE EI, SIREN 132 021 098).
+
 ## [1.8.7] - 2026-11-02
 
 ### Ajouté & Corrigé (Alignement Strict des Permissions et Visibilité Tableau de Bord par Rôle)

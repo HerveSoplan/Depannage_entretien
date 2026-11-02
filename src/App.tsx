@@ -38,6 +38,7 @@ import { MentionsLegalesScreen } from './screens/legal/MentionsLegalesScreen';
 import { DebugFileOverlay } from './components/common/DebugFileOverlay';
 import { ShieldAlert } from 'lucide-react';
 import { hasPermission, PermissionId } from './utils/permissions';
+import { APP_VERSION } from './version';
 
 // Wrapper pour injecter la fonction de navigation compatible et les paramètres
 const RouteWrapper = ({
@@ -221,9 +222,38 @@ export default function App() {
 
     checkAuth();
 
+    // 3. Détection automatique des mises à jour de version et purge automatique du cache
+    const checkServerVersion = async () => {
+      try {
+        const res = await fetch(`/version.json?t=${Date.now()}`, { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.version && data.version !== APP_VERSION) {
+            console.log('🔄 Nouvelle version disponible:', data.version, '(active:', APP_VERSION, ')');
+            const lastReload = sessionStorage.getItem('last_version_reload');
+            if (lastReload !== data.version) {
+              sessionStorage.setItem('last_version_reload', data.version);
+              if ('caches' in window) {
+                caches.keys().then((names) => {
+                  names.forEach((name) => caches.delete(name));
+                });
+              }
+              window.location.reload();
+            }
+          }
+        }
+      } catch {
+        // Mode hors ligne
+      }
+    };
+
+    checkServerVersion();
+    const versionInterval = setInterval(checkServerVersion, 30000);
+
     return () => {
       mounted = false;
       subscription?.unsubscribe();
+      clearInterval(versionInterval);
     };
   }, []);
 

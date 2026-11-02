@@ -14,6 +14,21 @@ export function Footer({ onNavigateLegal, className = '' }: FooterProps) {
     }
   };
 
+  const handleForceUpdate = () => {
+    try {
+      if (typeof window !== 'undefined') {
+        if ('caches' in window) {
+          caches.keys().then((names) => {
+            names.forEach((name) => caches.delete(name));
+          });
+        }
+        window.location.href = window.location.pathname + '?reload=' + Date.now();
+      }
+    } catch {
+      window.location.reload();
+    }
+  };
+
   return (
     <footer className={`py-4 px-4 text-center text-xs text-gray-500 border-t border-gray-200 bg-white ${className}`}>
       <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
@@ -21,7 +36,13 @@ export function Footer({ onNavigateLegal, className = '' }: FooterProps) {
         <span className="text-gray-300 hidden sm:inline">|</span>
         <span>SIREN : 132 021 098</span>
         <span className="text-gray-300 hidden sm:inline">|</span>
-        <span className="font-semibold text-blue-600">v{APP_VERSION}</span>
+        <button
+          onClick={handleForceUpdate}
+          title="Version active - Cliquer pour forcer l'actualisation sans cache"
+          className="font-semibold text-blue-600 hover:text-blue-800 underline decoration-dotted transition-colors"
+        >
+          v{APP_VERSION}
+        </button>
         <span className="text-gray-300 hidden sm:inline">|</span>
         <a
           href="/mentions-legales"
