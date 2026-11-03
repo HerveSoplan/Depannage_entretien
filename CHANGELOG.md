@@ -4,6 +4,19 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.12.9] - 2026-11-03
+
+### Corrigé & Automatisé Définitivement (Synchronisation Inconditionnelle Git Push & Déploiement Vercel Production)
+- **Automatisation Git Hook `pre-push` ([.git/hooks/pre-push](file:///d:/Aplli/D%C3%A9pannage_entretien/.git/hooks/pre-push))** :
+  - Installation d'un hook Git `pre-push` automatique : chaque `git push` déclenche obligatoirement le build et le déploiement sur Vercel Production (`npm run deploy`).
+  - Blocage automatique du push si le déploiement Vercel échoue, garantissant qu'aucune version de code ne peut se retrouver sur GitHub sans être immédiatement déployée et active sur Vercel Production.
+- **Synchronisation et déploiement de production validés** :
+  - Alignement complet du numéro de version (`v1.12.9`) sur l'ensemble de la chaîne : `package.json`, `src/version.ts`, `public/version.json`, `dist/version.json` et métadonnées HTML.
+  - Déploiement Vercel Production validé et testé en direct sur `https://depannage-entretien.vercel.app`.
+- **Conformité & Versioning** :
+  - Incrémentation SemVer vers `v1.12.9`.
+  - Vérification continue des mentions légales (EI Hervé CHAMPAGNE, SIREN 132 021 098).
+
 ## [1.12.8] - 2026-11-03
 
 ### Amélioré & Dynamisé (Types de machine et Configuration spécifique — Récupération depuis la table dédiée machine_fields)
