@@ -71,7 +71,7 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
   const { users, fetchUsers, deleteUser } = useUsers();
   const { spareParts, fetchSpareParts, deleteSparePart } = useSpareParts();
   const { maintenanceKits, fetchMaintenanceKits, deleteMaintenanceKit } = useMaintenanceKits();
-  const { errorCodes, fetchErrorCodes } = useErrorCodes();
+  const { errorCodes, fetchErrorCodes, deleteErrorCode } = useErrorCodes();
   const { tachesEntretien, fetchTachesEntretien, deleteTacheEntretien } = useTachesEntretien();
   const { machineFields, fetchMachineFields, deleteMachineField } = useMachineFields();
   const { machineFieldOptions, fetchMachineFieldOptions, deleteMachineFieldOption } = useMachineFieldOptions();
@@ -309,6 +309,70 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
                 value={formData.action || ''}
                 onChange={(e) => setFormData({ ...formData, action: e.target.value })}
                 rows={3}
+              />
+            </div>
+            <div className="flex justify-end gap-3 mt-4">
+              <Button variant="ghost" onClick={() => setShowAddForm(false)}>Annuler</Button>
+              <Button onClick={handleAdd} disabled={loading}>
+                <Save size={18} className="mr-2" />
+                Enregistrer
+              </Button>
+            </div>
+          </Card>
+        );
+
+      case 'taches_entretien':
+        return (
+          <Card className="mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold">Ajouter une tâche d'entretien</h2>
+              <Button variant="ghost" size="sm" onClick={() => setShowAddForm(false)}>
+                <X size={20} />
+              </Button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Input
+                label="Kit ID"
+                value={formData.kitId || ''}
+                onChange={(e) => setFormData({ ...formData, kitId: e.target.value })}
+                required
+                placeholder="Ex: kit_v300_2150025306_1"
+              />
+              <Input
+                label="Type de machine"
+                value={formData.machineType || ''}
+                onChange={(e) => setFormData({ ...formData, machineType: e.target.value })}
+                placeholder="Ex: V 300"
+              />
+              <Input
+                label="ID Tâche"
+                value={formData.idTache || ''}
+                onChange={(e) => setFormData({ ...formData, idTache: e.target.value })}
+                required
+                placeholder="Ex: DET_01"
+              />
+              <Input
+                label="Section"
+                value={formData.section || ''}
+                onChange={(e) => setFormData({ ...formData, section: e.target.value })}
+                required
+                placeholder="Ex: Station de détection"
+              />
+              <Input
+                label="Ordre d'exécution"
+                type="number"
+                value={formData.ordre ?? 1}
+                onChange={(e) => setFormData({ ...formData, ordre: parseInt(e.target.value, 10) || 1 })}
+              />
+            </div>
+            <div className="mt-4">
+              <TextArea
+                label="Description / Instructions de la tâche"
+                value={formData.description || ''}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                rows={3}
+                required
+                placeholder="Ex: Vérifier le bon état du capteur de détection et nettoyer la lentille..."
               />
             </div>
             <div className="flex justify-end gap-3 mt-4">
@@ -615,6 +679,196 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
       );
     }
 
+    if (activeTable === 'error_codes') {
+      return (
+        <Card className="mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold">Modifier le code erreur</h2>
+            <Button variant="ghost" size="sm" onClick={() => {
+              setShowEditForm(false);
+              setEditingItem(null);
+              setFormData({});
+            }}>
+              <X size={20} />
+            </Button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input
+              label="Alarme"
+              value={formData.alarme || ''}
+              onChange={(e) => setFormData({ ...formData, alarme: e.target.value })}
+              required
+            />
+            <Input
+              label="Type d'alarme"
+              value={formData.typeAlarme || ''}
+              onChange={(e) => setFormData({ ...formData, typeAlarme: e.target.value })}
+            />
+            <Input
+              label="Chapitre"
+              value={formData.chapitre || ''}
+              onChange={(e) => setFormData({ ...formData, chapitre: e.target.value })}
+            />
+            <Input
+              label="Titre"
+              value={formData.titre || ''}
+              onChange={(e) => setFormData({ ...formData, titre: e.target.value })}
+            />
+          </div>
+          <div className="mt-4">
+            <TextArea
+              label="Cause"
+              value={formData.cause || ''}
+              onChange={(e) => setFormData({ ...formData, cause: e.target.value })}
+              rows={3}
+            />
+          </div>
+          <div className="mt-4">
+            <TextArea
+              label="Action"
+              value={formData.action || ''}
+              onChange={(e) => setFormData({ ...formData, action: e.target.value })}
+              rows={3}
+            />
+          </div>
+          <div className="flex justify-end gap-3 mt-4">
+            <Button variant="ghost" onClick={() => {
+              setShowEditForm(false);
+              setEditingItem(null);
+              setFormData({});
+            }}>Annuler</Button>
+            <Button onClick={handleUpdate} disabled={loading}>
+              <Save size={18} className="mr-2" />
+              Mettre à jour
+            </Button>
+          </div>
+        </Card>
+      );
+    }
+
+    if (activeTable === 'taches_entretien') {
+      return (
+        <Card className="mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold">Modifier la tâche d'entretien</h2>
+            <Button variant="ghost" size="sm" onClick={() => {
+              setShowEditForm(false);
+              setEditingItem(null);
+              setFormData({});
+            }}>
+              <X size={20} />
+            </Button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input
+              label="Kit ID"
+              value={formData.kitId || ''}
+              onChange={(e) => setFormData({ ...formData, kitId: e.target.value })}
+              required
+            />
+            <Input
+              label="Type de machine"
+              value={formData.machineType || ''}
+              onChange={(e) => setFormData({ ...formData, machineType: e.target.value })}
+            />
+            <Input
+              label="ID Tâche"
+              value={formData.idTache || ''}
+              onChange={(e) => setFormData({ ...formData, idTache: e.target.value })}
+              required
+            />
+            <Input
+              label="Section"
+              value={formData.section || ''}
+              onChange={(e) => setFormData({ ...formData, section: e.target.value })}
+              required
+            />
+            <Input
+              label="Ordre d'exécution"
+              type="number"
+              value={formData.ordre ?? 1}
+              onChange={(e) => setFormData({ ...formData, ordre: parseInt(e.target.value, 10) || 1 })}
+            />
+          </div>
+          <div className="mt-4">
+            <TextArea
+              label="Description / Instructions"
+              value={formData.description || ''}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              rows={3}
+              required
+            />
+          </div>
+          <div className="flex justify-end gap-3 mt-4">
+            <Button variant="ghost" onClick={() => {
+              setShowEditForm(false);
+              setEditingItem(null);
+              setFormData({});
+            }}>Annuler</Button>
+            <Button onClick={handleUpdate} disabled={loading}>
+              <Save size={18} className="mr-2" />
+              Mettre à jour
+            </Button>
+          </div>
+        </Card>
+      );
+    }
+
+    if (activeTable === 'machine_field_options') {
+      return (
+        <Card className="mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold">Modifier l'option de champ</h2>
+            <Button variant="ghost" size="sm" onClick={() => {
+              setShowEditForm(false);
+              setEditingItem(null);
+              setFormData({});
+            }}>
+              <X size={20} />
+            </Button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Select
+              label="Champ parent"
+              value={formData.fieldId || ''}
+              onChange={(e: any) => setFormData({ ...formData, fieldId: e.target.value })}
+              options={[
+                { value: '', label: 'Sélectionner un champ' },
+                ...(machineFields || []).map((field: any) => ({
+                  value: field._id || field.id,
+                  label: `${field.machineType} - ${field.label}`
+                }))
+              ]}
+              required
+            />
+            <Input
+              label="Valeur de l'option"
+              value={formData.value || ''}
+              onChange={(e) => setFormData({ ...formData, value: e.target.value })}
+              required
+            />
+            <Input
+              label="Ordre"
+              type="number"
+              value={formData.order || 0}
+              onChange={(e) => setFormData({ ...formData, order: parseInt(e.target.value, 10) || 0 })}
+            />
+          </div>
+          <div className="flex justify-end gap-3 mt-4">
+            <Button variant="ghost" onClick={() => {
+              setShowEditForm(false);
+              setEditingItem(null);
+              setFormData({});
+            }}>Annuler</Button>
+            <Button onClick={handleUpdate} disabled={loading}>
+              <Save size={18} className="mr-2" />
+              Mettre à jour
+            </Button>
+          </div>
+        </Card>
+      );
+    }
+
     if (activeTable !== 'machine_fields') return null;
 
     return (
@@ -748,6 +1002,7 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
     setLoading(true);
     try {
       const now = new Date().toISOString();
+      const itemId = editingItem._id || editingItem.id;
       const data = {
         ...formData,
         updatedAt: now
@@ -757,7 +1012,7 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
         const userNom = (formData.nom || '').trim();
         const userPrenom = (formData.prenom || '').trim();
         const userEmail = (formData.email || '').trim().toLowerCase();
-        await db.users.update(editingItem.id || editingItem._id, {
+        await db.users.update(itemId, {
           nom: userNom,
           prenom: userPrenom,
           email: userEmail,
@@ -769,6 +1024,41 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
         await fetchUsers();
       }
 
+      if (activeTable === 'error_codes') {
+        await (db as any).errorCodes.update(itemId, {
+          alarme: formData.alarme,
+          typeAlarme: formData.typeAlarme,
+          chapitre: formData.chapitre,
+          titre: formData.titre,
+          cause: formData.cause,
+          action: formData.action,
+          updatedAt: now
+        });
+        await fetchErrorCodes();
+      }
+
+      if (activeTable === 'taches_entretien') {
+        const section = formData.section || formData.sectionTitle || 'Section générale';
+        const description = formData.description || formData.taskLabel || '';
+        await (db as any).taches_entretien.update(itemId, {
+          kit_id: formData.kitId || formData.kit_id,
+          kitId: formData.kitId || formData.kit_id,
+          machine_type: formData.machineType || formData.machine_type,
+          machineType: formData.machineType || formData.machine_type,
+          task_id: formData.idTache || formData.taskId || formData.task_id,
+          idTache: formData.idTache || formData.taskId || formData.task_id,
+          section_title: section,
+          section: section,
+          section_id: section.toLowerCase().replace(/[^a-z0-9]+/g, '_'),
+          task_label: description,
+          description: description,
+          task_order: parseInt(formData.ordre || formData.taskOrder, 10) || 1,
+          ordre: parseInt(formData.ordre || formData.taskOrder, 10) || 1,
+          updatedAt: now
+        });
+        await fetchTachesEntretien();
+      }
+
       if (activeTable === 'machine_fields') {
         const fieldData = {
           ...data,
@@ -778,9 +1068,18 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
           } : null
         };
         delete fieldData.hasConditionalRules;
-        // Utilisation de (db as any) pour corriger l'erreur de type
-        await (db as any).machine_fields.update(editingItem._id, fieldData);
+        await (db as any).machine_fields.update(itemId, fieldData);
         await fetchMachineFields();
+      }
+
+      if (activeTable === 'machine_field_options') {
+        await (db as any).machine_field_options.update(itemId, {
+          fieldId: formData.fieldId,
+          value: formData.value,
+          order: parseInt(formData.order, 10) || 0,
+          updatedAt: now
+        });
+        await fetchMachineFieldOptions();
       }
 
       alert('✅ Élément modifié avec succès !');
@@ -870,6 +1169,27 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
           await (db as any).error_codes.create(data);
           await fetchErrorCodes();
           break;
+        case 'taches_entretien': {
+          const taskPayload = {
+            ...data,
+            kit_id: formData.kitId || formData.kit_id || '',
+            kitId: formData.kitId || formData.kit_id || '',
+            machine_type: formData.machineType || formData.machine_type || '',
+            machineType: formData.machineType || formData.machine_type || '',
+            task_id: formData.idTache || formData.taskId || formData.task_id || `task_${Date.now()}`,
+            idTache: formData.idTache || formData.taskId || formData.task_id || `task_${Date.now()}`,
+            section_title: formData.section || formData.sectionTitle || 'Section générale',
+            section: formData.section || formData.sectionTitle || 'Section générale',
+            section_id: (formData.section || formData.sectionTitle || 'section_generale').toLowerCase().replace(/[^a-z0-9]+/g, '_'),
+            task_label: formData.description || formData.taskLabel || '',
+            description: formData.description || formData.taskLabel || '',
+            task_order: parseInt(formData.ordre || formData.taskOrder, 10) || 1,
+            ordre: parseInt(formData.ordre || formData.taskOrder, 10) || 1,
+          };
+          await (db as any).taches_entretien.create(taskPayload);
+          await fetchTachesEntretien();
+          break;
+        }
         case 'machine_fields':
           const fieldData = {
             ...data,
@@ -945,8 +1265,9 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
 
         await fetchClients();
       },
-      onDelete: async (id: string) => {
-        await deleteClient(id);
+      onDelete: async (itemOrId: any) => {
+        const id = typeof itemOrId === 'string' ? itemOrId : (itemOrId?._id || itemOrId?.id);
+        if (id) await deleteClient(id);
       }
     },
     users: {
@@ -1122,37 +1443,60 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
 
         await fetchSpareParts();
       },
-      onDelete: async (id: string) => {
-        await deleteSparePart(id);
+      onDelete: async (itemOrId: any) => {
+        const id = typeof itemOrId === 'string' ? itemOrId : (itemOrId?._id || itemOrId?.id);
+        if (id) await deleteSparePart(id);
       }
     },
     error_codes: {
       name: 'Codes erreur',
       data: errorCodes || [],
       columns: [
-        { key: 'alarme', label: 'Alarme' },
-        { key: 'typeAlarme', label: 'Type' },
-        { key: 'chapitre', label: 'Chapitre' },
-        { key: 'titre', label: 'Titre' },
-        { key: 'cause', label: 'Cause' },
-        { key: 'action', label: 'Action' }
+        { key: 'alarme', label: 'Alarme', render: (val: any, item: any) => item?.alarme || item?.Alarme || val || '-' },
+        { key: 'typeAlarme', label: 'Type', render: (val: any, item: any) => item?.typeAlarme || item?.Type_alarme || item?.type_alarme || val || '-' },
+        { key: 'chapitre', label: 'Chapitre', render: (val: any, item: any) => item?.chapitre || item?.Chapitre || val || '-' },
+        { key: 'titre', label: 'Titre', render: (val: any, item: any) => item?.titre || item?.Titre || val || '-' },
+        {
+          key: 'cause',
+          label: 'Cause',
+          render: (val: any, item: any) => {
+            const text = item?.cause || item?.Cause || val || '-';
+            return text.length > 55 ? `${text.substring(0, 55)}...` : text;
+          }
+        },
+        {
+          key: 'action',
+          label: 'Action',
+          render: (val: any, item: any) => {
+            const text = item?.action || item?.Action || val || '-';
+            return text.length > 55 ? `${text.substring(0, 55)}...` : text;
+          }
+        }
       ],
       csvColumns: ['alarme', 'typeAlarme', 'chapitre', 'titre', 'cause', 'action'],
       onImport: async (data: any[]) => {
         let successCount = 0;
         let errorCount = 0;
+        const errors: string[] = [];
 
         for (const row of data) {
           try {
             await (db as any).error_codes.create({
-              ...row,
+              alarme: row.alarme || row.Alarme || '',
+              typeAlarme: row.typeAlarme || row.Type_alarme || row.type_alarme || '',
+              chapitre: row.chapitre || row.Chapitre || '',
+              titre: row.titre || row.Titre || '',
+              cause: row.cause || row.Cause || '',
+              action: row.action || row.Action || '',
+              actif: true,
               creator: 'admin',
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString()
             });
             successCount++;
-          } catch (e) {
+          } catch (e: any) {
             console.error('Erreur import code erreur:', row, e);
+            errors.push(e?.message || 'Erreur inconnue');
             errorCount++;
           }
         }
@@ -1161,36 +1505,79 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
         if (errorCount > 0) alert(`⚠️ ${errorCount} erreurs lors de l'import.`);
 
         await fetchErrorCodes();
+        return { success: successCount, errors, duplicates: 0 };
       },
-      onDelete: undefined
+      onDelete: async (itemOrId: any) => {
+        const id = typeof itemOrId === 'string' ? itemOrId : (itemOrId?._id || itemOrId?.id);
+        if (!id) return;
+        if (!confirm('Supprimer ce code erreur ?')) return;
+        setLoading(true);
+        try {
+          await deleteErrorCode(id);
+          await fetchErrorCodes();
+          alert('✅ Code erreur supprimé avec succès.');
+        } catch (e: any) {
+          alert('Erreur lors de la suppression : ' + (e.message || 'Erreur inconnue'));
+        } finally {
+          setLoading(false);
+        }
+      }
     },
     taches_entretien: {
       name: 'Tâches d\'entretien',
       data: tachesEntretien || [],
       columns: [
-        { key: 'idTache', label: 'ID' },
-        { key: 'kitId', label: 'Kit ID' },
-        { key: 'section', label: 'Section' },
-        { key: 'description', label: 'Description' },
-        { key: 'module', label: 'Module' },
-        { key: 'ordre', label: 'Ordre' }
+        { key: 'idTache', label: 'ID Tâche', render: (val: any, item: any) => item?.taskId || item?.task_id || item?.idTache || val || '-' },
+        { key: 'kitId', label: 'Kit ID', render: (val: any, item: any) => item?.kitId || item?.kit_id || val || '-' },
+        { key: 'section', label: 'Section', render: (val: any, item: any) => item?.sectionTitle || item?.section_title || item?.section || val || '-' },
+        {
+          key: 'description',
+          label: 'Description',
+          render: (val: any, item: any) => {
+            const text = item?.taskLabel || item?.task_label || item?.description || val || '-';
+            return text.length > 60 ? `${text.substring(0, 60)}...` : text;
+          }
+        },
+        { key: 'ordre', label: 'Ordre', render: (val: any, item: any) => item?.taskOrder ?? item?.task_order ?? item?.ordre ?? val ?? 0 }
       ],
-      csvColumns: ['idTache', 'kitId', 'section', 'description', 'module', 'etat', 'refPiece', 'quantite', 'ordre'],
+      csvColumns: ['idTache', 'kitId', 'section', 'description', 'ordre', 'machineType'],
       onImport: async (data: any[]) => {
         let successCount = 0;
         let errorCount = 0;
+        const errors: string[] = [];
 
         for (const row of data) {
           try {
+            const taskId = row.idTache || row.taskId || row.task_id || `task_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+            const section = row.section || row.sectionTitle || row.section_title || 'Section générale';
+            const description = row.description || row.taskLabel || row.task_label || '';
+            const kitId = row.kitId || row.kit_id || '';
+            const order = parseInt(row.ordre || row.taskOrder || row.task_order, 10) || 0;
+
             await (db as any).taches_entretien.create({
-              ...row,
+              task_id: taskId,
+              taskId: taskId,
+              idTache: taskId,
+              kit_id: kitId,
+              kitId: kitId,
+              machine_type: row.machineType || row.machine_type || '',
+              machineType: row.machineType || row.machine_type || '',
+              section_title: section,
+              section: section,
+              section_id: section.toLowerCase().replace(/[^a-z0-9]+/g, '_'),
+              task_label: description,
+              description: description,
+              task_order: order,
+              ordre: order,
+              is_critical: false,
               creator: 'admin',
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString()
             });
             successCount++;
-          } catch (e) {
+          } catch (e: any) {
             console.error('Erreur import tâche:', row, e);
+            errors.push(e?.message || 'Erreur inconnue');
             errorCount++;
           }
         }
@@ -1199,9 +1586,22 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
         if (errorCount > 0) alert(`⚠️ ${errorCount} erreurs lors de l'import.`);
 
         await fetchTachesEntretien();
+        return { success: successCount, errors, duplicates: 0 };
       },
-      onDelete: async (id: string) => {
-        await deleteTacheEntretien(id);
+      onDelete: async (itemOrId: any) => {
+        const id = typeof itemOrId === 'string' ? itemOrId : (itemOrId?._id || itemOrId?.id);
+        if (!id) return;
+        if (!confirm('Supprimer cette tâche d\'entretien ?')) return;
+        setLoading(true);
+        try {
+          await deleteTacheEntretien(id);
+          await fetchTachesEntretien();
+          alert('✅ Tâche supprimée avec succès.');
+        } catch (e: any) {
+          alert('Erreur lors de la suppression : ' + (e.message || 'Erreur inconnue'));
+        } finally {
+          setLoading(false);
+        }
       }
     },
     machine_fields: {
@@ -1225,7 +1625,7 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
         {
           key: 'conditionalRules',
           label: 'Règles conditionnelles',
-          render: (value: any) => value ? `Champ: ${value.parentField} = ${value.parentValue}` : 'Aucune'
+          render: (value: any) => value ? `Champ: ${value.parentField || value.parent_field} = ${value.parentValue || value.parent_value}` : 'Aucune'
         },
         {
           key: 'allowCustomValue',
@@ -1233,13 +1633,13 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
           render: (value: any) => value ? '✓' : '✗'
         }
       ],
-      csvColumns: ['machineType', 'label', 'fieldType', 'isRequired', 'isActive', 'order', 'allowCustomValue', 'conditionalRules_parentField', 'conditionalRules_parentValue', 'creator', 'createdAt', 'updatedAt', 'creatorEmail'],
+      csvColumns: ['machineType', 'label', 'fieldType', 'isRequired', 'isActive', 'order', 'allowCustomValue'],
       onImport: async (data: any[]) => {
-        console.log('📊 Import de', data.length, 'champs');
+        let successCount = 0;
+        let errorCount = 0;
+        const errors: string[] = [];
 
         for (const row of data) {
-          console.log('📝 Traitement ligne:', row);
-
           const fieldData: any = {
             machineType: row.machineType || 'Tous',
             label: row.label,
@@ -1250,8 +1650,7 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
             allowCustomValue: row.allowCustomValue === 'true' || row.allowCustomValue === true,
             creator: row.creator || 'admin',
             createdAt: row.createdAt || new Date().toISOString(),
-            updatedAt: row.updatedAt || new Date().toISOString(),
-            creatorEmail: row.creatorEmail || 'contact@appalacarte.fr'
+            updatedAt: row.updatedAt || new Date().toISOString()
           };
 
           if (row.conditionalRules_parentField && row.conditionalRules_parentValue) {
@@ -1263,16 +1662,34 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
 
           try {
             await (db as any).machine_fields.create(fieldData);
-          } catch (e) {
-            console.error('❌ Erreur création:', e);
-            throw e;
+            successCount++;
+          } catch (e: any) {
+            console.error('❌ Erreur création champ machine:', e);
+            errors.push(e?.message || 'Erreur inconnue');
+            errorCount++;
           }
         }
 
+        if (successCount > 0) alert(`✅ ${successCount} champs machines importés avec succès !`);
+        if (errorCount > 0) alert(`⚠️ ${errorCount} erreurs lors de l'import.`);
+
         await fetchMachineFields();
+        return { success: successCount, errors, duplicates: 0 };
       },
-      onDelete: async (id: string) => {
-        await deleteMachineField(id);
+      onDelete: async (itemOrId: any) => {
+        const id = typeof itemOrId === 'string' ? itemOrId : (itemOrId?._id || itemOrId?.id);
+        if (!id) return;
+        if (!confirm('Supprimer ce champ machine ?')) return;
+        setLoading(true);
+        try {
+          await deleteMachineField(id);
+          await fetchMachineFields();
+          alert('✅ Champ machine supprimé avec succès.');
+        } catch (e: any) {
+          alert('Erreur lors de la suppression : ' + (e.message || 'Erreur inconnue'));
+        } finally {
+          setLoading(false);
+        }
       }
     },
     machine_field_options: {
@@ -1283,8 +1700,9 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
           key: 'fieldId',
           label: 'Champ parent',
           render: (value: any, item: any) => {
-            const field = (machineFields || []).find((f: any) => f._id === value);
-            return field ? `${field.machineType} - ${field.label}` : value;
+            const targetId = value || item?.field_id;
+            const field = (machineFields || []).find((f: any) => f._id === targetId || f.id === targetId);
+            return field ? `${field.machineType} - ${field.label}` : (targetId || '-');
           }
         },
         { key: 'value', label: 'Valeur' },
@@ -1292,16 +1710,46 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
       ],
       csvColumns: ['fieldId', 'value', 'order'],
       onImport: async (data: any[]) => {
+        let successCount = 0;
+        let errorCount = 0;
+        const errors: string[] = [];
+
         for (const row of data) {
-          await (db as any).machine_field_options.create({
-            ...row,
-            createdAt: new Date().toISOString()
-          });
+          try {
+            await (db as any).machine_field_options.create({
+              fieldId: row.fieldId || row.field_id,
+              value: row.value,
+              order: parseInt(row.order, 10) || 0,
+              createdAt: new Date().toISOString()
+            });
+            successCount++;
+          } catch (e: any) {
+            console.error('Erreur import option:', row, e);
+            errors.push(e?.message || 'Erreur inconnue');
+            errorCount++;
+          }
         }
+
+        if (successCount > 0) alert(`✅ ${successCount} options de champs importées avec succès !`);
+        if (errorCount > 0) alert(`⚠️ ${errorCount} erreurs lors de l'import.`);
+
         await fetchMachineFieldOptions();
+        return { success: successCount, errors, duplicates: 0 };
       },
-      onDelete: async (id: string) => {
-        await deleteMachineFieldOption(id);
+      onDelete: async (itemOrId: any) => {
+        const id = typeof itemOrId === 'string' ? itemOrId : (itemOrId?._id || itemOrId?.id);
+        if (!id) return;
+        if (!confirm('Supprimer cette option de champ ?')) return;
+        setLoading(true);
+        try {
+          await deleteMachineFieldOption(id);
+          await fetchMachineFieldOptions();
+          alert('✅ Option supprimée avec succès.');
+        } catch (e: any) {
+          alert('Erreur lors de la suppression : ' + (e.message || 'Erreur inconnue'));
+        } finally {
+          setLoading(false);
+        }
       }
     },
     languages: {
@@ -1712,6 +2160,36 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
               setShowAddForm(false);
               setShowImporter(false);
               setShowKitImporter(false);
+            } else if (activeTable === 'error_codes') {
+              setEditingItem(item);
+              setFormData({
+                ...item,
+                alarme: item.alarme || item.Alarme || '',
+                typeAlarme: item.typeAlarme || item.Type_alarme || item.type_alarme || '',
+                chapitre: item.chapitre || item.Chapitre || '',
+                titre: item.titre || item.Titre || '',
+                cause: item.cause || item.Cause || '',
+                action: item.action || item.Action || ''
+              });
+              setShowEditForm(true);
+              setShowAddForm(false);
+              setShowImporter(false);
+              setShowKitImporter(false);
+            } else if (activeTable === 'taches_entretien') {
+              setEditingItem(item);
+              setFormData({
+                ...item,
+                kitId: item.kitId || item.kit_id || '',
+                machineType: item.machineType || item.machine_type || '',
+                idTache: item.idTache || item.taskId || item.task_id || '',
+                section: item.section || item.sectionTitle || item.section_title || '',
+                description: item.description || item.taskLabel || item.task_label || '',
+                ordre: item.ordre ?? item.taskOrder ?? item.task_order ?? 1
+              });
+              setShowEditForm(true);
+              setShowAddForm(false);
+              setShowImporter(false);
+              setShowKitImporter(false);
             } else if (activeTable === 'machine_fields') {
               setEditingItem(item);
               setFormData({
@@ -1719,6 +2197,18 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
                 hasConditionalRules: !!item.conditionalRules,
                 parentField: item.conditionalRules?.parentField || '',
                 parentValue: item.conditionalRules?.parentValue || ''
+              });
+              setShowEditForm(true);
+              setShowAddForm(false);
+              setShowImporter(false);
+              setShowKitImporter(false);
+            } else if (activeTable === 'machine_field_options') {
+              setEditingItem(item);
+              setFormData({
+                ...item,
+                fieldId: item.fieldId || item.field_id || '',
+                value: item.value || '',
+                order: item.order ?? 0
               });
               setShowEditForm(true);
               setShowAddForm(false);

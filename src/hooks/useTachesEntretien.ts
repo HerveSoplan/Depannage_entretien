@@ -319,13 +319,49 @@ export function useTachesEntretien() {
   const fetchTachesEntretien = useCallback(async (filters: object = {}): Promise<Tache[]> => {
     setLoading(true);
     try {
-      const result = await (db as any).taches_entretien.list({
-        where: filters,
-        limit: 200
-      }) as DbResponseList;
-      return result.list || [];
+      const options: any = { limit: 1000 };
+      if (filters && Object.keys(filters).length > 0) {
+        options.where = filters;
+      }
+      const result = await (db as any).taches_entretien.list(options);
+      const rawList = Array.isArray(result) ? result : (result?.list || []);
+      const normalized = rawList.map((item: any) => {
+        const id = item.id || item._id || `task_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+        const taskId = item.taskId || item.task_id || item.idTache || id;
+        const kitId = item.kitId || item.kit_id || '';
+        const section = item.sectionTitle || item.section_title || item.section || 'Section générale';
+        const description = item.taskLabel || item.task_label || item.description || '';
+        const ordre = item.taskOrder ?? item.task_order ?? item.ordre ?? 0;
+        const machineType = item.machineType || item.machine_type || '';
+
+        return {
+          ...item,
+          _id: id,
+          id: id,
+          taskId,
+          task_id: taskId,
+          idTache: taskId,
+          kitId,
+          kit_id: kitId,
+          section,
+          sectionTitle: section,
+          section_title: section,
+          description,
+          taskLabel: description,
+          task_label: description,
+          ordre,
+          taskOrder: ordre,
+          task_order: ordre,
+          machineType,
+          machine_type: machineType
+        };
+      });
+
+      setTachesEntretien(normalized);
+      return normalized;
     } catch (error) {
       console.error('Erreur chargement tâches d\'entretien:', error);
+      setTachesEntretien([]);
       return [];
     } finally {
       setLoading(false);
@@ -334,27 +370,17 @@ export function useTachesEntretien() {
 
   // ✅ AJOUT POUR ADMIN
   const fetchTachesEntretienForAdmin = useCallback(async () => {
-    setLoading(true);
-    try {
-      // Assure-toi que c'est bien 'list' et non 'select' selon ton wrapper Supabase
-      const data = await (db as any).taches_entretien.list() as DbResponseList;
-      setTachesEntretien(data.list || []);
-    } catch (error) {
-      console.error('Erreur:', error);
-      setTachesEntretien([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    return await fetchTachesEntretien();
+  }, [fetchTachesEntretien]);
 
   const deleteTacheEntretien = useCallback(async (id: string) => {
     try {
       await (db as any).taches_entretien.delete(id);
-      await fetchTachesEntretienForAdmin();
+      await fetchTachesEntretien();
     } catch (error) {
       throw error;
     }
-  }, [fetchTachesEntretienForAdmin]);
+  }, [fetchTachesEntretien]);
 
   useEffect(() => {
     fetchTachesEntretienForAdmin();

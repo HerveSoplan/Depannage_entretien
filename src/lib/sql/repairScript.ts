@@ -138,6 +138,41 @@ BEGIN
     DROP POLICY IF EXISTS "Accès complet client_messages app" ON public.client_messages;
     CREATE POLICY "Accès complet client_messages app" ON public.client_messages FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
   END IF;
+
+  -- Kits d'entretien
+  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'maintenance_kits') THEN
+    ALTER TABLE public.maintenance_kits ENABLE ROW LEVEL SECURITY;
+    DROP POLICY IF EXISTS "Accès complet maintenance_kits app" ON public.maintenance_kits;
+    CREATE POLICY "Accès complet maintenance_kits app" ON public.maintenance_kits FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+  END IF;
+
+  -- Tâches d'entretien
+  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'taches_entretien') THEN
+    ALTER TABLE public.taches_entretien ENABLE ROW LEVEL SECURITY;
+    DROP POLICY IF EXISTS "Accès complet taches_entretien app" ON public.taches_entretien;
+    CREATE POLICY "Accès complet taches_entretien app" ON public.taches_entretien FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+  END IF;
+
+  -- Codes erreur
+  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'error_codes') THEN
+    ALTER TABLE public.error_codes ENABLE ROW LEVEL SECURITY;
+    DROP POLICY IF EXISTS "Accès complet error_codes app" ON public.error_codes;
+    CREATE POLICY "Accès complet error_codes app" ON public.error_codes FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+  END IF;
+
+  -- Champs machines
+  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'machine_fields') THEN
+    ALTER TABLE public.machine_fields ENABLE ROW LEVEL SECURITY;
+    DROP POLICY IF EXISTS "Accès complet machine_fields app" ON public.machine_fields;
+    CREATE POLICY "Accès complet machine_fields app" ON public.machine_fields FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+  END IF;
+
+  -- Options de champs machines
+  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'machine_field_options') THEN
+    ALTER TABLE public.machine_field_options ENABLE ROW LEVEL SECURITY;
+    DROP POLICY IF EXISTS "Accès complet machine_field_options app" ON public.machine_field_options;
+    CREATE POLICY "Accès complet machine_field_options app" ON public.machine_field_options FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+  END IF;
 END $$;
 
 -- ==============================================================================

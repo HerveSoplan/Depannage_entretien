@@ -4,12 +4,20 @@ import { db } from '../lib/supabase';
 
 export interface ErrorCode {
   _id: string;
-  Chapitre: string;
-  Titre: string;
-  Alarme: string;
-  Type_alarme: string;
-  Cause: string;
-  Action: string;
+  id?: string;
+  Chapitre?: string;
+  chapitre?: string;
+  Titre?: string;
+  titre?: string;
+  Alarme?: string;
+  alarme?: string;
+  Type_alarme?: string;
+  typeAlarme?: string;
+  type_alarme?: string;
+  Cause?: string;
+  cause?: string;
+  Action?: string;
+  action?: string;
   actif?: boolean;
   createdAt?: string;
   updatedAt?: string;
@@ -19,19 +27,60 @@ export function useErrorCodes() {
   const [errorCodes, setErrorCodes] = useState<ErrorCode[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const fetchErrorCodes = useCallback(async () => {
+  const normalizeErrorCodes = (items: any[]): ErrorCode[] => {
+    return items.map((code: any) => {
+      const alarme = code.alarme || code.Alarme || '';
+      const titre = code.titre || code.Titre || '';
+      const chapitre = code.chapitre || code.Chapitre || '';
+      const typeAlarme = code.typeAlarme || code.Type_alarme || code.type_alarme || code.TypeAlarme || '';
+      const cause = code.cause || code.Cause || '';
+      const action = code.action || code.Action || '';
+      const id = code.id || code._id || `err_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+      return {
+        ...code,
+        _id: id,
+        id: id,
+        alarme,
+        Alarme: alarme,
+        titre,
+        Titre: titre,
+        chapitre,
+        Chapitre: chapitre,
+        typeAlarme,
+        type_alarme: typeAlarme,
+        Type_alarme: typeAlarme,
+        cause,
+        Cause: cause,
+        action,
+        Action: action,
+        actif: code.actif !== false
+      };
+    });
+  };
+
+  const fetchErrorCodes = useCallback(async (options?: any) => {
     try {
       setLoading(true);
-      // Correction: db.errorCodes au lieu de db.error_codes et réponse directe (tableau)
-      const data = await db.errorCodes.list();
+      const res = await db.errorCodes.list();
+      const rawList = Array.isArray(res) ? res : (res?.list || []);
+      let normalized = normalizeErrorCodes(rawList);
 
-      // Ajout: tri manuel si nécessaire ou si l'API ne le fait pas comme attendu (bien que sort soit passé dans l'original, list() sans argument ne trie pas forcément dans l'adaptateur actuel sauf si codé en dur)
-      // L'adaptateur actuel pour errorCodes.list() a un .order('alarme') en dur, donc c'est bon.
+      if (options?.filter?.Alarme?.$regex) {
+        const regexStr = options.filter.Alarme.$regex.toLowerCase();
+        normalized = normalized.filter(c =>
+          c.Alarme?.toLowerCase().includes(regexStr) ||
+          c.Titre?.toLowerCase().includes(regexStr) ||
+          c.Cause?.toLowerCase().includes(regexStr)
+        );
+      }
 
-      setErrorCodes(data || []);
+      setErrorCodes(normalized);
+      return normalized;
     } catch (error) {
       console.error('Erreur chargement codes erreur:', error);
       setErrorCodes([]);
+      return [];
     } finally {
       setLoading(false);
     }

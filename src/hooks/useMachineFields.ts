@@ -9,11 +9,19 @@ export function useMachineFields() {
     setLoading(true)
     try {
       const data = await db.machineFields.list()
-      setMachineFields(data || [])
-      console.log('Champs machines chargés:', data)
+      const list = Array.isArray(data) ? data : (data?.list || [])
+      const normalized = list.map((f: any) => ({
+        ...f,
+        _id: f._id || f.id,
+        id: f.id || f._id
+      }))
+      setMachineFields(normalized)
+      console.log('Champs machines chargés:', normalized)
+      return normalized
     } catch (error) {
       console.error('Erreur chargement champs machines:', error)
       setMachineFields([])
+      return []
     } finally {
       setLoading(false)
     }
@@ -27,6 +35,17 @@ export function useMachineFields() {
       return newField
     } catch (error) {
       console.error('Erreur création champ machine:', error)
+      throw error
+    }
+  }
+
+  const updateMachineField = async (id: string, fieldData: any) => {
+    try {
+      const updated = await (db as any).machineFields.update(id, fieldData)
+      await fetchMachineFields()
+      return updated
+    } catch (error) {
+      console.error('Erreur mise à jour champ machine:', error)
       throw error
     }
   }
@@ -51,6 +70,7 @@ export function useMachineFields() {
     loading,
     fetchMachineFields,
     createMachineField,
+    updateMachineField,
     deleteMachineField
   }
 }

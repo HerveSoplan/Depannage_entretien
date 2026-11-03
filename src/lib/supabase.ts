@@ -1290,6 +1290,32 @@ export const db = {
       );
     },
 
+    create: async (errorCodeData: any) => {
+      if (isLiveSupabaseActive()) {
+        try {
+          const payload = toSnakeCase(errorCodeData);
+          const { data, error } = await supabase.from('error_codes').insert(payload).select().single();
+          if (!error && data) return toCamelCase(data);
+        } catch (e) {
+          // Fallback démo
+        }
+      }
+      return demoDb.insert('errorCodes', errorCodeData);
+    },
+
+    update: async (id: string, errorCodeData: any) => {
+      if (isLiveSupabaseActive()) {
+        try {
+          const payload = toSnakeCase(errorCodeData);
+          const { data, error } = await supabase.from('error_codes').update(payload).eq('id', id).select().single();
+          if (!error && data) return toCamelCase(data);
+        } catch (e) {
+          // Fallback démo
+        }
+      }
+      return demoDb.update('errorCodes', id, errorCodeData);
+    },
+
     delete: async (id: string) => {
       if (isLiveSupabaseActive()) {
         try {
@@ -1326,6 +1352,18 @@ export const db = {
         }
       }
       return demoDb.insert('machineFields', fieldData);
+    },
+
+    update: async (id: string, fieldData: any) => {
+      if (isLiveSupabaseActive()) {
+        try {
+          const { data, error } = await supabase.from('machine_fields').update(toSnakeCase(fieldData)).eq('id', id).select().single();
+          if (!error && data) return toCamelCase(data);
+        } catch (e) {
+          // Fallback démo
+        }
+      }
+      return demoDb.update('machineFields', id, fieldData);
     },
 
     delete: async (id: string) => {
@@ -1376,6 +1414,18 @@ export const db = {
         }
       }
       return demoDb.insert('machineFieldOptions', optionData);
+    },
+
+    update: async (id: string, optionData: any) => {
+      if (isLiveSupabaseActive()) {
+        try {
+          const { data, error } = await supabase.from('machine_field_options').update(toSnakeCase(optionData)).eq('id', id).select().single();
+          if (!error && data) return toCamelCase(data);
+        } catch (e) {
+          // Fallback démo
+        }
+      }
+      return demoDb.update('machineFieldOptions', id, optionData);
     },
 
     delete: async (id: string) => {

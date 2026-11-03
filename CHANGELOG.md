@@ -4,7 +4,34 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
-## [1.12.2] - 2026-11-03
+## [1.12.3] - 2026-11-03
+
+### Corrigé & Réparé (Administration des Bases : Déblocage des 4 Onglets Défaillants)
+- **Résolution définitive du blocage et des plantages sur les 4 onglets administratifs ([DatabaseAdminScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/admin/DatabaseAdminScreen.tsx))** :
+  - **Onglet « Codes erreur » (`error_codes`)** :
+    - Correction du format de réponse de `db.errorCodes.list()` dans [useErrorCodes.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/hooks/useErrorCodes.ts) (extraction de `list` au lieu d'injecter un objet non-itérable dans la DataTable, ce qui provoquait l'exception `(data || []).filter is not a function`).
+    - Implémentation complète des méthodes manquantes `create` et `update` sur `db.errorCodes` dans [supabase.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/lib/supabase.ts).
+    - Câblage complet des formulaires d'ajout, de modification (`getEditForm`) et de la suppression (`deleteErrorCode`) avec confirmation.
+    - Normalisation bidirectionnelle des champs (`alarme` / `Alarme`, `titre` / `Titre`, `cause` / `Cause`, `action` / `Action`, `typeAlarme` / `Type_alarme`) pour assurer la cohérence avec le modal de recherche d'interventions.
+  - **Onglet « Tâches d'entretien » (`taches_entretien`)** :
+    - Résolution de la fonction `fetchTachesEntretien` dans [useTachesEntretien.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/hooks/useTachesEntretien.ts) qui ne mettait pas à jour l'état React `setTachesEntretien`.
+    - Ajout des formulaires d'ajout (`getAddForm`) et d'édition (`getEditForm`) pour les tâches d'entretien avec tous les paramètres requis (`kitId`, `machineType`, `idTache`, `section`, `description`, `ordre`).
+    - Harmonisation complète des colonnes d'affichage avec les schémas SQL et l'import de kits (`task_id`, `task_label`, `section_title`, `task_order`).
+  - **Onglet « Champs machines » (`machine_fields`)** :
+    - Correction de l'extraction de `list` dans [useMachineFields.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/hooks/useMachineFields.ts) pour éliminer le crash lors de l'accès à l'onglet.
+    - Ajout de la méthode `update` manquante sur `db.machineFields` dans [supabase.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/lib/supabase.ts).
+    - Câblage de la modification de champ avec règles conditionnelles et suppression sécurisée.
+  - **Onglet « Options de champs » (`machine_field_options`)** :
+    - Correction de l'extraction de `list` dans [useMachineFieldOptions.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/hooks/useMachineFieldOptions.ts).
+    - Ajout de la méthode `update` sur `db.machineFieldOptions` dans [supabase.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/lib/supabase.ts).
+    - Ajout du formulaire d'édition avec sélection du champ machine parent, libellé et ordre.
+  - **Blindage universel de la DataTable ([DataTable.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/components/admin/DataTable.tsx))** :
+    - Protection défensive `safeData` garantissant un tableau valide quel que soit le format reçu (`Array` direct ou `{ list: [...] }`), éliminant tout risque d'écran blanc.
+  - **Script de réparation SQL Supabase ([repairScript.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/lib/sql/repairScript.ts))** :
+    - Intégration des politiques RLS et permissions pour `error_codes`, `taches_entretien`, `machine_fields`, `machine_field_options` et `maintenance_kits`.
+- **Conformité & Versioning** :
+  - Incrémentation SemVer vers `v1.12.3` dans `package.json`, `src/version.ts`, `public/version.json` et le footer applicatif.
+  - Vérification obligatoire des mentions légales (EI Hervé CHAMPAGNE, SIREN 132 021 098).
 
 ### Corrigé & Amélioré (Messagerie : Connexion Automatique et Prise en Charge Multi-Webmails)
 - **Résolution définitive du lien d'invitation dans la messagerie ([LoginScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/components/auth/LoginScreen.tsx), [App.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/App.tsx))** :

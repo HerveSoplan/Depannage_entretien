@@ -25,9 +25,13 @@ export function DataTable({ data, columns, onEdit, onDelete, itemsPerPage = 10 }
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [currentPage, setCurrentPage] = useState(1);
 
+  const safeData: any[] = Array.isArray(data)
+    ? data
+    : (data && typeof data === 'object' && Array.isArray((data as any).list) ? (data as any).list : []);
+
   // Filter data based on search
-  const filteredData = (data || []).filter((item) =>
-    Object.values(item).some((value) =>
+  const filteredData = safeData.filter((item) =>
+    item && typeof item === 'object' && Object.values(item).some((value) =>
       String(value).toLowerCase().includes((searchQuery || '').toLowerCase())
     )
   );
