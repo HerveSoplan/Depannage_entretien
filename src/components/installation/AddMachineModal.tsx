@@ -150,7 +150,9 @@ export function AddMachineModal({
         const newMachineDB = await db.machines.create({
           clientId: clientId,
           nom: nom.trim(),
+          modele: nom.trim(),
           serie: serie.trim(),
+          numeroSerie: serie.trim(),
           notes: notes.trim(),
           relationType: relationType,
           relationFields: relationFields,

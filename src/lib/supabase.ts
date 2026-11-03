@@ -1031,12 +1031,31 @@ export const db = {
           }
           if (options.limit) query = query.limit(options.limit);
           const { data, error, count } = await query;
-          if (!error && data) return { list: toCamelCase(data), count: count ?? data.length };
+          if (!error && data) {
+            const list = toCamelCase(data).map((m: any) => ({
+              ...m,
+              id: m.id || m._id,
+              _id: m._id || m.id,
+              nom: m.nom || m.modele || '',
+              modele: m.modele || m.nom || '',
+              typeMachine: m.typeMachine || m.type_machine || m.configType || '',
+              configType: m.configType || m.typeMachine || m.type_machine || ''
+            }));
+            return { list, count: count ?? data.length };
+          }
         } catch (e) {
           // Fallback démo
         }
       }
-      let list = demoDb.getTable('machines');
+      let list = demoDb.getTable('machines').map((m: any) => ({
+        ...m,
+        id: m.id || m._id,
+        _id: m._id || m.id,
+        nom: m.nom || m.modele || '',
+        modele: m.modele || m.nom || '',
+        typeMachine: m.typeMachine || m.type_machine || m.configType || '',
+        configType: m.configType || m.typeMachine || m.type_machine || ''
+      }));
       if (options.filter?.clientId) {
         list = list.filter((m: any) => m.clientId === options.filter.clientId);
       }
@@ -1051,12 +1070,30 @@ export const db = {
             .select('*')
             .eq('client_id', clientId)
             .order('created_at', { ascending: false });
-          if (!error && data) return toCamelCase(data);
+          if (!error && data) {
+            return toCamelCase(data).map((m: any) => ({
+              ...m,
+              id: m.id || m._id,
+              _id: m._id || m.id,
+              nom: m.nom || m.modele || '',
+              modele: m.modele || m.nom || '',
+              typeMachine: m.typeMachine || m.type_machine || m.configType || '',
+              configType: m.configType || m.typeMachine || m.type_machine || ''
+            }));
+          }
         } catch (e) {
           // Fallback démo
         }
       }
-      return demoDb.getTable('machines').filter((m: any) => m.clientId === clientId);
+      return demoDb.getTable('machines').filter((m: any) => m.clientId === clientId).map((m: any) => ({
+        ...m,
+        id: m.id || m._id,
+        _id: m._id || m.id,
+        nom: m.nom || m.modele || '',
+        modele: m.modele || m.nom || '',
+        typeMachine: m.typeMachine || m.type_machine || m.configType || '',
+        configType: m.configType || m.typeMachine || m.type_machine || ''
+      }));
     },
 
     get: async (id: string) => {
@@ -1067,20 +1104,46 @@ export const db = {
             .select('*')
             .eq('id', id)
             .single();
-          if (!error && data) return toCamelCase(data);
+          if (!error && data) {
+            const m = toCamelCase(data);
+            return {
+              ...m,
+              id: m.id || m._id,
+              _id: m._id || m.id,
+              nom: m.nom || m.modele || '',
+              modele: m.modele || m.nom || '',
+              typeMachine: m.typeMachine || m.type_machine || m.configType || '',
+              configType: m.configType || m.typeMachine || m.type_machine || ''
+            };
+          }
         } catch (e) {
           // Fallback démo
         }
       }
-      return demoDb.findById('machines', id);
+      const raw = demoDb.findById('machines', id);
+      if (!raw) return null;
+      return {
+        ...raw,
+        id: raw.id || raw._id,
+        _id: raw._id || raw.id,
+        nom: raw.nom || raw.modele || '',
+        modele: raw.modele || raw.nom || '',
+        typeMachine: raw.typeMachine || raw.type_machine || raw.configType || '',
+        configType: raw.configType || raw.typeMachine || raw.type_machine || ''
+      };
     },
 
     create: async (machineData: any) => {
       if (isLiveSupabaseActive()) {
         try {
+          const payload = { ...machineData };
+          delete payload.id;
+          delete payload._id;
+          if (payload.nom && !payload.modele) payload.modele = payload.nom;
+          if (payload.typeMachine && !payload.type_machine) payload.type_machine = payload.typeMachine;
           const { data, error } = await supabase
             .from('machines')
-            .insert(toSnakeCase(machineData))
+            .insert(toSnakeCase(payload))
             .select()
             .single();
           if (!error && data) return toCamelCase(data);
@@ -1094,9 +1157,14 @@ export const db = {
     update: async (id: string, machineData: any) => {
       if (isLiveSupabaseActive()) {
         try {
+          const payload = { ...machineData };
+          delete payload.id;
+          delete payload._id;
+          if (payload.nom && !payload.modele) payload.modele = payload.nom;
+          if (payload.typeMachine && !payload.type_machine) payload.type_machine = payload.typeMachine;
           const { data, error } = await supabase
             .from('machines')
-            .update(toSnakeCase(machineData))
+            .update(toSnakeCase(payload))
             .eq('id', id)
             .select()
             .single();
@@ -2152,11 +2220,15 @@ export const db = {
       if (isLiveSupabaseActive()) {
         try {
           const { data, error } = await supabase.from('machine_fields').select('*').order('order', { ascending: true });
-          if (!error && data) {
+          if (!error && data && data.length > 0) {
             const list = toCamelCase(data).map((f: any) => ({
               ...f,
-              fieldType: f.type || f.fieldType || 'text',
-              type: f.type || f.fieldType || 'text',
+              id: f.id || f._id,
+              _id: f._id || f.id,
+              label: f.label || f.name || 'Champ',
+              name: f.name || f.label || 'champ',
+              fieldType: f.fieldType || f.field_type || f.type || 'text',
+              type: f.fieldType || f.field_type || f.type || 'text',
               machineType: f.machineType || f.machine_type || 'Tous',
               isRequired: Boolean(f.isRequired ?? f.is_required),
               isActive: f.isActive !== undefined ? Boolean(f.isActive) : (f.is_active !== undefined ? Boolean(f.is_active) : true),
@@ -2168,7 +2240,20 @@ export const db = {
           // Fallback démo
         }
       }
-      return { list: demoDb.getTable('machineFields') };
+      const demoList = demoDb.getTable('machineFields').map((f: any) => ({
+        ...f,
+        id: f.id || f._id,
+        _id: f._id || f.id,
+        label: f.label || f.name || 'Champ',
+        name: f.name || f.label || 'champ',
+        fieldType: f.fieldType || f.field_type || f.type || 'text',
+        type: f.fieldType || f.field_type || f.type || 'text',
+        machineType: f.machineType || f.machine_type || 'Tous',
+        isRequired: Boolean(f.isRequired ?? f.is_required),
+        isActive: f.isActive !== undefined ? Boolean(f.isActive) : (f.is_active !== undefined ? Boolean(f.is_active) : true),
+        order: f.order ?? f.ordre ?? 0
+      }));
+      return { list: demoList };
     },
 
     create: async (fieldData: any) => {
@@ -2308,9 +2393,11 @@ export const db = {
       if (isLiveSupabaseActive()) {
         try {
           const { data, error } = await supabase.from('machine_field_options').select('*').order('order', { ascending: true });
-          if (!error && data) {
+          if (!error && data && data.length > 0) {
             const list = toCamelCase(data).map((o: any) => ({
               ...o,
+              id: o.id || o._id,
+              _id: o._id || o.id,
               fieldId: o.fieldId || o.field_id,
               value: o.value,
               label: o.label || o.value,
@@ -2322,16 +2409,27 @@ export const db = {
           // Fallback démo
         }
       }
-      return { list: demoDb.getTable('machineFieldOptions') };
+      const demoList = demoDb.getTable('machineFieldOptions').map((o: any) => ({
+        ...o,
+        id: o.id || o._id,
+        _id: o._id || o.id,
+        fieldId: o.fieldId || o.field_id,
+        value: o.value,
+        label: o.label || o.value,
+        order: o.order ?? 0
+      }));
+      return { list: demoList };
     },
 
     getByField: async (fieldId: string) => {
       if (isLiveSupabaseActive()) {
         try {
           const { data, error } = await supabase.from('machine_field_options').select('*').eq('field_id', fieldId).order('order', { ascending: true });
-          if (!error && data) {
+          if (!error && data && data.length > 0) {
             return toCamelCase(data).map((o: any) => ({
               ...o,
+              id: o.id || o._id,
+              _id: o._id || o.id,
               fieldId: o.fieldId || o.field_id,
               value: o.value,
               label: o.label || o.value,
@@ -2342,7 +2440,17 @@ export const db = {
           // Fallback démo
         }
       }
-      return demoDb.getTable('machineFieldOptions').filter((o: any) => (o.fieldId === fieldId || o.field_id === fieldId));
+      return demoDb.getTable('machineFieldOptions')
+        .filter((o: any) => (o.fieldId === fieldId || o.field_id === fieldId))
+        .map((o: any) => ({
+          ...o,
+          id: o.id || o._id,
+          _id: o._id || o.id,
+          fieldId: o.fieldId || o.field_id,
+          value: o.value,
+          label: o.label || o.value,
+          order: o.order ?? 0
+        }));
     },
 
     create: async (optionData: any) => {

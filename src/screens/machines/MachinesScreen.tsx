@@ -9,11 +9,10 @@ import { MachineCard } from '../../components/domain/MachineCard';
 
 interface MachinesScreenProps {
   onNavigate: (screen: string, params?: any) => void;
-  clientId?: string; // ✅ Ajout: clientId optionnel pour pré-remplir le formulaire
+  clientId?: string;
 }
 
 export function MachinesScreen({ onNavigate, clientId }: MachinesScreenProps) {
-  console.log('📍 MachinesScreen - clientId reçu:', clientId);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
   const { machines, loading, fetchMachines } = useMachines();
@@ -75,25 +74,31 @@ export function MachinesScreen({ onNavigate, clientId }: MachinesScreenProps) {
     return list;
   }, [machines]);
 
+  const dynamicMachineTypes = useMemo(() => {
+    const types = new Set<string>();
+    machines.forEach(m => {
+      const t = m.typeMachine || m.type_machine || m.configType;
+      if (t && t.trim() !== '') types.add(t.trim());
+    });
+    return Array.from(types).sort((a, b) => a.localeCompare(b, 'fr'));
+  }, [machines]);
+
   const filteredMachines = machines.filter(machine => {
     const matchesSearch =
       machine.nom?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       machine.numeroSerie?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       machine.marque?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       machine.modele?.toLowerCase().includes(searchQuery.toLowerCase());
-    // ✅ CORRECTION : Utilisation des valeurs françaises pour correspondre au formulaire
-    const matchesType = selectedType === 'all' || machine.typeRelation === selectedType;
+
+    const machineType = (machine.typeMachine || machine.type_machine || machine.configType || '').toLowerCase();
+    const machineRelation = (machine.typeRelation || '').toUpperCase();
+
+    const matchesType = selectedType === 'all'
+      || machineRelation === selectedType.toUpperCase()
+      || machineType === selectedType.toLowerCase();
+
     return matchesSearch && matchesType;
   });
-
-  // ✅ CORRECTION : Harmonisation des valeurs avec MachineFormScreen (MAITRE, ESCLAVE, etc.)
-  const machineTypes = [
-    { value: 'all', label: 'Tous les types' },
-    { value: 'MAITRE', label: 'Maître' },
-    { value: 'ESCLAVE', label: 'Esclave' },
-    { value: 'PARENT', label: 'Parent' },
-    { value: 'ENFANT', label: 'Enfant' },
-  ];
 
   return (
     <div className="space-y-6">
@@ -103,7 +108,6 @@ export function MachinesScreen({ onNavigate, clientId }: MachinesScreenProps) {
           <p className="text-gray-600 mt-1">Gérez toutes les machines installées</p>
         </div>
         <Button
-          // ✅ CORRIGÉ : Passer le clientId au formulaire pour pré-remplir
           onClick={() => onNavigate('machine-form', clientId ? { clientId } : undefined)}
           className="flex items-center gap-2"
         >
@@ -129,11 +133,20 @@ export function MachinesScreen({ onNavigate, clientId }: MachinesScreenProps) {
           onChange={(e) => setSelectedType(e.target.value)}
           className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
         >
-          {machineTypes.map(type => (
-            <option key={type.value} value={type.value}>
-              {type.label}
-            </option>
-          ))}
+          <option value="all">Tous les types & relations</option>
+          <optgroup label="Types de machine">
+            {dynamicMachineTypes.map(type => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))}
+          </optgroup>
+          <optgroup label="Types de relation">
+            <option value="MAITRE">Maître</option>
+            <option value="ESCLAVE">Esclave</option>
+            <option value="PARENT">Parent</option>
+            <option value="ENFANT">Enfant</option>
+          </optgroup>
         </select>
       </div>
 
@@ -156,8 +169,9 @@ export function MachinesScreen({ onNavigate, clientId }: MachinesScreenProps) {
             <MachineCard
               key={machine._id}
               machine={machine}
+              onSelect={() => onNavigate('machine-detail', { machineId: machine._id })}
               onEdit={() => onNavigate('machine-form', { machineId: machine._id })}
-              onViewDetails={() => onNavigate('machine-detail', { machineId: machine._id })}
+              onIntervention={() => onNavigate('intervention-form', { machineId: machine._id, clientId: machine.clientId })}
             />
           ))}
         </div>

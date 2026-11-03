@@ -4,6 +4,33 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.12.8] - 2026-11-03
+
+### Amélioré & Dynamisé (Types de machine et Configuration spécifique — Récupération depuis la table dédiée machine_fields)
+- **Récupération dynamique des types de machine ([MachineFormScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/machines/MachineFormScreen.tsx) & [supabase.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/lib/supabase.ts))** :
+  - Ajout d'un champ dédié « Type de machine » (`typeMachine` / `type_machine`) dans la section Identification du formulaire machine.
+  - Alimentation dynamique de la liste des types disponibles directement depuis la table dédiée `machine_fields` (distincts `machine_type`), ainsi que depuis les machines existantes et les kits d'entretien.
+  - Détection automatique et intelligente du type de machine basée sur le nom saisi lors de la création.
+- **Récupération dynamique des champs de configuration spécifique depuis la table `machine_fields` ([MachineFormScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/machines/MachineFormScreen.tsx))** :
+  - Remplacement des blocs de champs en dur par une génération dynamique basée sur la table `machine_fields`.
+  - Filtrage en temps réel des champs correspondant au type de machine sélectionné (`Pompe à vide`, `V 300`, `VMS 2014`, etc.) ou au type générique `Tous`.
+  - Récupération dynamique des options de menus déroulants depuis la table dédiée `machine_field_options`.
+  - Prise en charge des types de champs : `select`, `text`, `number`, `date`, `checkbox`, `textarea`.
+  - Prise en charge des règles conditionnelles (`conditionalRules`) et de l'option de saisie libre (`allowCustomValue`) si l'utilisateur choisit « Autre ».
+  - Bouton d'accès direct « Gérer les champs dans la table » vers l'administration des tables (`database-admin`).
+  - Possibilité d'ajouter des caractéristiques libres complémentaires.
+- **Persistance et rechargement complets des données de configuration ([supabase.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/lib/supabase.ts) & [MachineFormScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/machines/MachineFormScreen.tsx))** :
+  - Enregistrement des valeurs saisies dans la colonne JSONB `custom_fields` de la table `machines`.
+  - Synchronisation et préservation des colonnes existantes pour rétrocompatibilité (`pump_type`, `v300_option`, `type_machine`).
+  - Rechargement automatique de toutes les valeurs spécifiques lors de la modification d'une machine existante.
+- **Affichage et filtrage dynamiques ([MachineDetailScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/machines/MachineDetailScreen.tsx), [MachineCard.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/components/domain/MachineCard.tsx) & [MachinesScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/machines/MachinesScreen.tsx))** :
+  - Affichage du badge du type de machine et des caractéristiques dynamiques dans la fiche détaillée de la machine.
+  - Affichage du type de machine dans les cartes de la liste des machines.
+  - Filtrage par type de machine dynamique dans l'écran principal des machines.
+- **Initialisation des champs et options par défaut ([demoDatabase.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/services/demoDatabase.ts) & [repairScript.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/lib/sql/repairScript.ts))** :
+  - Insertion des champs et options standard pour les types courants (`Pompe à vide`, `V 300`, `VMS 2014`, `Tous`) dans `demoDatabase.ts`.
+  - Ajout des requêtes `INSERT INTO machine_fields` et `machine_field_options` avec `ON CONFLICT DO NOTHING` dans le script SQL de réparation Supabase.
+
 ## [1.12.7] - 2026-11-03
 
 ### Corrigé & Fiabilisé (Enregistrement Supabase — Montages, Dépannages, Mises en service & Entretiens)

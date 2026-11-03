@@ -191,6 +191,44 @@ ALTER TABLE IF EXISTS public.machine_field_options ALTER COLUMN label DROP NOT N
 ALTER TABLE IF EXISTS public.machine_field_options ALTER COLUMN value DROP NOT NULL;
 ALTER TABLE IF EXISTS public.machine_field_options ALTER COLUMN field_id DROP NOT NULL;
 
+-- Initialisation des champs machines par défaut dans la table machine_fields
+INSERT INTO public.machine_fields (id, name, label, type, field_type, machine_type, is_required, is_active, "order", allow_custom_value)
+VALUES
+  ('a1000000-0000-0000-0000-000000000001', 'type_pompe', 'Type de pompe', 'select', 'select', 'Pompe à vide', true, true, 1, true),
+  ('a1000000-0000-0000-0000-000000000002', 'variateur', 'Variateur', 'select', 'select', 'Pompe à vide', false, true, 2, true),
+  ('a1000000-0000-0000-0000-000000000003', 'armoire', 'Armoire', 'select', 'select', 'Pompe à vide', false, true, 3, true),
+  ('a1000000-0000-0000-0000-000000000004', 'pression_service', 'Pression de service', 'text', 'text', 'Pompe à vide', false, true, 4, false),
+  ('b1000000-0000-0000-0000-000000000001', 'option_principale', 'Option principale', 'select', 'select', 'V 300', false, true, 1, true),
+  ('b1000000-0000-0000-0000-000000000002', 'type_stalle', 'Type de stalle', 'select', 'select', 'V 300', false, true, 2, false),
+  ('b1000000-0000-0000-0000-000000000003', 'version_logiciel', 'Version logiciel', 'text', 'text', 'V 300', false, true, 3, false),
+  ('c1000000-0000-0000-0000-000000000001', 'bras_robot', 'Type de bras robot', 'text', 'text', 'VMS 2014', false, true, 1, false),
+  ('c1000000-0000-0000-0000-000000000002', 'camera', 'Version caméra 3D', 'text', 'text', 'VMS 2014', false, true, 2, false),
+  ('d1000000-0000-0000-0000-000000000001', 'batiment', 'Bâtiment / Emplacement', 'text', 'text', 'Tous', false, true, 10, false)
+ON CONFLICT (id) DO NOTHING;
+
+-- Options des listes déroulantes pour les champs machines
+INSERT INTO public.machine_field_options (id, field_id, value, label, "order")
+VALUES
+  ('e1000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000001', 'DVP', 'DVP', 1),
+  ('e1000000-0000-0000-0000-000000000002', 'a1000000-0000-0000-0000-000000000001', 'DVPF', 'DVPF', 2),
+  ('e1000000-0000-0000-0000-000000000003', 'a1000000-0000-0000-0000-000000000001', 'VP', 'VP', 3),
+  ('e1000000-0000-0000-0000-000000000004', 'a1000000-0000-0000-0000-000000000001', 'Autre', 'Autre', 4),
+  ('e1000000-0000-0000-0000-000000000005', 'a1000000-0000-0000-0000-000000000002', 'NFO22', 'Variateur NFO 2.2', 1),
+  ('e1000000-0000-0000-0000-000000000006', 'a1000000-0000-0000-0000-000000000002', 'Ext', 'Variateur Ext', 2),
+  ('e1000000-0000-0000-0000-000000000007', 'a1000000-0000-0000-0000-000000000002', 'Socidix', 'Socidix', 3),
+  ('e1000000-0000-0000-0000-000000000008', 'a1000000-0000-0000-0000-000000000002', 'Autre', 'Autre', 4),
+  ('e1000000-0000-0000-0000-000000000009', 'a1000000-0000-0000-0000-000000000003', 'Commutateur', 'Armoire Commutateur à came', 1),
+  ('e1000000-0000-0000-0000-000000000010', 'a1000000-0000-0000-0000-000000000003', '3Contacteur', 'Armoire 3 contacteurs', 2),
+  ('e1000000-0000-0000-0000-000000000011', 'a1000000-0000-0000-0000-000000000003', 'Socidix', 'Armoire Socidix', 3),
+  ('e1000000-0000-0000-0000-000000000012', 'a1000000-0000-0000-0000-000000000003', 'Autre', 'Autre', 4),
+  ('f1000000-0000-0000-0000-000000000001', 'b1000000-0000-0000-0000-000000000001', 'HN100', 'HN100', 1),
+  ('f1000000-0000-0000-0000-000000000002', 'b1000000-0000-0000-0000-000000000001', 'Compteur', 'Compteur', 2),
+  ('f1000000-0000-0000-0000-000000000003', 'b1000000-0000-0000-0000-000000000001', 'MCA', 'MCA', 3),
+  ('f1000000-0000-0000-0000-000000000004', 'b1000000-0000-0000-0000-000000000001', 'Autre', 'Autre', 4),
+  ('f1000000-0000-0000-0000-000000000005', 'b1000000-0000-0000-0000-000000000002', 'Stalle simple', 'Stalle simple', 1),
+  ('f1000000-0000-0000-0000-000000000006', 'b1000000-0000-0000-0000-000000000002', 'Stalle double', 'Stalle double', 2)
+ON CONFLICT (id) DO NOTHING;
+
 -- Clients
 ALTER TABLE IF EXISTS public.clients
   ADD COLUMN IF NOT EXISTS creator TEXT;

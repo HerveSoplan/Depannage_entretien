@@ -395,13 +395,31 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
               </Button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input
-                label="Type de machine"
-                value={formData.machineType || ''}
-                onChange={(e) => setFormData({ ...formData, machineType: e.target.value })}
-                required
-                placeholder="Ex: VMS2014, V300"
-              />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Type de machine <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  list="admin-machine-types-datalist"
+                  value={formData.machineType || ''}
+                  onChange={(e) => setFormData({ ...formData, machineType: e.target.value })}
+                  required
+                  placeholder="Ex: Pompe à vide, V 300, VMS 2014, Tous..."
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+                <datalist id="admin-machine-types-datalist">
+                  <option value="Tous" />
+                  <option value="Pompe à vide" />
+                  <option value="V 300" />
+                  <option value="VMS 2014" />
+                  <option value="Adoucisseur" />
+                  <option value="Chauffe-eau" />
+                  {Array.from(new Set(machineFields.map((f: any) => f.machineType || f.machine_type).filter(Boolean))).map((t: any) => (
+                    <option key={t} value={t} />
+                  ))}
+                </datalist>
+              </div>
               <Input
                 label="Libellé du champ"
                 value={formData.label || ''}

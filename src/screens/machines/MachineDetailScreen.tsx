@@ -2,13 +2,12 @@
 import { useState, useEffect } from 'react';
 import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
-import { ArrowLeft, Edit, MapPin, Calendar, Settings, Wrench, History, Navigation, Target, Cpu, Zap, Clock } from 'lucide-react';
+import { ArrowLeft, Edit, MapPin, Calendar, Settings, Wrench, History, Navigation, Target, Cpu, Zap, Clock, Database } from 'lucide-react';
 import { useInterventions } from '../../hooks/useInterventions';
 import { useMaintenanceKits } from '../../hooks/useMaintenanceKits';
 import { getCurrentPosition, openNavigation } from '../../utils/geoUtils';
 import { db } from '../../lib/supabase';
 import { InterventionHistoryCard } from '../../components/domain/InterventionHistoryCard';
-
 
 interface MachineDetailScreenProps {
   onNavigate: (screen: string, params?: any) => void;
@@ -17,8 +16,6 @@ interface MachineDetailScreenProps {
 }
 
 export function MachineDetailScreen({ onNavigate, machineId, clientId }: MachineDetailScreenProps) {
-  // const { machines, fetchMachines } = useMachines(); // Unused
-  // const { clients, fetchClients } = useClients(); // Unused
   const { interventions, fetchInterventions } = useInterventions();
   const { maintenanceKits, fetchMaintenanceKits } = useMaintenanceKits();
 
@@ -36,7 +33,6 @@ export function MachineDetailScreen({ onNavigate, machineId, clientId }: Machine
 
   const loadData = async () => {
     try {
-      // Chargement direct de la machine par ID (plus simple et plus rapide)
       const machineData = await db.machines.get(machineId);
       setMachine(machineData);
 
@@ -45,13 +41,10 @@ export function MachineDetailScreen({ onNavigate, machineId, clientId }: Machine
         setClient(clientData);
       }
 
-      // Chargement interventions et kits
       await fetchInterventions({ filter: { machineIds: machineId }, limit: 200 });
       await fetchMaintenanceKits({ filter: { machineId }, limit: 100 });
-
     } catch (error) {
       console.error('❌ Erreur chargement machine:', error);
-      // On n'alerte pas l'utilisateur pour un simple chargement, on log juste
     }
   };
 
@@ -97,6 +90,7 @@ export function MachineDetailScreen({ onNavigate, machineId, clientId }: Machine
       setGeolocating(false);
     }
   };
+
   const handleSaveVersion = async () => {
     try {
       await db.machines.update(machineId, {
@@ -119,16 +113,38 @@ export function MachineDetailScreen({ onNavigate, machineId, clientId }: Machine
     );
   }
 
-
+  const effectiveType = machine.typeMachine || machine.type_machine || machine.configType || '';
 
   // Helper pour afficher le style de configuration
   const getConfigStyle = (type: string) => {
     const t = type?.toLowerCase() || '';
-    if (t === 'pump') return { color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200', label: 'Pompe à vide', icon: <Cpu size={20} /> };
-    if (t === 'v300') return { color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-200', label: 'V300', icon: <Zap size={20} /> };
-    // Style par défaut pour les nouveaux types (Compresseur, etc.)
+    if (t.includes('pump') || t.includes('pompe')) return { color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200', label: 'Pompe à vide', icon: <Cpu size={20} /> };
+    if (t.includes('v300') || t.includes('v 300')) return { color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-200', label: 'V 300', icon: <Zap size={20} /> };
+    if (t.includes('vms')) return { color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-200', label: 'VMS 2014', icon: <Wrench size={20} /> };
     return { color: 'text-gray-600', bg: 'bg-gray-50', border: 'border-gray-200', label: type || 'Configuration', icon: <Settings size={20} /> };
   };
+
+  // Traitement des données de configuration dynamique
+  const customFieldsObj = (machine.customFields && typeof machine.customFields === 'object' && !Array.isArray(machine.customFields))
+    ? machine.customFields
+    : {};
+
+  const ignoredKeys = new Set(['notes', 'gpsSource', 'versionNumero', 'extraFields', 'customFields']);
+  const dynamicConfigEntries = Object.entries(customFieldsObj).filter(([k, v]) => !ignoredKeys.has(k) && v !== null && v !== undefined && v !== '');
+
+  // Récupération des extraFields additionnels
+  const additionalDetails: Array<{ label: string; value: string }> = [
+    ...(Array.isArray(customFieldsObj.extraFields) ? customFieldsObj.extraFields : []),
+    ...(Array.isArray(machine.extraFields) ? machine.extraFields : []),
+    ...(Array.isArray(machine.pumpExtraFields) ? machine.pumpExtraFields : []),
+    ...(Array.isArray(machine.v300ExtraFields) ? machine.v300ExtraFields : []),
+    ...(Array.isArray(machine.otherExtraFields) ? machine.otherExtraFields : [])
+  ].filter(item => item && item.label && item.value);
+
+  // Champs personnalisés libres additionnels (format { name, value, type })
+  const freeformCustomFields: any[] = Array.isArray(machine.customFields)
+    ? machine.customFields
+    : (Array.isArray(customFieldsObj.customFields) ? customFieldsObj.customFields : []);
 
   return (
     <div className="space-y-6">
@@ -149,8 +165,21 @@ export function MachineDetailScreen({ onNavigate, machineId, clientId }: Machine
                 <span className="text-gray-700 font-medium">Machine {machine.numeroSerie}</span>
               </div>
             )}
-            <h1 className="text-3xl font-bold text-gray-900">{machine.modele || machine.model || machine.nom}</h1>
-            <p className="text-gray-600 mt-1">N° de série: {machine.numeroSerie}</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-3xl font-bold text-gray-900">{machine.modele || machine.model || machine.nom}</h1>
+              {effectiveType && (
+                <span className="px-3 py-1 bg-blue-100 text-blue-800 text-sm font-semibold rounded-full flex items-center gap-1.5">
+                  <Database size={14} />
+                  {effectiveType}
+                </span>
+              )}
+              {machine.typeRelation && (
+                <span className="px-3 py-1 bg-purple-100 text-purple-800 text-xs font-semibold rounded-full">
+                  {machine.typeRelation}
+                </span>
+              )}
+            </div>
+            <p className="text-gray-600 mt-1">N° de série: <strong>{machine.numeroSerie}</strong></p>
 
             {/* Version N° éditable */}
             <div className="mt-2 flex items-center gap-2">
@@ -280,102 +309,107 @@ export function MachineDetailScreen({ onNavigate, machineId, clientId }: Machine
         </Card>
       </div>
 
-      {/* ✅ BLOC CONFIGURATION UNIFIÉ (Affiche Pump, V300 et Nouveaux Types comme Compresseur) */}
-      {machine.configType && (
-        <div className={`p - 5 rounded - lg border - l - 4 ${getConfigStyle(machine.configType)?.bg} ${getConfigStyle(machine.configType)?.border} `}>
-          <div className="flex items-center gap-3 mb-4 border-b pb-2 border-gray-200">
-            <div className={`p - 2 rounded - full bg - white ${getConfigStyle(machine.configType)?.color} `}>
-              {getConfigStyle(machine.configType)?.icon}
-            </div>
-            <div>
-              <h3 className="font-bold text-lg text-gray-900">Configuration Technique : {machine.configType}</h3>
+      {/* ✅ BLOC CONFIGURATION SPÉCIFIQUE DYNAMIQUE (Issu de la table machine_fields) */}
+      {(effectiveType || dynamicConfigEntries.length > 0 || machine.pumpType || machine.v300Option) && (
+        <div className={`p-5 rounded-xl border-l-4 ${getConfigStyle(effectiveType)?.bg} ${getConfigStyle(effectiveType)?.border}`}>
+          <div className="flex items-center justify-between mb-4 border-b pb-3 border-gray-200">
+            <div className="flex items-center gap-3">
+              <div className={`p-2.5 rounded-full bg-white shadow-sm ${getConfigStyle(effectiveType)?.color}`}>
+                {getConfigStyle(effectiveType)?.icon}
+              </div>
+              <div>
+                <h3 className="font-bold text-lg text-gray-900">
+                  Configuration Spécifique : {effectiveType || 'Standard'}
+                </h3>
+                <p className="text-xs text-gray-500">
+                  Paramètres et caractéristiques enregistrés depuis la table dédiée
+                </p>
+              </div>
             </div>
           </div>
 
-          {/* CAS 1: POMPE */}
-          {machine.configType.toLowerCase() === 'pump' && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div><div className="text-xs text-gray-500 uppercase font-semibold">Type de Pompe</div><div className="font-medium text-gray-900 text-lg">{machine.pumpType || '-'}</div></div>
-                <div><div className="text-xs text-gray-500 uppercase font-semibold">Variateur</div><div className="font-medium text-gray-900 text-lg">{machine.pumpVariator || '-'}</div></div>
-                <div><div className="text-xs text-gray-500 uppercase font-semibold">Armoire</div><div className="font-medium text-gray-900 text-lg">{machine.pumpCabinet || '-'}</div></div>
+          <div className="space-y-4">
+            {/* Affichage direct des colonnes historiques spécifiques si présentes */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {machine.pumpType && (
+                <div className="bg-white/80 p-3 rounded-lg border border-blue-100 shadow-sm">
+                  <div className="text-xs text-gray-500 uppercase font-semibold">Type de Pompe</div>
+                  <div className="font-semibold text-gray-900 mt-0.5">{machine.pumpType}</div>
+                </div>
+              )}
+              {machine.pumpVariator && (
+                <div className="bg-white/80 p-3 rounded-lg border border-blue-100 shadow-sm">
+                  <div className="text-xs text-gray-500 uppercase font-semibold">Variateur</div>
+                  <div className="font-semibold text-gray-900 mt-0.5">{machine.pumpVariator}</div>
+                </div>
+              )}
+              {machine.pumpCabinet && (
+                <div className="bg-white/80 p-3 rounded-lg border border-blue-100 shadow-sm">
+                  <div className="text-xs text-gray-500 uppercase font-semibold">Armoire</div>
+                  <div className="font-semibold text-gray-900 mt-0.5">{machine.pumpCabinet}</div>
+                </div>
+              )}
+              {machine.v300Option && (
+                <div className="bg-white/80 p-3 rounded-lg border border-green-100 shadow-sm">
+                  <div className="text-xs text-gray-500 uppercase font-semibold">Option Principale</div>
+                  <div className="font-semibold text-gray-900 mt-0.5">{machine.v300Option}</div>
+                </div>
+              )}
+            </div>
+
+            {/* Affichage des champs dynamiques enregistrés */}
+            {dynamicConfigEntries.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {dynamicConfigEntries.map(([key, val], idx) => (
+                  <div key={idx} className="bg-white/80 p-3 rounded-lg border border-gray-200 shadow-sm">
+                    <div className="text-xs text-gray-500 uppercase font-semibold tracking-wide">{key}</div>
+                    <div className="font-semibold text-gray-900 mt-0.5 text-base">
+                      {val === 'true' || val === true ? '✅ Oui' : (val === 'false' || val === false ? '❌ Non' : String(val))}
+                    </div>
+                  </div>
+                ))}
               </div>
-              {machine.pumpExtraFields && machine.pumpExtraFields.length > 0 && (
-                <div className="pt-4 border-t border-blue-200">
-                  <h4 className="text-sm font-semibold text-blue-700 mb-3">Détails supplémentaires</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {machine.pumpExtraFields.map((field: any, index: number) => (
-                      <div key={index} className="bg-white/60 p-2 rounded border border-blue-100">
-                        <div className="text-xs text-gray-500 uppercase font-semibold">{field.label}</div>
-                        <div className="font-medium text-gray-800">{field.value}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+            )}
 
-          {/* CAS 2: V300 */}
-          {machine.configType.toLowerCase() === 'v300' && (
-            <div className="space-y-4">
-              <div><div className="text-xs text-gray-500 uppercase font-semibold">Option Principale</div><div className="font-medium text-gray-900 text-lg">{machine.v300Option || '-'}</div></div>
-              {machine.v300ExtraFields && machine.v300ExtraFields.length > 0 && (
-                <div className="pt-4 border-t border-green-200">
-                  <h4 className="text-sm font-semibold text-green-700 mb-3">Options supplémentaires</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {machine.v300ExtraFields.map((field: any, index: number) => (
-                      <div key={index} className="bg-white/60 p-2 rounded border border-green-100">
-                        <div className="text-xs text-gray-500 uppercase font-semibold">{field.label}</div>
-                        <div className="font-medium text-gray-800">{field.value}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+            {/* Description générale si renseignée */}
+            {machine.otherConfigDetails && (
+              <div className="bg-white/80 p-3 rounded-lg border border-gray-200">
+                <div className="text-xs text-gray-500 uppercase font-semibold mb-1">Description générale</div>
+                <div className="font-medium text-gray-900 whitespace-pre-wrap">{machine.otherConfigDetails}</div>
+              </div>
+            )}
 
-          {/* CAS 3: GÉNÉRIQUE / NOUVEAUX TYPES (Compresseur, Laveuse, etc.) */}
-          {!['pump', 'v300'].includes(machine.configType.toLowerCase()) && (
-            <div className="space-y-4">
-              {machine.otherConfigDetails && (
-                <div>
-                  <div className="text-xs text-gray-500 uppercase font-semibold mb-1">Description</div>
-                  <div className="font-medium text-gray-900 whitespace-pre-wrap">{machine.otherConfigDetails}</div>
+            {/* Caractéristiques additionnelles libres */}
+            {additionalDetails.length > 0 && (
+              <div className="pt-3 border-t border-gray-200/80">
+                <h4 className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Caractéristiques additionnelles</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                  {additionalDetails.map((field, index) => (
+                    <div key={index} className="bg-white/90 p-2.5 rounded-lg border border-gray-200 shadow-sm">
+                      <div className="text-xs text-gray-500 uppercase font-semibold">{field.label}</div>
+                      <div className="font-medium text-gray-800">{field.value}</div>
+                    </div>
+                  ))}
                 </div>
-              )}
-              {machine.otherExtraFields && machine.otherExtraFields.length > 0 && (
-                <div className="pt-4 border-t border-gray-300">
-                  <h4 className="text-sm font-semibold text-gray-700 mb-3">Caractéristiques techniques</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {machine.otherExtraFields.map((field: any, index: number) => (
-                      <div key={index} className="bg-white/60 p-2 rounded border border-gray-300 shadow-sm">
-                        <div className="text-xs text-gray-500 uppercase font-semibold">{field.label}</div>
-                        <div className="font-medium text-gray-800">{field.value}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
       {/* Champs personnalisés libres */}
-      {machine.customFields && machine.customFields.length > 0 && (
+      {freeformCustomFields.length > 0 && (
         <Card>
           <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
             <Settings size={20} />
             Champs personnalisés
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {machine.customFields.map((field: any, index: number) => (
-              <div key={index} className="p-3 bg-gray-50 rounded border border-gray-100">
-                <div className="text-xs text-gray-500 mb-1">{field.name}</div>
+            {freeformCustomFields.map((field: any, index: number) => (
+              <div key={index} className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+                <div className="text-xs text-gray-500 mb-1">{field.name || field.label}</div>
                 <div className="font-medium text-gray-800">
-                  {field.type === 'boolean' ? (field.value === 'true' ? 'Oui' : 'Non') : field.value}
+                  {field.type === 'boolean' ? (field.value === 'true' || field.value === true ? 'Oui' : 'Non') : field.value}
                 </div>
               </div>
             ))}

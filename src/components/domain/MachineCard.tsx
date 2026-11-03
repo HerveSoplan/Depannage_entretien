@@ -2,8 +2,6 @@ import { Card } from '../common/Card';
 import { Button } from '../common/Button';
 import { MapPin, Calendar, Clock, Wrench, Edit, History } from 'lucide-react';
 
-
-
 interface MachineCardProps {
   machine: any;
   onSelect?: () => void;
@@ -13,7 +11,6 @@ interface MachineCardProps {
   showClientInfo?: boolean;
 }
 
-
 export function MachineCard({
   machine,
   onSelect,
@@ -22,7 +19,6 @@ export function MachineCard({
   onHistory,
   showClientInfo
 }: MachineCardProps) {
-
   const relationColors: Record<string, string> = {
     MAITRE: 'bg-purple-100 text-purple-800',
     ESCLAVE: 'bg-blue-100 text-blue-800',
@@ -30,10 +26,8 @@ export function MachineCard({
     ENFANT: 'bg-yellow-100 text-yellow-800',
   };
 
-  // const currentUser = lumi.auth.user; 
-  // const canEditMachines = currentUser?.permissions?.includes('edit_machines') || false;
-  const canEditMachines = true; // TODO: Implémenter la vérification des permissions avec Supabase
-
+  const canEditMachines = true;
+  const effectiveType = machine.typeMachine || machine.type_machine || machine.configType;
 
   return (
     <Card className="hover:shadow-lg transition-all">
@@ -42,16 +36,22 @@ export function MachineCard({
         className="cursor-pointer space-y-3"
       >
         {/* Header */}
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between gap-2">
           <div className="flex-1">
-            <h3 className="text-lg font-bold text-gray-900">{machine.modele || machine.model || machine.nom}</h3>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-lg font-bold text-gray-900">{machine.modele || machine.model || machine.nom}</h3>
+              {effectiveType && (
+                <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 text-xs font-semibold border border-blue-200">
+                  {effectiveType}
+                </span>
+              )}
+            </div>
             <p className="text-sm text-gray-600">N° {machine.numeroSerie}</p>
           </div>
           <span className={`px-3 py-1 rounded-full text-xs font-semibold ${relationColors[machine.typeRelation] || 'bg-gray-100 text-gray-800'}`}>
             {machine.typeRelation}
           </span>
         </div>
-
 
         {/* Info Grid */}
         <div className="grid grid-cols-2 gap-3 text-sm">
@@ -71,7 +71,6 @@ export function MachineCard({
           )}
         </div>
 
-
         {/* GPS Badge */}
         {machine.gpsLat && machine.gpsLng && (
           <div className="flex items-center gap-2 text-sm text-green-600">
@@ -80,7 +79,6 @@ export function MachineCard({
           </div>
         )}
       </div>
-
 
       {/* Actions */}
       <div className="flex gap-2 pt-2 mt-3 border-t">
