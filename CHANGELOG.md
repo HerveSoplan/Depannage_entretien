@@ -4,6 +4,14 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.14.1] - 2026-11-03
+
+### Corrigé (Résolution de l'erreur React #310 - Respect des règles des hooks)
+- **Déplacement du hook `useMemo` au niveau racine ([InstallationProtocolScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/interventions/InstallationProtocolScreen.tsx))** :
+  - Correction de l'erreur React minifiée #310 (*« Rendered more hooks than during the previous render »*) provoquée par un appel de `useMemo` situé après des retours conditionnels (`if (!activeInterventionId) return ...`).
+  - Déplacement de `collation = useMemo(...)` au niveau supérieur absolu du composant avec les autres hooks fondamentaux, assurant un ordre d'exécution immuable et stable à chaque rendu.
+  - Incrémentation SemVer vers `v1.14.1`.
+
 ## [1.14.0] - 2026-11-03
 
 ### Ajouté & Amélioré (Calculs cumulés multi-techniciens par machine et catégorie avec rapport PDF exhaustif)

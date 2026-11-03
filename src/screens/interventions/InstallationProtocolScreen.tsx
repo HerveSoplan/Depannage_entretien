@@ -381,6 +381,11 @@ export function InstallationProtocolScreen({
     return montageObj.machines.reduce((sum: number, m: any) => sum + calculerTotalMachine(m), 0);
   };
 
+  // Collation globale et calculs croisés multi-techniciens & multi-machines
+  const collation = useMemo(() => {
+    return calculerCollationInstallation(installationData?.machines || []);
+  }, [installationData?.machines]);
+
   // Liste de tous les techniciens avec leurs tâches pour le tracking GPS
   const techniciensForGPS = useMemo(() => {
     if (!installationData?.machines) return [];
@@ -949,9 +954,6 @@ export function InstallationProtocolScreen({
   // ═══════════════════════════════════════════════════════════════
   const machines = installationData.machines || [];
   const voitTout = currentUser?.permissions?.includes('admin_access') || currentUser?.role === 'ADMINISTRATEUR';
-  const collation = useMemo(() => {
-    return calculerCollationInstallation(machines);
-  }, [machines]);
   const totalGlobalHeures = collation.grandTotalHeures;
   const isChantierTermine = installationData.statut === 'TERMINEE';
 
