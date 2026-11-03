@@ -4,6 +4,37 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.12.0] - 2026-11-03
+
+### Ajouté & Amélioré (Logigramme des 12 Rôles & Modèle de Permissions Pré-définies avec Ajustement Personnel)
+- **Logigramme des 12 Rôles Métiers ([RoleLogigramTab.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/users/RoleLogigramTab.tsx))** :
+  - **Représentation intégrale des 12 rôles** : Remplacement de l'ancien découpage restreint par les 12 rôles officiels exhaustifs :
+    1. *Administrateur* (`ADMINISTRATEUR`)
+    2. *Directeur* (`DIRECTEUR`)
+    3. *Responsable Technique* (`RESPONSABLE_TECHNIQUE`)
+    4. *Responsable / Supérieur* (`RESPONSABLE`)
+    5. *Chef Technicien CMS* (`CHEF_TECHNICIEN_CMS`)
+    6. *Chef Technicien VMS* (`CHEF_TECHNICIEN_VMS`)
+    7. *Chef Monteur* (`CHEF_MONTEUR`)
+    8. *Technicien CMS* (`TECHNICIEN_CMS`)
+    9. *Technicien VMS* (`TECHNICIEN_VMS`)
+    10. *Monteur* (`MONTEUR`)
+    11. *Magasinier* (`MAGASINIER`)
+    12. *Client / Éleveur* (`CLIENT`)
+  - **Bascule d'affichage interactive** : Choix entre vue *Organigramme hiérarchique* avec connecteurs de délégation et vue *Grille matricielle des 12 rôles*.
+  - **Filtres complets par catégorie** : Tous les 12 rôles, Direction (2), Encadrement (2), Chefs d'équipe (3), Terrain (3), Magasin (1), Clients (1).
+- **Permissions Pré-définies par Rôle ([permissions.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/utils/permissions.ts))** :
+  - **Modèle de configuration par rôle** : Chaque rôle possède désormais son jeu de permissions pré-définies directement visualisable et modifiable par l'administrateur.
+  - **Modale de personnalisation des permissions de rôle** : Bouton `⚙️ Pré-définir` sur chaque carte de rôle permettant de cocher/décocher les 18 permissions réparties en 7 catégories thématiques (Tableau de bord, Clients, Machines, Interventions, Stock, Maintenance, Administration).
+  - **Persistance locale et propagation globale** : Enregistrement des pré-configurations (`maintenance_role_default_permissions`) avec bouton de réinitialisation usine et option de répercussion immédiate sur tous les utilisateurs existants possédant le rôle.
+- **Gestion Personnelle des Permissions à la Création et dans la Fiche Utilisateur ([UsersScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/users/UsersScreen.tsx))** :
+  - **Pré-remplissage automatique des permissions** : Dès qu'un rôle est sélectionné lors de l'ajout d'un utilisateur ou de la validation d'une demande, ses permissions pré-définies sont instantanément chargées.
+  - **Ajustement personnel (+ / -)** : L'administrateur peut affiner les droits au cas par cas directement dans le formulaire de création/édition en accordant des permissions supplémentaires (+) ou en en retirant (-), sans toucher au modèle global du rôle.
+  - **Bouton de réalignement instantané** : Bouton `🔄 Rétablir modèle rôle` présent dans le formulaire et dans l'accordéon de chaque utilisateur pour réaligner ses droits sur son rôle en 1 clic.
+- **Conformité & Versioning** :
+  - Incrémentation SemVer vers la version mineure `v1.12.0` (`package.json`, `src/version.ts`, `public/version.json`, footer applicatif).
+  - Conformité stricte aux mentions légales de l'éditeur (App à la Carte — Hervé CHAMPAGNE EI, SIREN 132 021 098, sans numéro de téléphone, contact@appalacarte.fr).
+
 ## [1.11.0] - 2026-11-02
 
 ### Ajouté & Amélioré (Montage Collaboratif Multi-Techniciens, Multi-Machines & Collation PDF Finale)

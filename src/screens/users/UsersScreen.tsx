@@ -33,12 +33,13 @@ import {
   ExternalLink,
   FileCode2,
   Workflow,
-  Send
+  Sliders,
+  RotateCcw
 } from 'lucide-react';
 import { db, generateTemporaryPassword, getPasswordRequestEmail, isLiveSupabaseActive } from '../../lib/supabase';
 import { SUPABASE_REPAIR_SQL } from '../../lib/sql/repairScript';
 import { APP_NAME, getAppBaseUrl, getInviteAppBaseUrl, OFFICIAL_APP_URL } from '../../version';
-import { RoleLogigramTab } from './RoleLogigramTab';
+import { RoleLogigramTab, PERMISSION_CATEGORIES } from './RoleLogigramTab';
 import { ALL_PERMISSIONS, getDefaultPermissionsForRole } from '../../utils/permissions';
 
 interface UsersScreenProps {
@@ -166,7 +167,7 @@ export function UsersScreen({ onNavigate }: UsersScreenProps) {
     { value: 'CHEF_MONTEUR', label: 'Chef Monteur' },
     { value: 'MONTEUR', label: 'Monteur' },
     { value: 'MAGASINIER', label: 'Magasinier' },
-    { value: 'CLIENT', label: 'Client' }
+    { value: 'CLIENT', label: 'Client / Éleveur' }
   ];
 
   useEffect(() => {
@@ -492,11 +493,69 @@ contact@appalacarte.fr`.trim();
     }
   };
 
+  // Réaligne les permissions d'un utilisateur sur le modèle pré-défini de son rôle
+  const handleResetUserPermissionsToRole = async (userId: string, userRole: string) => {
+    try {
+      const defaultPerms = getDefaultPermissionsForRole(userRole);
+      await db.users.update(userId, {
+        permissions: defaultPerms,
+        updatedAt: new Date().toISOString()
+      });
+
+      setUsers((prevUsers) =>
+        prevUsers.map((u) =>
+          u._id === userId || u.id === userId
+            ? { ...u, permissions: defaultPerms }
+            : u
+        )
+      );
+      alert(`Permissions réalignées sur le rôle ${userRole} (${defaultPerms.length} permissions accordées)`);
+    } catch (err) {
+      console.error('Erreur réalignement permissions:', err);
+      alert("Erreur lors du réalignement des permissions de l'utilisateur");
+    }
+  };
+
+  // Mise à jour groupée des permissions pour tous les utilisateurs d'un rôle
+  const handleBatchUpdateRolePermissions = async (role: string, permissions: string[]) => {
+    try {
+      const cleanRole = role.toUpperCase();
+      const usersInRole = users.filter((u) => {
+        const uRoles = Array.isArray(u.roles) ? u.roles : (u.role ? [u.role] : []);
+        return uRoles.some((r) => r.toUpperCase() === cleanRole);
+      });
+
+      for (const u of usersInRole) {
+        const uId = u._id || u.id;
+        await db.users.update(uId, {
+          permissions,
+          updatedAt: new Date().toISOString()
+        });
+      }
+
+      setUsers((prevUsers) =>
+        prevUsers.map((u) => {
+          const uRoles = Array.isArray(u.roles) ? u.roles : (u.role ? [u.role] : []);
+          if (uRoles.some((r) => r.toUpperCase() === cleanRole)) {
+            return { ...u, permissions };
+          }
+          return u;
+        })
+      );
+    } catch (err) {
+      console.error('Erreur mise à jour par lot des permissions du rôle:', err);
+      throw err;
+    }
+  };
+
   // Mise à jour rapide du rôle d'un technicien depuis le Logigramme
-  const handleUpdateUserRole = async (userId: string, newRole: string, allRoles?: string[]) => {
+  const handleUpdateUserRole = async (userId: string, newRole: string, allRoles?: string[], customPermissions?: string[]) => {
     try {
       const rolesArray = allRoles && allRoles.length > 0 ? allRoles : (newRole ? [newRole] : []);
-      const rolePerms = getDefaultPermissionsForRole(newRole);
+      const rolePerms = customPermissions && customPermissions.length > 0
+        ? customPermissions
+        : getDefaultPermissionsForRole(newRole);
+
       await db.users.update(userId, {
         role: newRole,
         roles: rolesArray,
@@ -525,16 +584,17 @@ contact@appalacarte.fr`.trim();
   };
 
   const resetForm = () => {
+    const defaultRole = 'TECHNICIEN_CMS';
     setFormData({
       nom: '',
       prenom: '',
       email: '',
       telephone: '',
       numeroTechnicien: '',
-      role: 'TECHNICIEN_CMS',
-      roles: [],
+      role: defaultRole,
+      roles: [defaultRole],
       actif: true,
-      permissions: []
+      permissions: getDefaultPermissionsForRole(defaultRole)
     });
     setEditingUser(null);
     setShowForm(false);
@@ -901,6 +961,105 @@ contact@appalacarte.fr`.trim();
               </div>
             </div>
 
+            {/* Gestion Personnelle des Permissions (+ / - personnalisées) */}
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-200">
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-sm text-gray-900">
+                      Gestion Personnelle des Permissions (+ / -)
+                    </span>
+                    <span className="text-xs bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full border border-blue-200">
+                      {formData.permissions.length} / {ALL_PERMISSIONS.length} actives
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-0.5 leading-snug">
+                    Permissions pré-définies appliquées depuis le rôle{' '}
+                    <strong>{roles.find((r) => r.value === (formData.roles[0] || formData.role))?.label || (formData.roles[0] || formData.role)}</strong>.
+                    Vous pouvez en cocher plus (+) ou en décocher (-) pour personnaliser les accès de ce technicien.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const curRole = formData.roles[0] || formData.role || 'TECHNICIEN_CMS';
+                      const defPerms = getDefaultPermissionsForRole(curRole);
+                      setFormData((prev) => ({ ...prev, permissions: defPerms }));
+                    }}
+                    className="text-xs text-blue-700 hover:text-blue-900 bg-white px-2.5 py-1 rounded-lg border border-blue-200 hover:bg-blue-50 font-semibold flex items-center gap-1 transition-colors shadow-xs"
+                    title="Rétablir les permissions pré-définies de ce rôle"
+                  >
+                    <RotateCcw size={12} />
+                    <span>Rétablir modèle rôle</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData((prev) => ({ ...prev, permissions: ALL_PERMISSIONS.map((p) => p.id) }))}
+                    className="text-xs text-gray-700 hover:text-gray-900 bg-white px-2 py-1 rounded-lg border border-gray-200 hover:bg-gray-50 font-medium"
+                  >
+                    Tout cocher
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData((prev) => ({ ...prev, permissions: [] }))}
+                    className="text-xs text-gray-700 hover:text-gray-900 bg-white px-2 py-1 rounded-lg border border-gray-200 hover:bg-gray-50 font-medium"
+                  >
+                    Tout décocher
+                  </button>
+                </div>
+              </div>
+
+              {/* Grille des permissions groupées par catégories */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                {PERMISSION_CATEGORIES.map((category) => {
+                  const categoryPerms = ALL_PERMISSIONS.filter((p) => category.ids.includes(p.id));
+                  if (categoryPerms.length === 0) return null;
+
+                  return (
+                    <div key={category.id} className="p-3 bg-white rounded-lg border border-gray-200 space-y-1.5 shadow-xs">
+                      <div className="flex items-center justify-between text-xs font-bold text-gray-800 border-b border-gray-100 pb-1">
+                        <span>{category.icon} {category.label}</span>
+                        <span className="text-[10px] text-gray-400 font-mono">
+                          {categoryPerms.filter((p) => formData.permissions.includes(p.id)).length} / {categoryPerms.length}
+                        </span>
+                      </div>
+                      <div className="space-y-1 pt-1">
+                        {categoryPerms.map((perm) => {
+                          const isChecked = formData.permissions.includes(perm.id);
+                          return (
+                            <label
+                              key={perm.id}
+                              className={`flex items-center gap-2 text-xs p-1 rounded cursor-pointer transition-colors ${
+                                isChecked ? 'bg-blue-50/70 text-blue-950 font-medium' : 'text-gray-600 hover:bg-gray-50'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  const checked = e.target.checked;
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    permissions: checked
+                                      ? [...prev.permissions, perm.id]
+                                      : prev.permissions.filter((p) => p !== perm.id)
+                                  }));
+                                }}
+                                className="w-3.5 h-3.5 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer"
+                              />
+                              <span className="truncate">{perm.label}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             <div className="flex items-center gap-2 pt-2">
               <input
                 type="checkbox"
@@ -935,6 +1094,7 @@ contact@appalacarte.fr`.trim();
               users={users}
               rolesPersonnalises={rolesPersonnalises}
               onUpdateUserRole={handleUpdateUserRole}
+              onBatchUpdateRolePermissions={handleBatchUpdateRolePermissions}
               onRefreshUsers={fetchUsers}
               canValidate={canValidate}
               currentUserEmail={currentUser?.email}
@@ -1176,26 +1336,51 @@ contact@appalacarte.fr`.trim();
                       </button>
 
                       {expandedUserId === (user._id || user.id) && (
-                        <div className="mt-2.5 p-3 bg-gray-50 rounded-lg grid grid-cols-2 sm:grid-cols-3 gap-2">
-                          {PERMISSIONS.map((permission) => {
-                            const hasPermission = (user.permissions || []).includes(permission.id);
-                            return (
-                              <label
-                                key={permission.id}
-                                className="flex items-center gap-2 text-xs cursor-pointer hover:bg-white p-1 rounded"
+                        <div className="mt-2.5 p-3 bg-gray-50 rounded-lg space-y-2.5">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 pb-2 border-b border-gray-200">
+                            <div>
+                              <span className="text-xs font-bold text-gray-800">
+                                Gestion personnelle des permissions de {user.prenom} {user.nom}
+                              </span>
+                              <p className="text-[11px] text-gray-500">
+                                Cochez ou décochez pour enrichir ou restreindre ses droits individuels.
+                              </p>
+                            </div>
+                            {canValidate && (
+                              <button
+                                type="button"
+                                onClick={() => handleResetUserPermissionsToRole(user._id || user.id, user.role || 'TECHNICIEN_CMS')}
+                                className="text-[11px] font-semibold text-blue-700 hover:text-blue-900 bg-white px-2 py-1 rounded-md border border-blue-200 hover:bg-blue-50 flex items-center gap-1 shadow-xs self-start sm:self-auto transition-colors"
+                                title="Réaligner les permissions de cet utilisateur sur le modèle pré-défini de son rôle"
                               >
-                                <input
-                                  type="checkbox"
-                                  checked={hasPermission}
-                                  onChange={() =>
-                                    handlePermissionToggle(user._id || user.id, permission.id)
-                                  }
-                                  className="w-3.5 h-3.5 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                                />
-                                <span className="text-gray-700">{permission.label}</span>
-                              </label>
-                            );
-                          })}
+                                <RotateCcw size={12} />
+                                <span>Réaligner sur le rôle ({getDefaultPermissionsForRole(user.role).length} perm.)</span>
+                              </button>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {PERMISSIONS.map((permission) => {
+                              const hasPermission = (user.permissions || []).includes(permission.id);
+                              return (
+                                <label
+                                  key={permission.id}
+                                  className={`flex items-center gap-2 text-xs cursor-pointer p-1.5 rounded transition-colors ${
+                                    hasPermission ? 'bg-blue-50 text-blue-900 font-medium' : 'hover:bg-white text-gray-600'
+                                  }`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={hasPermission}
+                                    onChange={() =>
+                                      handlePermissionToggle(user._id || user.id, permission.id)
+                                    }
+                                    className="w-3.5 h-3.5 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer"
+                                  />
+                                  <span className="truncate">{permission.label}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
                         </div>
                       )}
                     </div>

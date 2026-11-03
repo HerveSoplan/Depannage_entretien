@@ -237,16 +237,99 @@ export function isCmsUser(user: any): boolean {
   );
 }
 
+// Clé de stockage local pour les personnalisations des permissions par défaut des rôles
+const CUSTOM_ROLE_PERMS_KEY = 'maintenance_role_default_permissions';
+
 /**
- * Retourne les permissions par défaut d'un rôle
+ * Récupère les permissions personnalisées configurées pour un ou tous les rôles
+ */
+export function getCustomConfiguredRolePermissions(): Record<string, PermissionId[]> {
+  try {
+    if (typeof window === 'undefined') return {};
+    const raw = localStorage.getItem(CUSTOM_ROLE_PERMS_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (err) {
+    console.error('Erreur lecture permissions rôles personnalisées:', err);
+    return {};
+  }
+}
+
+/**
+ * Enregistre les permissions pré-définies pour un rôle donné
+ */
+export function setRoleDefaultPermissions(role: string, permissions: PermissionId[]): void {
+  try {
+    if (typeof window === 'undefined') return;
+    const cleanRole = role.toUpperCase();
+    const current = getCustomConfiguredRolePermissions();
+    current[cleanRole] = permissions;
+    localStorage.setItem(CUSTOM_ROLE_PERMS_KEY, JSON.stringify(current));
+    // Déclencher un événement global pour avertir les composants abonnés
+    window.dispatchEvent(new CustomEvent('maintenance_role_permissions_updated', {
+      detail: { role: cleanRole, permissions }
+    }));
+  } catch (err) {
+    console.error('Erreur enregistrement permissions rôle:', err);
+  }
+}
+
+/**
+ * Réinitialise les permissions pré-définies d'un rôle ou de tous les rôles
+ */
+export function resetRoleDefaultPermissions(role?: string): void {
+  try {
+    if (typeof window === 'undefined') return;
+    if (role) {
+      const cleanRole = role.toUpperCase();
+      const current = getCustomConfiguredRolePermissions();
+      delete current[cleanRole];
+      localStorage.setItem(CUSTOM_ROLE_PERMS_KEY, JSON.stringify(current));
+      window.dispatchEvent(new CustomEvent('maintenance_role_permissions_updated', {
+        detail: { role: cleanRole, permissions: ROLE_DEFAULT_PERMISSIONS[cleanRole] || [] }
+      }));
+    } else {
+      localStorage.removeItem(CUSTOM_ROLE_PERMS_KEY);
+      window.dispatchEvent(new CustomEvent('maintenance_role_permissions_updated', {
+        detail: { all: true }
+      }));
+    }
+  } catch (err) {
+    console.error('Erreur reset permissions rôle:', err);
+  }
+}
+
+/**
+ * Vérifie si un rôle possède des permissions modifiées par rapport aux valeurs par défaut d'usine
+ */
+export function isRoleDefaultPermissionsModified(role: string): boolean {
+  const cleanRole = role.toUpperCase();
+  const custom = getCustomConfiguredRolePermissions();
+  if (!custom[cleanRole]) return false;
+  const original = ROLE_DEFAULT_PERMISSIONS[cleanRole] || [];
+  const configured = custom[cleanRole];
+  if (original.length !== configured.length) return true;
+  return !original.every((p) => configured.includes(p));
+}
+
+/**
+ * Retourne les permissions pré-définies effectives d'un rôle (personnalisées ou usine)
  */
 export function getDefaultPermissionsForRole(role?: string): PermissionId[] {
   if (!role) {
     return ROLE_DEFAULT_PERMISSIONS.TECHNICIEN_CMS;
   }
   const clean = role.toUpperCase();
+  const custom = getCustomConfiguredRolePermissions();
+  if (Array.isArray(custom[clean])) {
+    return custom[clean];
+  }
   return ROLE_DEFAULT_PERMISSIONS[clean] || ROLE_DEFAULT_PERMISSIONS.TECHNICIEN_CMS;
 }
+
+/**
+ * Alias explicite pour getDefaultPermissionsForRole
+ */
+export const getRoleDefaultPermissions = getDefaultPermissionsForRole;
 
 /**
  * Résout la liste complète et effective des permissions d'un utilisateur
