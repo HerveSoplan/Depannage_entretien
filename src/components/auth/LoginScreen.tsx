@@ -24,6 +24,7 @@ import {
   Check
 } from 'lucide-react';
 import {
+  db,
   auth,
   validatePassword,
   passwordRules,

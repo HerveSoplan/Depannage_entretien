@@ -4,6 +4,19 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.12.6] - 2026-11-03
+
+### Corrigé & Fiabilisé (Accès Mobile & Multi-Appareil / Résolution Écran Blanc)
+- **Correction critique des imports manquants `db` ([App.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/App.tsx) & [LoginScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/components/auth/LoginScreen.tsx))** :
+  - `db` était appelé sans être importé dans `App.tsx` et `LoginScreen.tsx`, causant une erreur JavaScript non gérée `ReferenceError: db is not defined` dès l'ouverture de l'application sur un nouvel appareil ou une page sans session, provoquant un écran blanc vide ("le lien n'amène sur rien").
+- **Sécurisation du chargement d'authentification ([App.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/App.tsx))** :
+  - Ajout d'un timer de sécurité (`safetyTimeout`) de 2,5 secondes évitant tout blocage indéfini sur l'écran "Chargement de l'application..." lors de l'accès depuis un réseau distant ou mobile.
+- **Ajout d'un Error Boundary React ([ErrorBoundary.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/components/common/ErrorBoundary.tsx) & [main.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/main.tsx))** :
+  - Interception systématique des erreurs d'affichage React pour présenter une interface de récupération claire et conviviale avec bouton "Recharger l'application" au lieu d'un écran blanc.
+- **Correction des imports manquants ([CloseInterventionModal.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/components/domain/CloseInterventionModal.tsx))** :
+  - Ajout de l'import `useState` manquant.
+
+
 ## [1.12.5] - 2026-11-03
 
 ### Corrigé & Réparé (Champs machines & Options de champs — Résolution contrainte SQL "name")

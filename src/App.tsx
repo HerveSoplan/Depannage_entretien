@@ -1,7 +1,7 @@
 //App.tsx
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import { supabase, isLiveSupabaseActive } from './lib/supabase';
+import { db, supabase, isLiveSupabaseActive } from './lib/supabase';
 import { SelectedClientProvider } from './contexts/SelectedClientContext';
 import { LoginScreen } from './components/auth/LoginScreen';
 import { Layout } from './components/common/Layout';
@@ -282,6 +282,13 @@ export default function App() {
 
     checkAuth();
 
+    // Sécurité absolue anti-page blanche : garantit que l'écran ne reste jamais bloqué sur chargement
+    const safetyTimeout = setTimeout(() => {
+      if (mounted) {
+        setIsAuthenticated((current) => (current === null ? false : current));
+      }
+    }, 2500);
+
     // 3. Détection automatique haute fréquence des versions et rechargement propre
     const checkServerVersion = async () => {
       try {
@@ -343,6 +350,7 @@ export default function App() {
 
     return () => {
       mounted = false;
+      clearTimeout(safetyTimeout);
       subscription?.unsubscribe();
       clearInterval(versionInterval);
       document.removeEventListener('visibilitychange', handleVisibilityChange);

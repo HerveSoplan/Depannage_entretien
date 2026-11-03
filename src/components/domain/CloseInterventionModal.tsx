@@ -1,4 +1,5 @@
 //CloseInterventionModal.tsx
+import React, { useState } from 'react';
 import { Card } from '../common/Card';
 import { Button } from '../common/Button';
 import { Input } from '../common/Input';
