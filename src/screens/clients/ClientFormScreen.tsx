@@ -36,12 +36,9 @@ export function ClientFormScreen({ onNavigate, clientId }: ClientFormScreenProps
   const loadClient = async () => {
     setLoading(true);
     try {
-      const { list } = await db.clients.list({
-        filter: { _id: clientId }
-      });
+      const client = await db.clients.get(clientId!);
       
-      if (list && list.length > 0) {
-        const client = list[0];
+      if (client) {
         setFormData({
           nom: client.nom === client.nomFerme ? '' : (client.nom || ''),
           prenom: client.prenom || '',
@@ -93,21 +90,21 @@ export function ClientFormScreen({ onNavigate, clientId }: ClientFormScreenProps
       if (clientId) {
         const updated = await db.clients.update(clientId, clientData);
         console.log('✅ Client mis à jour dans la base:', updated);
-        alert('Client modifié avec succès !');
+        alert('Client modifié avec succès dans Supabase !');
       } else {
         const created = await db.clients.create(clientData);
         console.log('✅ Client créé dans la base:', created);
-        alert('Client créé avec succès !');
+        alert('Client créé avec succès dans Supabase !');
       }
 
       // Petit délai pour garantir la propagation en base
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 300));
       onNavigate('clients');
     } catch (error: any) {
       console.error('❌ Erreur enregistrement client:', error);
       console.error('Message:', error?.message);
       console.error('Details:', error?.details);
-      alert('Erreur lors de l\'enregistrement');
+      alert(`Erreur lors de l'enregistrement : ${error?.message || error}`);
     } finally {
       setLoading(false);
     }

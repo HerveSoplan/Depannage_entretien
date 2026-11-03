@@ -177,9 +177,9 @@ export function AddMachineModal({
 
         onAdd(machineMontage);
 
-      } catch (error) {
+      } catch (error: any) {
         console.error('❌ Erreur création machine:', error);
-        alert('❌ Erreur lors de la création de la machine');
+        alert(`❌ Erreur lors de la création de la machine: ${error?.message || error}`);
       } finally {
         setIsCreating(false);
       }

@@ -90,7 +90,7 @@ export function ClientsScreen({ onNavigate }: ClientsScreenProps) {
   }, [messagesEnabled]);
 
   const getMachineCount = (clientId: string) => {
-    return machines.filter(m => m.clientId === clientId).length;
+    return machines.filter(m => m.clientId === clientId || m.client_id === clientId).length;
   };
 
   // ✅ Suggestions dynamiques pour autocomplétion et pré-remplissage en direct
@@ -171,13 +171,13 @@ export function ClientsScreen({ onNavigate }: ClientsScreenProps) {
       client.ville?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       client.adresse?.toLowerCase().includes(searchQuery.toLowerCase())
     )
-    : clients.filter(client => getMachineCount(client._id) > 0);
+    : clients;
 
   // ✅ Fonction de navigation avec feedback visuel et enregistrement du client
   const handleNavigateToClient = (screen: string, params: any) => {
     // ✅ Enregistrer le client dans le contexte global avant de naviguer
     if (params?.clientId) {
-      const client = clients.find(c => c._id === params.clientId);
+      const client = clients.find(c => (c._id === params.clientId || c.id === params.clientId));
       if (client) {
         setSelectedClient(client);
       }
@@ -254,16 +254,19 @@ export function ClientsScreen({ onNavigate }: ClientsScreenProps) {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredClients.map((client) => (
-            <ClientDetailCard
-              key={client._id}
-              client={client}
-              machinesCount={getMachineCount(client._id)}
-              onViewDetails={() => handleNavigateToClient('client-detail', { clientId: client._id })}
-              onViewMachines={() => handleNavigateToClient('machines', { clientId: client._id })}
-              onCreateIntervention={() => handleNavigateToClient('intervention-form', { clientId: client._id })}
-            />
-          ))}
+          {filteredClients.map((client) => {
+            const cid = client._id || client.id;
+            return (
+              <ClientDetailCard
+                key={cid}
+                client={client}
+                machinesCount={getMachineCount(cid)}
+                onViewDetails={() => handleNavigateToClient('client-detail', { clientId: cid })}
+                onViewMachines={() => handleNavigateToClient('machines', { clientId: cid })}
+                onCreateIntervention={() => handleNavigateToClient('intervention-form', { clientId: cid })}
+              />
+            );
+          })}
         </div>
       )}
     </div>

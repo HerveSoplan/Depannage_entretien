@@ -4,7 +4,25 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
-## [1.12.9] - 2026-11-03
+## [1.13.0] - 2026-11-03
+
+### Corrigé & Garanti (Enregistrement Direct et Fiable des Nouveaux Clients et Machines dans Supabase)
+- **Persistance garantie des machines dans Supabase ([supabase.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/lib/supabase.ts))** :
+  - Création de la fonction d'assainissement strict `sanitizeMachineDataForSupabase` filtrant les champs selon le schéma réel de la table PostgreSQL `public.machines` (`modele`, `client_id`, `numero_serie`, `type_machine`, `type_relation`, `config_type`, `pump_type`, `v300_option`, `custom_fields`, `date_installation`, `compteur`, `latitude`, `longitude`, `statut`, `actif`).
+  - Élimination de l'erreur PGRST204 (`nom`, `serie`, `relationType` absents du schéma SQL) qui provoquait l'échec silencieux de l'insertion Supabase et le repli erroné sur la base de démonstration locale.
+  - Regroupement automatique des données techniques et personnalisées dans la colonne JSONB `custom_fields`.
+  - Normalisation unifiée des machines (`normalizeMachine`) garantissant la présence simultanée de `id`, `_id`, `nom`, `modele`, `serie`, `numeroSerie`, `typeMachine`, `typeRelation`, `clientId` et `client_id`.
+  - Gestion des conflits d'unicité (code 23505 sur `numero_serie`) avec régénération de suffixe unique pour éviter tout échec de création.
+  - Levée d'erreurs explicites avec code en cas de blocage RLS (42501) ou d'anomalie réseau.
+- **Persistance et visibilité garanties des nouveaux clients dans Supabase ([supabase.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/lib/supabase.ts) & [ClientsScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/clients/ClientsScreen.tsx))** :
+  - Création de `sanitizeClientDataForSupabase` et `normalizeClient` avec injection des coordonnées GPS (`latitude`, `longitude`), `notes`, et gestion de conflit d'unicité sur `numero_client`.
+  - Correction de l'affichage dans la liste des clients ([ClientsScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/clients/ClientsScreen.tsx)) : suppression du filtre masquant les clients ayant 0 machines, rendant les nouveaux clients immédiatement visibles dès leur création.
+  - Correction de la recherche et de la sélection de client dans [ClientFormScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/clients/ClientFormScreen.tsx) et [ClientDetailScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/clients/ClientDetailScreen.tsx) en ciblant précisément l'identifiant sélectionné (`id` / `_id`).
+  - Prise en charge des paramètres de filtrage et pagination dans le hook [useClients.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/hooks/useClients.ts).
+- **Conformité & Versioning** :
+  - Incrémentation SemVer vers `v1.13.0`.
+  - Vérification continue des mentions légales (EI Hervé CHAMPAGNE, SIREN 132 021 098, `contact@appalacarte.fr`).
+
 
 ### Corrigé & Automatisé Définitivement (Synchronisation Inconditionnelle Git Push & Déploiement Vercel Production)
 - **Automatisation Git Hook `pre-push` ([.git/hooks/pre-push](file:///d:/Aplli/D%C3%A9pannage_entretien/.git/hooks/pre-push))** :

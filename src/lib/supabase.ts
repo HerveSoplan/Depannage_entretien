@@ -236,6 +236,356 @@ export const isUuid = (val: any): boolean => {
   return typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val.trim());
 };
 
+// ==============================================================================
+// SANITISATION ET NORMALISATION STRICTES CLIENTS SUPABASE
+// ==============================================================================
+export const VALID_CLIENT_COLUMNS = new Set([
+  'id',
+  'numero_client',
+  'nom',
+  'nom_ferme',
+  'adresse',
+  'ville',
+  'code_postal',
+  'pays',
+  'telephone',
+  'email',
+  'contact_principal',
+  'latitude',
+  'longitude',
+  'notes',
+  'actif',
+  'created_at',
+  'updated_at',
+  'creator'
+]);
+
+export const sanitizeClientDataForSupabase = (
+  clientData: any,
+  options: { isUpdate?: boolean } = {}
+): Record<string, any> => {
+  if (!clientData || typeof clientData !== 'object') return {};
+
+  const payload: Record<string, any> = {};
+
+  if (clientData.nom !== undefined || clientData.name !== undefined) {
+    payload.nom = String(clientData.nom || clientData.name || 'Client').trim();
+  } else if (!options.isUpdate) {
+    payload.nom = 'Client';
+  }
+
+  const numClient = clientData.numeroClient || clientData.numero_client;
+  if (numClient !== undefined) {
+    payload.numero_client = String(numClient).trim() || `CL-${Date.now().toString().slice(-4)}`;
+  } else if (!options.isUpdate) {
+    payload.numero_client = `CL-${Date.now().toString().slice(-4)}`;
+  }
+
+  if (clientData.nomFerme !== undefined || clientData.nom_ferme !== undefined) {
+    payload.nom_ferme = String(clientData.nomFerme ?? clientData.nom_ferme ?? '').trim();
+  }
+
+  if (clientData.adresse !== undefined) {
+    payload.adresse = String(clientData.adresse ?? '').trim();
+  }
+
+  if (clientData.ville !== undefined) {
+    payload.ville = String(clientData.ville ?? '').trim();
+  }
+
+  if (clientData.codePostal !== undefined || clientData.code_postal !== undefined) {
+    payload.code_postal = String(clientData.codePostal ?? clientData.code_postal ?? '').trim();
+  }
+
+  if (clientData.pays !== undefined) {
+    payload.pays = String(clientData.pays ?? 'France').trim();
+  } else if (!options.isUpdate) {
+    payload.pays = 'France';
+  }
+
+  if (clientData.telephone !== undefined) {
+    payload.telephone = String(clientData.telephone ?? '').trim();
+  }
+
+  if (clientData.email !== undefined) {
+    payload.email = String(clientData.email ?? '').trim().toLowerCase();
+  }
+
+  if (clientData.contactPrincipal !== undefined || clientData.contact_principal !== undefined) {
+    payload.contact_principal = clientData.contactPrincipal ?? clientData.contact_principal ?? null;
+  }
+
+  const lat = clientData.latitude ?? clientData.gpsLat;
+  if (lat !== undefined) {
+    payload.latitude = lat !== null && lat !== '' && !isNaN(Number(lat)) ? Number(lat) : null;
+  }
+
+  const lng = clientData.longitude ?? clientData.gpsLng;
+  if (lng !== undefined) {
+    payload.longitude = lng !== null && lng !== '' && !isNaN(Number(lng)) ? Number(lng) : null;
+  }
+
+  if (clientData.notes !== undefined) {
+    payload.notes = String(clientData.notes ?? '').trim();
+  }
+
+  if (clientData.actif !== undefined) {
+    payload.actif = Boolean(clientData.actif);
+  } else if (!options.isUpdate) {
+    payload.actif = true;
+  }
+
+  const potentialId = clientData.id || clientData._id;
+  if (potentialId && isUuid(potentialId) && !options.isUpdate) {
+    payload.id = potentialId;
+  }
+
+  if (!options.isUpdate) {
+    payload.created_at = clientData.createdAt || clientData.created_at || new Date().toISOString();
+  }
+  payload.updated_at = new Date().toISOString();
+
+  // Filtrer STRICTEMENT pour ne garder que les colonnes valides
+  const cleanPayload: Record<string, any> = {};
+  for (const [key, val] of Object.entries(payload)) {
+    if (VALID_CLIENT_COLUMNS.has(key)) {
+      cleanPayload[key] = val;
+    }
+  }
+
+  return cleanPayload;
+};
+
+export const normalizeClient = (c: any): any => {
+  if (!c) return null;
+  const obj = toCamelCase(c);
+  const id = obj.id || obj._id || c.id || c._id;
+  return {
+    ...obj,
+    id,
+    _id: id,
+    numeroClient: obj.numeroClient || obj.numero_client || c.numero_client || '',
+    nomFerme: obj.nomFerme || obj.nom_ferme || c.nom_ferme || '',
+    codePostal: obj.codePostal || obj.code_postal || c.code_postal || '',
+    contactPrincipal: obj.contactPrincipal || obj.contact_principal || c.contact_principal || null,
+    latitude: obj.latitude ?? c.latitude ?? null,
+    longitude: obj.longitude ?? c.longitude ?? null,
+    actif: obj.actif !== undefined ? Boolean(obj.actif) : true
+  };
+};
+
+// ==============================================================================
+// SANITISATION ET NORMALISATION STRICTES MACHINES SUPABASE
+// ==============================================================================
+export const VALID_MACHINE_COLUMNS = new Set([
+  'client_id',
+  'numero_serie',
+  'modele',
+  'type_machine',
+  'type_relation',
+  'config_type',
+  'pump_type',
+  'v300_option',
+  'custom_fields',
+  'date_installation',
+  'compteur',
+  'latitude',
+  'longitude',
+  'statut',
+  'actif',
+  'created_at',
+  'updated_at'
+]);
+
+export const sanitizeMachineDataForSupabase = (
+  machineData: any,
+  options: { isUpdate?: boolean } = {}
+): Record<string, any> => {
+  if (!machineData || typeof machineData !== 'object') return {};
+
+  const payload: Record<string, any> = {};
+
+  // Modèle / Nom
+  const modele = machineData.modele || machineData.nom;
+  if (modele !== undefined) {
+    payload.modele = String(modele).trim();
+  }
+
+  // Client ID (UUID)
+  const clientId = machineData.clientId || machineData.client_id;
+  if (clientId !== undefined) {
+    payload.client_id = clientId ? String(clientId).trim() : null;
+  }
+
+  // Numéro de série
+  const numeroSerie = machineData.numeroSerie || machineData.numero_serie || machineData.serie;
+  if (numeroSerie !== undefined) {
+    payload.numero_serie = String(numeroSerie).trim();
+  } else if (!options.isUpdate) {
+    payload.numero_serie = `SN-${Date.now().toString().slice(-6)}`;
+  }
+
+  // Type de machine
+  const typeMachine = machineData.typeMachine || machineData.type_machine || machineData.configType;
+  if (typeMachine !== undefined) {
+    payload.type_machine = typeMachine ? String(typeMachine).trim() : null;
+  }
+
+  // Type de relation
+  const typeRelation = machineData.typeRelation || machineData.type_relation || machineData.relationType || machineData.relation_type;
+  if (typeRelation !== undefined) {
+    payload.type_relation = String(typeRelation).trim();
+  } else if (!options.isUpdate) {
+    payload.type_relation = 'MAITRE';
+  }
+
+  // Config Type
+  const configType = machineData.configType || machineData.config_type;
+  if (configType !== undefined) {
+    payload.config_type = configType ? String(configType).trim() : null;
+  }
+
+  // Pump type
+  const pumpType = machineData.pumpType || machineData.pump_type;
+  if (pumpType !== undefined) {
+    payload.pump_type = pumpType ? String(pumpType).trim() : null;
+  }
+
+  // V300 option
+  const v300Option = machineData.v300Option || machineData.v300_option;
+  if (v300Option !== undefined) {
+    payload.v300_option = v300Option ? String(v300Option).trim() : null;
+  }
+
+  // Date installation
+  const dateInst = machineData.dateInstallation || machineData.date_installation;
+  if (dateInst !== undefined) {
+    if (dateInst) {
+      try {
+        const dateObj = new Date(dateInst);
+        if (!isNaN(dateObj.getTime())) {
+          payload.date_installation = dateObj.toISOString().split('T')[0];
+        } else {
+          payload.date_installation = null;
+        }
+      } catch {
+        payload.date_installation = null;
+      }
+    } else {
+      payload.date_installation = null;
+    }
+  }
+
+  // Compteur
+  if (machineData.compteur !== undefined) {
+    payload.compteur = Number(machineData.compteur) || 0;
+  }
+
+  // Latitude / Longitude
+  const lat = machineData.latitude ?? machineData.gpsLat;
+  if (lat !== undefined) {
+    payload.latitude = lat !== null && lat !== '' && !isNaN(Number(lat)) ? Number(lat) : null;
+  }
+
+  const lng = machineData.longitude ?? machineData.gpsLng;
+  if (lng !== undefined) {
+    payload.longitude = lng !== null && lng !== '' && !isNaN(Number(lng)) ? Number(lng) : null;
+  }
+
+  // Statut
+  if (machineData.statut !== undefined) {
+    const s = String(machineData.statut).toLowerCase();
+    payload.statut = ['active', 'maintenance', 'inactive'].includes(s) ? s : 'active';
+  } else if (!options.isUpdate) {
+    payload.statut = 'active';
+  }
+
+  // Actif
+  if (machineData.actif !== undefined) {
+    payload.actif = Boolean(machineData.actif);
+  } else if (!options.isUpdate) {
+    payload.actif = true;
+  }
+
+  // Custom fields: regrouper toutes les données additionnelles
+  const existingCustom = (typeof machineData.customFields === 'object' && machineData.customFields !== null && !Array.isArray(machineData.customFields))
+    ? { ...machineData.customFields }
+    : {};
+
+  if (machineData.notes !== undefined) existingCustom.notes = machineData.notes;
+  if (machineData.versionNumero !== undefined || machineData.version_numero !== undefined) {
+    existingCustom.versionNumero = machineData.versionNumero || machineData.version_numero;
+  }
+  if (machineData.relationFields !== undefined || machineData.relation_fields !== undefined) {
+    existingCustom.relationFields = machineData.relationFields || machineData.relation_fields;
+  }
+  if (machineData.relatedMachines !== undefined || machineData.related_machines !== undefined) {
+    existingCustom.relatedMachines = machineData.relatedMachines || machineData.related_machines;
+  }
+  if (machineData.gpsSource !== undefined || machineData.gps_source !== undefined) {
+    existingCustom.gpsSource = machineData.gpsSource || machineData.gps_source;
+  }
+  if (machineData.extraFields !== undefined) existingCustom.extraFields = machineData.extraFields;
+  if (machineData.pumpVariator !== undefined) existingCustom.pumpVariator = machineData.pumpVariator;
+  if (machineData.pumpCabinet !== undefined) existingCustom.pumpCabinet = machineData.pumpCabinet;
+
+  if (Object.keys(existingCustom).length > 0 || !options.isUpdate) {
+    payload.custom_fields = existingCustom;
+  }
+
+  if (!options.isUpdate) {
+    payload.created_at = machineData.createdAt || machineData.created_at || new Date().toISOString();
+  }
+  payload.updated_at = new Date().toISOString();
+
+  // Filtrer STRICTEMENT pour ne garder que les colonnes valides
+  const cleanPayload: Record<string, any> = {};
+  for (const [key, val] of Object.entries(payload)) {
+    if (VALID_MACHINE_COLUMNS.has(key)) {
+      cleanPayload[key] = val;
+    }
+  }
+
+  return cleanPayload;
+};
+
+export const normalizeMachine = (m: any): any => {
+  if (!m) return null;
+  const obj = toCamelCase(m);
+  const id = obj.id || obj._id || m.id || m._id;
+  const clientId = obj.clientId || obj.client_id || m.client_id || m.clientId || '';
+  const nom = obj.nom || obj.modele || m.modele || m.nom || '';
+  const serie = obj.numeroSerie || obj.numero_serie || obj.serie || m.numero_serie || m.serie || '';
+  const typeMachine = obj.typeMachine || obj.type_machine || obj.configType || m.type_machine || m.config_type || '';
+  const typeRelation = obj.typeRelation || obj.type_relation || obj.relationType || m.type_relation || 'MAITRE';
+  const customFields = obj.customFields || obj.custom_fields || m.custom_fields || {};
+  const notes = customFields.notes || obj.notes || m.notes || '';
+
+  return {
+    ...obj,
+    id,
+    _id: id,
+    clientId,
+    client_id: clientId,
+    nom,
+    modele: nom,
+    serie,
+    numeroSerie: serie,
+    typeMachine,
+    type_machine: typeMachine,
+    configType: obj.configType || obj.config_type || typeMachine,
+    typeRelation,
+    type_relation: typeRelation,
+    relationType: typeRelation,
+    notes,
+    customFields,
+    latitude: obj.latitude ?? m.latitude ?? null,
+    longitude: obj.longitude ?? m.longitude ?? null,
+    statut: obj.statut || m.statut || 'active',
+    actif: obj.actif !== undefined ? Boolean(obj.actif) : true
+  };
+};
+
 // Mappeur de type d'intervention vers la contrainte CHECK PostgreSQL ('installation', 'mise_en_service', 'maintenance', 'depannage', 'controle')
 export const mapInterventionTypeToDb = (type?: string): 'installation' | 'mise_en_service' | 'maintenance' | 'depannage' | 'controle' => {
   const t = (type || '').toLowerCase();
@@ -871,27 +1221,65 @@ export const db = {
 
   // Clients
   clients: {
-    list: async () => {
+    list: async (options: any = {}) => {
       if (isLiveSupabaseActive()) {
         try {
-          const { data, error } = await supabase
+          let query = supabase
             .from('clients')
-            .select('*')
-            .order('nom', { ascending: true });
+            .select('*', { count: 'exact' });
+
+          if (options.filter) {
+            Object.entries(options.filter).forEach(([key, value]) => {
+              if (value === undefined || value === null || value === '') return;
+              if (key === '_id' || key === 'id') {
+                query = query.eq('id', value);
+              } else if (key === 'numeroClient' || key === 'numero_client') {
+                query = query.eq('numero_client', value);
+              } else if (key === 'nom') {
+                query = query.ilike('nom', `%${value}%`);
+              } else if (Array.isArray(value)) {
+                query = query.in(toSnakeCase(key), value);
+              } else {
+                query = query.eq(toSnakeCase(key), value);
+              }
+            });
+          }
+
+          if (options.sort) {
+            Object.entries(options.sort).forEach(([key, value]) => {
+              const col = key === '_id' ? 'id' : toSnakeCase(key);
+              query = query.order(col, { ascending: value === 1 });
+            });
+          } else {
+            query = query.order('nom', { ascending: true });
+          }
+
+          if (options.limit) {
+            query = query.limit(options.limit);
+          }
+
+          const { data, error, count } = await query;
           if (!error && data) {
-            return toCamelCase(data).map((c: any) => ({
-              ...c,
-              numeroClient: c.numeroClient || c.numero_client || '',
-              nomFerme: c.nomFerme || c.nom_ferme || '',
-              codePostal: c.codePostal || c.code_postal || '',
-              contactPrincipal: c.contactPrincipal || c.contact_principal || null
-            }));
+            const list = data.map(normalizeClient);
+            Object.defineProperty(list, 'list', { value: list, enumerable: false });
+            Object.defineProperty(list, 'count', { value: count ?? list.length, enumerable: false });
+            return list;
+          }
+          if (error) {
+            console.error('❌ Erreur Supabase clients.list:', error);
           }
         } catch (e) {
-          // Fallback démo
+          console.error('❌ Exception Supabase clients.list:', e);
         }
       }
-      return demoDb.getTable('clients');
+      let rawList = demoDb.getTable('clients').map(normalizeClient);
+      if (options.filter?._id || options.filter?.id) {
+        const targetId = options.filter._id || options.filter.id;
+        rawList = rawList.filter((c: any) => c.id === targetId || c._id === targetId);
+      }
+      Object.defineProperty(rawList, 'list', { value: rawList, enumerable: false });
+      Object.defineProperty(rawList, 'count', { value: rawList.length, enumerable: false });
+      return rawList;
     },
 
     get: async (id: string) => {
@@ -903,47 +1291,32 @@ export const db = {
             .eq('id', id)
             .single();
           if (!error && data) {
-            const c = toCamelCase(data);
-            return {
-              ...c,
-              numeroClient: c.numeroClient || c.numero_client || '',
-              nomFerme: c.nomFerme || c.nom_ferme || '',
-              codePostal: c.codePostal || c.code_postal || '',
-              contactPrincipal: c.contactPrincipal || c.contact_principal || null
-            };
+            return normalizeClient(data);
+          }
+          if (error && error.code !== 'PGRST116') {
+            console.error('❌ Erreur Supabase clients.get:', error);
           }
         } catch (e) {
-          // Fallback démo
+          console.error('❌ Exception Supabase clients.get:', e);
         }
       }
-      return demoDb.findById('clients', id);
+      const raw = demoDb.findById('clients', id) || demoDb.getTable('clients').find((c: any) => c.id === id || c._id === id);
+      return normalizeClient(raw);
     },
 
     create: async (clientData: any) => {
       if (isLiveSupabaseActive()) {
-        const payload: any = {
-          numero_client: String(clientData.numeroClient || clientData.numero_client || `CL-${Date.now().toString().slice(-4)}`).trim(),
-          nom: String(clientData.nom || clientData.name || 'Client').trim(),
-          nom_ferme: String(clientData.nomFerme || clientData.nom_ferme || '').trim(),
-          adresse: String(clientData.adresse || '').trim(),
-          ville: String(clientData.ville || '').trim(),
-          code_postal: String(clientData.codePostal || clientData.code_postal || '').trim(),
-          pays: String(clientData.pays || 'France').trim(),
-          telephone: String(clientData.telephone || '').trim(),
-          email: String(clientData.email || '').trim().toLowerCase(),
-          contact_principal: clientData.contactPrincipal || clientData.contact_principal || null,
-          notes: String(clientData.notes || '').trim(),
-          actif: clientData.actif !== undefined ? Boolean(clientData.actif) : true,
-          created_at: clientData.createdAt || clientData.created_at || new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-        const potentialId = clientData.id || clientData._id;
-        const isUuid = (val: any) => typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(val);
-        if (potentialId && isUuid(potentialId)) {
-          payload.id = potentialId;
+        const payload = sanitizeClientDataForSupabase(clientData, { isUpdate: false });
+        let { data, error } = await supabase.from('clients').insert(payload).select().single();
+
+        // Gestion de conflit d'unicité sur numero_client
+        if (error && error.code === '23505') {
+          payload.numero_client = `${payload.numero_client}-${Date.now().toString().slice(-4)}`;
+          const retry = await supabase.from('clients').insert(payload).select().single();
+          data = retry.data;
+          error = retry.error;
         }
 
-        const { data, error } = await supabase.from('clients').insert(payload).select().single();
         if (error) {
           console.error('❌ Erreur Supabase clients.create:', error);
           if (error.code === '42501') {
@@ -951,36 +1324,18 @@ export const db = {
           }
           throw new Error(`Supabase (clients): ${error.message} (${error.code || 'code'})`);
         }
-        if (data) return toCamelCase(data);
+        if (data) {
+          const normalized = normalizeClient(data);
+          try { demoDb.insert('clients', normalized); } catch {}
+          return normalized;
+        }
       }
-      return demoDb.insert('clients', clientData);
+      return normalizeClient(demoDb.insert('clients', clientData));
     },
 
     update: async (id: string, clientData: any) => {
       if (isLiveSupabaseActive()) {
-        const payload: any = {};
-        if (clientData.numeroClient !== undefined || clientData.numero_client !== undefined) {
-          payload.numero_client = String(clientData.numeroClient ?? clientData.numero_client).trim();
-        }
-        if (clientData.nom !== undefined) payload.nom = String(clientData.nom).trim();
-        if (clientData.nomFerme !== undefined || clientData.nom_ferme !== undefined) {
-          payload.nom_ferme = String(clientData.nomFerme ?? clientData.nom_ferme).trim();
-        }
-        if (clientData.adresse !== undefined) payload.adresse = String(clientData.adresse).trim();
-        if (clientData.ville !== undefined) payload.ville = String(clientData.ville).trim();
-        if (clientData.codePostal !== undefined || clientData.code_postal !== undefined) {
-          payload.code_postal = String(clientData.codePostal ?? clientData.code_postal).trim();
-        }
-        if (clientData.pays !== undefined) payload.pays = String(clientData.pays).trim();
-        if (clientData.telephone !== undefined) payload.telephone = String(clientData.telephone).trim();
-        if (clientData.email !== undefined) payload.email = String(clientData.email).trim().toLowerCase();
-        if (clientData.contactPrincipal !== undefined || clientData.contact_principal !== undefined) {
-          payload.contact_principal = clientData.contactPrincipal ?? clientData.contact_principal;
-        }
-        if (clientData.notes !== undefined) payload.notes = String(clientData.notes).trim();
-        if (clientData.actif !== undefined) payload.actif = Boolean(clientData.actif);
-        payload.updated_at = new Date().toISOString();
-
+        const payload = sanitizeClientDataForSupabase(clientData, { isUpdate: true });
         const { data, error } = await supabase.from('clients').update(payload).eq('id', id).select().single();
         if (error) {
           console.error('❌ Erreur Supabase clients.update:', error);
@@ -989,9 +1344,13 @@ export const db = {
           }
           throw new Error(`Supabase (clients): ${error.message} (${error.code || 'code'})`);
         }
-        if (data) return toCamelCase(data);
+        if (data) {
+          const normalized = normalizeClient(data);
+          try { demoDb.update('clients', id, normalized); } catch {}
+          return normalized;
+        }
       }
-      return demoDb.update('clients', id, clientData);
+      return normalizeClient(demoDb.update('clients', id, clientData));
     },
 
     delete: async (id: string) => {
@@ -1017,14 +1376,22 @@ export const db = {
           let query = supabase.from('machines').select('*', { count: 'exact' });
           if (options.filter) {
             Object.entries(options.filter).forEach(([key, value]) => {
-              if (key === 'clientId') query = query.eq('client_id', value);
-              else if (Array.isArray(value)) query = query.in(toSnakeCase(key), value);
-              else query = query.eq(toSnakeCase(key), value);
+              if (value === undefined || value === null || value === '') return;
+              if (key === 'clientId' || key === 'client_id') {
+                query = query.eq('client_id', value);
+              } else if (key === '_id' || key === 'id') {
+                query = query.eq('id', value);
+              } else if (Array.isArray(value)) {
+                query = query.in(toSnakeCase(key), value);
+              } else {
+                query = query.eq(toSnakeCase(key), value);
+              }
             });
           }
           if (options.sort) {
             Object.entries(options.sort).forEach(([key, value]) => {
-              query = query.order(toSnakeCase(key), { ascending: value === 1 });
+              const col = key === '_id' ? 'id' : (key === 'clientId' ? 'client_id' : toSnakeCase(key));
+              query = query.order(col, { ascending: value === 1 });
             });
           } else {
             query = query.order('created_at', { ascending: false });
@@ -1032,34 +1399,26 @@ export const db = {
           if (options.limit) query = query.limit(options.limit);
           const { data, error, count } = await query;
           if (!error && data) {
-            const list = toCamelCase(data).map((m: any) => ({
-              ...m,
-              id: m.id || m._id,
-              _id: m._id || m.id,
-              nom: m.nom || m.modele || '',
-              modele: m.modele || m.nom || '',
-              typeMachine: m.typeMachine || m.type_machine || m.configType || '',
-              configType: m.configType || m.typeMachine || m.type_machine || ''
-            }));
-            return { list, count: count ?? data.length };
+            const list = data.map(normalizeMachine);
+            Object.defineProperty(list, 'list', { value: list, enumerable: false });
+            Object.defineProperty(list, 'count', { value: count ?? list.length, enumerable: false });
+            return list;
+          }
+          if (error) {
+            console.error('❌ Erreur Supabase machines.list:', error);
           }
         } catch (e) {
-          // Fallback démo
+          console.error('❌ Exception Supabase machines.list:', e);
         }
       }
-      let list = demoDb.getTable('machines').map((m: any) => ({
-        ...m,
-        id: m.id || m._id,
-        _id: m._id || m.id,
-        nom: m.nom || m.modele || '',
-        modele: m.modele || m.nom || '',
-        typeMachine: m.typeMachine || m.type_machine || m.configType || '',
-        configType: m.configType || m.typeMachine || m.type_machine || ''
-      }));
-      if (options.filter?.clientId) {
-        list = list.filter((m: any) => m.clientId === options.filter.clientId);
+      let list = demoDb.getTable('machines').map(normalizeMachine);
+      if (options.filter?.clientId || options.filter?.client_id) {
+        const cId = options.filter.clientId || options.filter.client_id;
+        list = list.filter((m: any) => m.clientId === cId || m.client_id === cId);
       }
-      return { list, count: list.length };
+      Object.defineProperty(list, 'list', { value: list, enumerable: false });
+      Object.defineProperty(list, 'count', { value: list.length, enumerable: false });
+      return list;
     },
 
     getByClient: async (clientId: string) => {
@@ -1071,29 +1430,18 @@ export const db = {
             .eq('client_id', clientId)
             .order('created_at', { ascending: false });
           if (!error && data) {
-            return toCamelCase(data).map((m: any) => ({
-              ...m,
-              id: m.id || m._id,
-              _id: m._id || m.id,
-              nom: m.nom || m.modele || '',
-              modele: m.modele || m.nom || '',
-              typeMachine: m.typeMachine || m.type_machine || m.configType || '',
-              configType: m.configType || m.typeMachine || m.type_machine || ''
-            }));
+            return data.map(normalizeMachine);
+          }
+          if (error) {
+            console.error('❌ Erreur Supabase machines.getByClient:', error);
           }
         } catch (e) {
-          // Fallback démo
+          console.error('❌ Exception Supabase machines.getByClient:', e);
         }
       }
-      return demoDb.getTable('machines').filter((m: any) => m.clientId === clientId).map((m: any) => ({
-        ...m,
-        id: m.id || m._id,
-        _id: m._id || m.id,
-        nom: m.nom || m.modele || '',
-        modele: m.modele || m.nom || '',
-        typeMachine: m.typeMachine || m.type_machine || m.configType || '',
-        configType: m.configType || m.typeMachine || m.type_machine || ''
-      }));
+      return demoDb.getTable('machines')
+        .filter((m: any) => m.clientId === clientId || m.client_id === clientId)
+        .map(normalizeMachine);
     },
 
     get: async (id: string) => {
@@ -1105,83 +1453,77 @@ export const db = {
             .eq('id', id)
             .single();
           if (!error && data) {
-            const m = toCamelCase(data);
-            return {
-              ...m,
-              id: m.id || m._id,
-              _id: m._id || m.id,
-              nom: m.nom || m.modele || '',
-              modele: m.modele || m.nom || '',
-              typeMachine: m.typeMachine || m.type_machine || m.configType || '',
-              configType: m.configType || m.typeMachine || m.type_machine || ''
-            };
+            return normalizeMachine(data);
+          }
+          if (error && error.code !== 'PGRST116') {
+            console.error('❌ Erreur Supabase machines.get:', error);
           }
         } catch (e) {
-          // Fallback démo
+          console.error('❌ Exception Supabase machines.get:', e);
         }
       }
-      const raw = demoDb.findById('machines', id);
-      if (!raw) return null;
-      return {
-        ...raw,
-        id: raw.id || raw._id,
-        _id: raw._id || raw.id,
-        nom: raw.nom || raw.modele || '',
-        modele: raw.modele || raw.nom || '',
-        typeMachine: raw.typeMachine || raw.type_machine || raw.configType || '',
-        configType: raw.configType || raw.typeMachine || raw.type_machine || ''
-      };
+      const raw = demoDb.findById('machines', id) || demoDb.getTable('machines').find((m: any) => m.id === id || m._id === id);
+      return normalizeMachine(raw);
     },
 
     create: async (machineData: any) => {
       if (isLiveSupabaseActive()) {
-        try {
-          const payload = { ...machineData };
-          delete payload.id;
-          delete payload._id;
-          if (payload.nom && !payload.modele) payload.modele = payload.nom;
-          if (payload.typeMachine && !payload.type_machine) payload.type_machine = payload.typeMachine;
-          const { data, error } = await supabase
-            .from('machines')
-            .insert(toSnakeCase(payload))
-            .select()
-            .single();
-          if (!error && data) return toCamelCase(data);
-        } catch (e) {
-          // Fallback démo
+        const payload = sanitizeMachineDataForSupabase(machineData, { isUpdate: false });
+        let { data, error } = await supabase.from('machines').insert(payload).select().single();
+
+        // Gestion de conflit d'unicité sur numero_serie
+        if (error && error.code === '23505') {
+          payload.numero_serie = `${payload.numero_serie}-${Date.now().toString().slice(-4)}`;
+          const retry = await supabase.from('machines').insert(payload).select().single();
+          data = retry.data;
+          error = retry.error;
+        }
+
+        if (error) {
+          console.error('❌ Erreur Supabase machines.create:', error);
+          if (error.code === '42501') {
+            throw new Error(`Supabase RLS bloqué (42501) sur machines : exécutez le script SQL de déblocage via le bouton 'Copier script SQL Déblocage RLS'.`);
+          }
+          throw new Error(`Supabase (machines): ${error.message} (${error.code || 'code'})`);
+        }
+        if (data) {
+          const normalized = normalizeMachine(data);
+          try { demoDb.insert('machines', normalized); } catch {}
+          return normalized;
         }
       }
-      return demoDb.insert('machines', machineData);
+      return normalizeMachine(demoDb.insert('machines', machineData));
     },
 
     update: async (id: string, machineData: any) => {
       if (isLiveSupabaseActive()) {
-        try {
-          const payload = { ...machineData };
-          delete payload.id;
-          delete payload._id;
-          if (payload.nom && !payload.modele) payload.modele = payload.nom;
-          if (payload.typeMachine && !payload.type_machine) payload.type_machine = payload.typeMachine;
-          const { data, error } = await supabase
-            .from('machines')
-            .update(toSnakeCase(payload))
-            .eq('id', id)
-            .select()
-            .single();
-          if (!error && data) return toCamelCase(data);
-        } catch (e) {
-          // Fallback démo
+        const payload = sanitizeMachineDataForSupabase(machineData, { isUpdate: true });
+        const { data, error } = await supabase.from('machines').update(payload).eq('id', id).select().single();
+        if (error) {
+          console.error('❌ Erreur Supabase machines.update:', error);
+          if (error.code === '42501') {
+            throw new Error(`Supabase RLS bloqué (42501) sur machines : exécutez le script SQL de déblocage.`);
+          }
+          throw new Error(`Supabase (machines): ${error.message} (${error.code || 'code'})`);
+        }
+        if (data) {
+          const normalized = normalizeMachine(data);
+          try { demoDb.update('machines', id, normalized); } catch {}
+          return normalized;
         }
       }
-      return demoDb.update('machines', id, machineData);
+      return normalizeMachine(demoDb.update('machines', id, machineData));
     },
 
     delete: async (id: string) => {
       if (isLiveSupabaseActive()) {
-        try {
-          await supabase.from('machines').delete().eq('id', id);
-        } catch (e) {
-          // Fallback démo
+        const { error } = await supabase.from('machines').delete().eq('id', id);
+        if (error) {
+          console.error('❌ Erreur Supabase machines.delete:', error);
+          if (error.code === '42501') {
+            throw new Error(`Supabase RLS bloqué (42501) sur machines : exécutez le script SQL de déblocage.`);
+          }
+          throw new Error(`Supabase (machines): ${error.message}`);
         }
       }
       return demoDb.delete('machines', id);

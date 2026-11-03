@@ -5,12 +5,13 @@ export function useClients() {
   const [clients, setClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const fetchClients = useCallback(async () => {
+  const fetchClients = useCallback(async (options: any = {}) => {
     setLoading(true);
     try {
-      const data = await db.clients.list();
-      console.log('Clients chargés:', data);
-      setClients(data || []);
+      const data = await db.clients.list(options);
+      const list = Array.isArray(data) ? data : (data?.list || []);
+      console.log('Clients chargés:', list.length);
+      setClients(list);
     } catch (error) {
       console.error('Erreur chargement clients:', error);
       setClients([]);

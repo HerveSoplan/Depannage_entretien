@@ -182,12 +182,14 @@ export function ClientDetailScreen({ onNavigate, clientId }: any) {
 
   useEffect(() => {
     if (clients.length > 0) {
-      const foundClient = clients[0];
+      const foundClient = clientId
+        ? (clients.find(c => c._id === clientId || c.id === clientId) || clients[0])
+        : clients[0];
       setClient(foundClient);
       setGlobalSelectedClient(foundClient); // ✅ Enregistrer dans le contexte global
       console.log('✅ Client sélectionné:', foundClient.nom);
     }
-  }, [clients, setGlobalSelectedClient]);
+  }, [clients, clientId, setGlobalSelectedClient]);
 
   useEffect(() => {
     const sortedMachines = [...machines].sort((a, b) => {

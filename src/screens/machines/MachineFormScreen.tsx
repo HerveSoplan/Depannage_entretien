@@ -77,7 +77,7 @@ export function MachineFormScreen({ onNavigate, machineId, clientId }: MachineFo
   // Pré-remplir le client depuis le contexte global si disponible
   useEffect(() => {
     if (!machineId && globalSelectedClient && !formData.clientId) {
-      setFormData(prev => ({ ...prev, clientId: globalSelectedClient._id }));
+      setFormData(prev => ({ ...prev, clientId: globalSelectedClient._id || globalSelectedClient.id }));
     }
   }, [globalSelectedClient, machineId]);
 
