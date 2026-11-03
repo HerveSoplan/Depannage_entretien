@@ -4,6 +4,21 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.12.5] - 2026-11-03
+
+### Corrigé & Réparé (Champs machines & Options de champs — Résolution contrainte SQL "name")
+- **Déblocage complet de l'insertion et de l'import des champs machines ([supabase.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/lib/supabase.ts) & [DatabaseAdminScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/admin/DatabaseAdminScreen.tsx))** :
+  - **Résolution de la violation de contrainte NOT NULL sur la colonne `name`** : La table Supabase `machine_fields` exigeait un `name` non-nul, alors que les formulaires et les imports CSV fournissaient `label`. Le code génère désormais automatiquement l'identifiant technique `name` normalisé (slug minuscule sans accents ni caractères spéciaux) conjointement au libellé `label`.
+  - **Suppression des contraintes NOT NULL superflues dans le script SQL de réparation ([repairScript.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/lib/sql/repairScript.ts))** :
+    - `ALTER TABLE public.machine_fields ALTER COLUMN name DROP NOT NULL;`
+    - `ALTER TABLE public.machine_fields ALTER COLUMN label DROP NOT NULL;`
+    - `ALTER TABLE public.machine_fields ALTER COLUMN type DROP NOT NULL;`
+    - `ALTER TABLE public.machine_fields ALTER COLUMN section DROP NOT NULL;`
+    - Protection par guillemets sur le mot-clé réservé PostgreSQL `"order"`.
+  - **Sécurisation de la table `machine_field_options`** :
+    - Élimination du blocage sur la contrainte NOT NULL de `label` en harmonisant `label` et `value`.
+    - Validation préalable du format UUID sur `field_id` pour éviter les erreurs de syntaxe et de clé étrangère (`23503`) lors de l'import CSV indépendant.
+
 ## [1.12.4] - 2026-11-03
 
 ### Corrigé & Amélioré (Synchronisation Directe Supabase & Déblocage des Injections CSV)

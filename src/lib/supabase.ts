@@ -1585,27 +1585,33 @@ export const db = {
 
     create: async (fieldData: any) => {
       if (isLiveSupabaseActive()) {
+        const label = String(fieldData.label || fieldData.name || 'Nouveau champ').trim();
+        const name = String(fieldData.name || label.toLowerCase().replace(/[^a-z0-9]+/g, '_') || `champ_${Date.now()}`).trim();
+        const fieldType = String(fieldData.type || fieldData.fieldType || fieldData.field_type || 'text').trim();
+        const machineType = String(fieldData.machineType || fieldData.machine_type || 'Tous').trim();
+        const order = parseInt(fieldData.order ?? fieldData.ordre ?? 0, 10) || 0;
+
         const payload: any = {
-          label: fieldData.label || 'Champ sans titre',
-          type: fieldData.type || fieldData.fieldType || fieldData.field_type || 'text',
+          name: name,
+          label: label,
+          type: fieldType,
+          field_type: fieldType,
+          section: fieldData.section || 'general',
+          machine_type: machineType,
           is_required: Boolean(fieldData.isRequired ?? fieldData.is_required),
           is_active: fieldData.isActive !== undefined ? Boolean(fieldData.isActive) : (fieldData.is_active !== undefined ? Boolean(fieldData.is_active) : true),
-          order: parseInt(fieldData.order ?? fieldData.ordre ?? 0, 10) || 0,
+          order: order,
+          allow_custom_value: Boolean(fieldData.allowCustomValue ?? fieldData.allow_custom_value),
           created_at: fieldData.createdAt || fieldData.created_at || new Date().toISOString()
         };
-        if (fieldData.machineType || fieldData.machine_type) {
-          payload.machine_type = fieldData.machineType || fieldData.machine_type;
-        }
         if (fieldData.conditionalRules || fieldData.conditional_rules) {
           payload.conditional_rules = fieldData.conditionalRules || fieldData.conditional_rules;
-        }
-        if (fieldData.allowCustomValue !== undefined || fieldData.allow_custom_value !== undefined) {
-          payload.allow_custom_value = Boolean(fieldData.allowCustomValue ?? fieldData.allow_custom_value);
         }
 
         let { data, error } = await supabase.from('machine_fields').insert(payload).select().single();
         if (error && error.code === 'PGRST204') {
           const basicPayload = {
+            name: payload.name,
             label: payload.label,
             type: payload.type,
             is_required: payload.is_required,
@@ -1640,9 +1646,16 @@ export const db = {
     update: async (id: string, fieldData: any) => {
       if (isLiveSupabaseActive()) {
         const payload: any = {};
-        if (fieldData.label !== undefined) payload.label = fieldData.label;
+        if (fieldData.label !== undefined) {
+          payload.label = String(fieldData.label).trim();
+          if (fieldData.name === undefined) {
+            payload.name = payload.label.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+          }
+        }
+        if (fieldData.name !== undefined) payload.name = String(fieldData.name).trim();
         if (fieldData.type !== undefined || fieldData.fieldType !== undefined || fieldData.field_type !== undefined) {
           payload.type = fieldData.type || fieldData.fieldType || fieldData.field_type || 'text';
+          payload.field_type = payload.type;
         }
         if (fieldData.isRequired !== undefined || fieldData.is_required !== undefined) {
           payload.is_required = Boolean(fieldData.isRequired ?? fieldData.is_required);
@@ -1656,10 +1669,19 @@ export const db = {
         if (fieldData.machineType !== undefined || fieldData.machine_type !== undefined) {
           payload.machine_type = fieldData.machineType || fieldData.machine_type;
         }
+        if (fieldData.conditionalRules !== undefined || fieldData.conditional_rules !== undefined) {
+          payload.conditional_rules = fieldData.conditionalRules ?? fieldData.conditional_rules;
+        }
+        if (fieldData.allowCustomValue !== undefined || fieldData.allow_custom_value !== undefined) {
+          payload.allow_custom_value = Boolean(fieldData.allowCustomValue ?? fieldData.allow_custom_value);
+        }
 
         let { data, error } = await supabase.from('machine_fields').update(payload).eq('id', id).select().single();
         if (error && error.code === 'PGRST204') {
           delete payload.machine_type;
+          delete payload.conditional_rules;
+          delete payload.allow_custom_value;
+          delete payload.field_type;
           const retry = await supabase.from('machine_fields').update(payload).eq('id', id).select().single();
           data = retry.data;
           error = retry.error;
@@ -1737,18 +1759,30 @@ export const db = {
 
     create: async (optionData: any) => {
       if (isLiveSupabaseActive()) {
+        const val = String(optionData.value || optionData.label || '').trim();
+        const label = String(optionData.label || val || 'Option').trim();
+        const order = parseInt(optionData.order ?? optionData.ordre ?? 0, 10) || 0;
         const payload: any = {
-          field_id: optionData.fieldId || optionData.field_id,
-          value: optionData.value || '',
-          label: optionData.label || optionData.value || '',
-          order: parseInt(optionData.order ?? optionData.ordre ?? 0, 10) || 0,
+          value: val,
+          label: label,
+          order: order,
+          is_active: true,
           created_at: optionData.createdAt || optionData.created_at || new Date().toISOString()
         };
+        const rawFieldId = optionData.fieldId || optionData.field_id;
+        const isUuid = (v: any) => typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
+        if (rawFieldId && isUuid(rawFieldId)) {
+          payload.field_id = rawFieldId;
+        }
+
         const { data, error } = await supabase.from('machine_field_options').insert(payload).select().single();
         if (error) {
           console.error('❌ Erreur Supabase machine_field_options.create:', error);
           if (error.code === '42501') {
             throw new Error(`Supabase RLS bloqué (42501) sur machine_field_options : exécutez le script SQL de déblocage via le bouton 'Copier script SQL Déblocage RLS'.`);
+          }
+          if (error.code === '23503') {
+            throw new Error(`Champ parent inexistant dans Supabase (clé étrangère). Veuillez d'abord créer le champ machine parent.`);
           }
           throw new Error(`Supabase (machine_field_options): ${error.message} (${error.code || 'code'})`);
         }

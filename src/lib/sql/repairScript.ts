@@ -117,20 +117,79 @@ ALTER TABLE IF EXISTS public.taches_entretien
 ALTER TABLE IF EXISTS public.taches_entretien ALTER COLUMN section_id DROP NOT NULL;
 ALTER TABLE IF EXISTS public.taches_entretien ALTER COLUMN titre DROP NOT NULL;
 
--- Champs machines personnalisés
+-- Champs machines personnalisés (Création défensive et déblocage complet)
+CREATE TABLE IF NOT EXISTS public.machine_fields (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT,
+  label TEXT,
+  type TEXT DEFAULT 'text',
+  field_type TEXT DEFAULT 'text',
+  section TEXT DEFAULT 'general',
+  machine_type TEXT DEFAULT 'Tous',
+  is_required BOOLEAN DEFAULT false,
+  "order" NUMERIC DEFAULT 0,
+  ordre NUMERIC DEFAULT 0,
+  is_active BOOLEAN DEFAULT true,
+  allow_custom_value BOOLEAN DEFAULT false,
+  conditional_rules JSONB,
+  creator TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 ALTER TABLE IF EXISTS public.machine_fields
+  ADD COLUMN IF NOT EXISTS name TEXT,
+  ADD COLUMN IF NOT EXISTS label TEXT,
   ADD COLUMN IF NOT EXISTS machine_type TEXT DEFAULT 'Tous',
   ADD COLUMN IF NOT EXISTS field_type TEXT DEFAULT 'text',
   ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'text',
+  ADD COLUMN IF NOT EXISTS section TEXT DEFAULT 'general',
+  ADD COLUMN IF NOT EXISTS is_required BOOLEAN DEFAULT false,
+  ADD COLUMN IF NOT EXISTS "order" NUMERIC DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS ordre NUMERIC DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true,
   ADD COLUMN IF NOT EXISTS allow_custom_value BOOLEAN DEFAULT false,
   ADD COLUMN IF NOT EXISTS conditional_rules JSONB,
-  ADD COLUMN IF NOT EXISTS creator TEXT;
+  ADD COLUMN IF NOT EXISTS creator TEXT,
+  ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW(),
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 
--- Options de champs machines
+-- Suppression des contraintes NOT NULL bloquantes sur machine_fields
+ALTER TABLE IF EXISTS public.machine_fields ALTER COLUMN name DROP NOT NULL;
+ALTER TABLE IF EXISTS public.machine_fields ALTER COLUMN label DROP NOT NULL;
+ALTER TABLE IF EXISTS public.machine_fields ALTER COLUMN type DROP NOT NULL;
+ALTER TABLE IF EXISTS public.machine_fields ALTER COLUMN section DROP NOT NULL;
+
+-- Options de champs machines (Création défensive et assouplissement)
+CREATE TABLE IF NOT EXISTS public.machine_field_options (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  field_id TEXT,
+  label TEXT,
+  value TEXT,
+  "order" NUMERIC DEFAULT 0,
+  ordre NUMERIC DEFAULT 0,
+  is_active BOOLEAN DEFAULT true,
+  machine_type TEXT,
+  creator TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 ALTER TABLE IF EXISTS public.machine_field_options
+  ADD COLUMN IF NOT EXISTS field_id TEXT,
   ADD COLUMN IF NOT EXISTS label TEXT,
+  ADD COLUMN IF NOT EXISTS value TEXT,
+  ADD COLUMN IF NOT EXISTS "order" NUMERIC DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS ordre NUMERIC DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true,
   ADD COLUMN IF NOT EXISTS machine_type TEXT,
-  ADD COLUMN IF NOT EXISTS creator TEXT;
+  ADD COLUMN IF NOT EXISTS creator TEXT,
+  ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW(),
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+
+ALTER TABLE IF EXISTS public.machine_field_options ALTER COLUMN label DROP NOT NULL;
+ALTER TABLE IF EXISTS public.machine_field_options ALTER COLUMN value DROP NOT NULL;
+ALTER TABLE IF EXISTS public.machine_field_options ALTER COLUMN field_id DROP NOT NULL;
 
 -- Clients
 ALTER TABLE IF EXISTS public.clients

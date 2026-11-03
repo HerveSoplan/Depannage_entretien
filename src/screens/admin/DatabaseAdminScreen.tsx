@@ -1190,9 +1190,15 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
           await fetchTachesEntretien();
           break;
         }
-        case 'machine_fields':
+        case 'machine_fields': {
+          const label = String(formData.label || '').trim();
+          const name = String(formData.name || label.toLowerCase().replace(/[^a-z0-9]+/g, '_') || `champ_${Date.now()}`).trim();
           const fieldData = {
             ...data,
+            label,
+            name,
+            machineType: formData.machineType || 'Tous',
+            fieldType: formData.fieldType || 'text',
             conditionalRules: formData.parentField ? {
               parentField: formData.parentField,
               parentValue: formData.parentValue
@@ -1201,11 +1207,20 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
           await (db as any).machine_fields.create(fieldData);
           await fetchMachineFields();
           break;
-        case 'machine_field_options':
-          // Ajout du cas manquant
-          await (db as any).machine_field_options.create(data);
+        }
+        case 'machine_field_options': {
+          const val = String(formData.value || formData.label || '').trim();
+          const label = String(formData.label || val || 'Option').trim();
+          await (db as any).machine_field_options.create({
+            ...data,
+            fieldId: formData.fieldId,
+            value: val,
+            label: label,
+            order: parseInt(formData.order, 10) || 0
+          });
           await fetchMachineFieldOptions();
           break;
+        }
       }
 
       alert('✅ Élément ajouté avec succès !');
@@ -1656,9 +1671,12 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
         const errors: string[] = [];
 
         for (const row of data) {
+          const label = String(row.label || row.name || 'Champ').trim();
+          const name = String(row.name || label.toLowerCase().replace(/[^a-z0-9]+/g, '_') || `champ_${Date.now()}`).trim();
           const fieldData: any = {
+            name: name,
+            label: label,
             machineType: row.machineType || 'Tous',
-            label: row.label,
             fieldType: row.fieldType || 'text',
             isRequired: row.isRequired === 'true' || row.isRequired === true,
             isActive: row.isActive === 'true' || row.isActive === true || row.isActive !== 'false',
@@ -1729,10 +1747,13 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
         const errors: string[] = [];
 
         for (const row of data) {
+          const val = String(row.value || row.label || '').trim();
+          const label = String(row.label || val || 'Option').trim();
           try {
             await (db as any).machine_field_options.create({
               fieldId: row.fieldId || row.field_id,
-              value: row.value,
+              value: val,
+              label: label,
               order: parseInt(row.order, 10) || 0,
               createdAt: new Date().toISOString()
             });
