@@ -56,7 +56,9 @@ export const forceAppUpdate = async (targetVersion?: string) => {
           await caches.delete(name);
         }
       }
-      sessionStorage.clear();
+      sessionStorage.removeItem('last_version_reload');
+      sessionStorage.removeItem('app_active_version');
+
       const url = new URL(window.location.href);
       url.searchParams.set('_v', Date.now().toString());
       if (targetVersion) {
@@ -280,29 +282,42 @@ export default function App() {
 
     checkAuth();
 
-    // 3. Détection automatique des mises à jour de version et purge automatique du cache
+    // 3. Détection automatique haute fréquence des versions et rechargement propre
     const checkServerVersion = async () => {
       try {
-        const res = await fetch(`/version.json?t=${Date.now()}`, {
+        const res = await fetch(`/version.json?_t=${Date.now()}`, {
           cache: 'no-store',
-          headers: { 'Cache-Control': 'no-cache, no-store' }
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache'
+          }
         });
         if (res.ok) {
           const data = await res.json();
           if (data?.version && data.version !== APP_VERSION) {
-            console.log('🔄 Nouvelle version disponible sur le serveur:', data.version, '(active:', APP_VERSION, ')');
+            console.log(`🔄 Version serveur différente : v${data.version} (active : v${APP_VERSION})`);
             if (mounted) setNewVersionAvailable(data.version);
 
-            const lastReload = sessionStorage.getItem('last_version_reload');
-            if (lastReload !== data.version) {
-              sessionStorage.setItem('last_version_reload', data.version);
-              const path = window.location.pathname;
-              if (path === '/' || path === '/login') {
-                setTimeout(() => {
-                  forceAppUpdate(data.version);
-                }, 1000);
-              }
+            // Vérifier si l'utilisateur est activement en train de taper dans un champ de saisie
+            const isUserEditing = (() => {
+              const el = document.activeElement;
+              if (!el) return false;
+              const tag = el.tagName.toLowerCase();
+              return tag === 'input' || tag === 'textarea' || el.getAttribute('contenteditable') === 'true';
+            })();
+
+            const attemptKey = `reload_attempt_${data.version}`;
+            const currentAttempts = parseInt(sessionStorage.getItem(attemptKey) || '0', 10);
+
+            // Auto-rechargement si l'utilisateur n'est pas en train d'écrire et moins de 2 tentatives
+            if (!isUserEditing && currentAttempts < 2) {
+              sessionStorage.setItem(attemptKey, String(currentAttempts + 1));
+              setTimeout(() => {
+                forceAppUpdate(data.version);
+              }, 1200);
             }
+          } else if (data?.version === APP_VERSION) {
+            if (mounted) setNewVersionAvailable(null);
           }
         }
       } catch {
@@ -311,12 +326,27 @@ export default function App() {
     };
 
     checkServerVersion();
-    const versionInterval = setInterval(checkServerVersion, 30000);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkServerVersion();
+      }
+    };
+    const handleWindowFocus = () => {
+      checkServerVersion();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleWindowFocus);
+
+    const versionInterval = setInterval(checkServerVersion, 15000);
 
     return () => {
       mounted = false;
       subscription?.unsubscribe();
       clearInterval(versionInterval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleWindowFocus);
     };
   }, []);
 

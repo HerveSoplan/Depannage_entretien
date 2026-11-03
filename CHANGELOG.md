@@ -4,6 +4,27 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.12.1] - 2026-11-03
+
+### Corrigé & Blindé (Résolution Définitive de l'Actualisation de Version et du Cache Vercel)
+- **Plugin de synchronisation automatique de version au build ([vite.config.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/vite.config.ts))** :
+  - **Génération automatique de `version.json`** : À chaque exécution de `npm run build` ou `vercel build`, `public/version.json` et `dist/version.json` sont automatiquement générés et synchronisés avec le numéro de version de `package.json`, avec horodatage ISO et timestamp temps réel.
+  - **Injection directe dans le code HTML** : Balises `<meta name="app-version">` et `<meta name="build-time">` injectées dynamiquement dans `index.html`.
+- **Destructeur de Service Worker résiduel & vidage de CacheStorage ([sw.js](file:///d:/Aplli/D%C3%A9pannage_entretien/public/sw.js), [service-worker.js](file:///d:/Aplli/D%C3%A9pannage_entretien/public/service-worker.js), [index.html](file:///d:/Aplli/D%C3%A9pannage_entretien/index.html))** :
+  - Mise en place de scripts `public/sw.js` et `public/service-worker.js` auto-destructeurs : tout navigateur disposant d'un ancien Service Worker en mémoire les exécute, purge instantanément l'intégralité de `CacheStorage` et désenregistre inconditionnellement le worker sans bloquer les requêtes réseau.
+  - Écoute globale de l'événement `vite:preloadError` dans `index.html` pour actualiser immédiatement l'application en cas d'appel d'un ancien chunk JavaScript remplacé par un nouveau déploiement.
+- **Détection haute fréquence et rechargement intelligent ([App.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/App.tsx))** :
+  - **Vérification multi-événements** : Détection de nouvelle version au démarrage, à chaque reprise de focus de la fenêtre (`window.onfocus`), à chaque retour de mise en arrière-plan (`document.visibilitychange`), et par cycle continu toutes les 15 secondes.
+  - **Respect du travail de l'utilisateur** : Rechargement automatique fluide si l'utilisateur ne saisit rien dans un formulaire ; affichage du bandeau d'alerte avec bouton de rechargement si l'utilisateur est activement en train de taper dans un champ pour ne jamais perdre de données.
+  - **Garde-fou anti-boucle de rechargement** : Limitation stricte à 2 tentatives automatiques par version dans `sessionStorage`.
+- **En-têtes HTTP anti-cache renforcés ([vercel.json](file:///d:/Aplli/D%C3%A9pannage_entretien/vercel.json))** :
+  - Règle stricte `Cache-Control: no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0, s-maxage=0` avec `Surrogate-Control: no-store` et `CDN-Cache-Control: no-store`.
+  - Exclusion explicite des fichiers `/version.json`, `/sw.js` et `/service-worker.js` de la réécriture SPA, garantissant un retour JSON et JS immédiat et non masqué par `index.html`.
+  - Ajout du script de déploiement direct `pnpm run deploy` (`vite build && vercel deploy --prebuilt --prod`).
+- **Conformité & Versioning** :
+  - Incrémentation SemVer vers `v1.12.1` synchronisée dans `package.json`, `src/version.ts`, `public/version.json` et le footer applicatif.
+  - Vérification continue des mentions légales (EI Hervé CHAMPAGNE, SIREN 132 021 098).
+
 ## [1.12.0] - 2026-11-03
 
 ### Ajouté & Amélioré (Logigramme des 12 Rôles & Modèle de Permissions Pré-définies avec Ajustement Personnel)
