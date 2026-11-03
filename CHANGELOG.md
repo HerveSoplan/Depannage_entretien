@@ -4,6 +4,34 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.14.0] - 2026-11-03
+
+### Ajouté & Amélioré (Calculs cumulés multi-techniciens par machine et catégorie avec rapport PDF exhaustif)
+- **Moteur de collationnement et d'addition multi-techniciens ([installationCalculations.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/utils/installationCalculations.ts))** :
+  - Création du moteur d'agrégation `calculerCollationInstallation` garantissant l'identité mathématique stricte : `Somme(Machines) === Somme(Techniciens) === Somme(Catégories) === Grand Total`.
+  - Calcul pour chaque machine : sous-total par catégorie (addition de tous les intervenants sur cette catégorie), sous-total par technicien, et total cumulé de la machine.
+  - Calcul global chantier : ventilation par catégorie (avec liste des techniciens ayant contribué et machines concernées), ventilation par technicien (avec catégories réalisées et machines travaillées), et matrice croisée Techniciens × Catégories.
+- **Rapport PDF d'installation complet et collationné ([installationReportPDF.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/utils/installationReportPDF.ts) & [pdfGenerator.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/utils/pdfGenerator.ts))** :
+  - **Synthèse globale par catégorie de travaux** : tableau AutoTable avec détail de chaque intervenant, machines concernées, volume d'heures cumulé et pourcentage du chantier avec ligne de total général.
+  - **Synthèse globale par technicien** : tableau AutoTable avec machines travaillées, détail par catégorie réalisée, heures totales de chaque technicien et pourcentage avec ligne de total général.
+  - **Détail complet machine par machine** : pour chaque machine, tableau complet présentant chaque catégorie de travaux, le détail des heures apportées par chaque technicien sur cette machine, et le total de la catégorie sur la machine avec le total consolidé de la machine.
+  - **Encadré Grand Total du Chantier** : grand encadré officiel avec mise en valeur du total général et validation de la parfaite concordance entre les sommes des machines, des intervenants et des catégories.
+  - Intégration de la fonction d'assainissement typographique `cleanPdf` évitant tout artefact d'encodage avec la police standard Helvetica de jsPDF.
+  - Pied de page officiel conforme sur chaque page : `App à la Carte - Hervé CHAMPAGNE EI | SIREN : 132 021 098 | contact@appalacarte.fr | TVA non applicable, art. 293 B du CGI`.
+- **Saisie collaborative sur une même machine ([MachineTasksView.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/installation/MachineTasksView.tsx))** :
+  - Ajout du bandeau dépliable « Cumul de la machine par catégorie » montrant en direct la somme de toutes les heures enregistrées sur la machine et la répartition par intervenant.
+  - Sur chaque ligne de tâche de l'intervenant connecté : affichage d'un badge contextuel lorsqu'un ou plusieurs collègues ont également travaillé sur cette tâche sur la même machine (`👥 Cumul machine sur cette catégorie : Xh (dont Vous : Yh • Collègue : Zh)`).
+  - Mise à jour en temps réel du total machine et sauvegarde avec fusion multi-techniciens.
+- **Tableau de bord de suivi du chantier ([InstallationProtocolScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/interventions/InstallationProtocolScreen.tsx))** :
+  - Remplacement de l'affichage réducteur par un sélecteur à 3 vues : `👥 Par Technicien`, `📑 Par Catégorie` et `📊 Matrice Croisée`.
+  - Vue `Par Catégorie` : cartes détaillant chaque poste de travail, le volume cumulé et le détail des techniciens ayant participé.
+  - Vue `Matrice Croisée` : tableau croisé complet Intervenants × Catégories avec totaux en ligne et en colonne.
+  - Cartes des machines enrichies : affichage de la liste des techniciens intervenus avec leurs heures respectives et les principales catégories travaillées.
+  - Clôture de chantier enregistrant les données enrichies `journaliers` (parTechnicien, parCategorie, parMachine, matrice, grandTotal).
+- **Conformité & Versioning** :
+  - Incrémentation SemVer vers `v1.14.0`.
+  - Mentions légales vérifiées et accessibles (`MentionsLegalesScreen.tsx` & `Footer.tsx`).
+
 ## [1.13.1] - 2026-11-03
 
 ### Corrigé (Champs dynamiques et options de Configuration Spécifique)

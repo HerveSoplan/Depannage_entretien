@@ -33,6 +33,11 @@ import { GPSTrackingAlert } from '../../components/installation/GPSTrackingAlert
 import { MachineTasksView } from '../installation/MachineTasksView';
 import { AddMachineModal } from '../../components/installation/AddMachineModal';
 import { sendInstallationReportToResponsable } from '../../services/installationReportService';
+import {
+  calculerCollationInstallation,
+  formatHeuresFr,
+  formatPourcentage
+} from '../../utils/installationCalculations';
 
 // ═══════════════════════════════════════════════════════════════
 // HELPERS
@@ -99,6 +104,7 @@ export function InstallationProtocolScreen({
   const [selectedMachineId, setSelectedMachineId] = useState<string | null>(null);
   const [showAddMachine, setShowAddMachine] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
+  const [syntheseTab, setSyntheseTab] = useState<'techniciens' | 'categories' | 'matrice'>('techniciens');
 
   // Liste globale des montages (lorsqu'aucun montage spécifique n'est ouvert)
   const [allMontages, setAllMontages] = useState<any[]>([]);
@@ -433,72 +439,20 @@ export function InstallationProtocolScreen({
 
     try {
       const machines = installationData?.machines || [];
-      let totalHeures = 0;
-      const resumeParTech: any[] = [];
-      const resumeParMachine: any[] = [];
-      const resumeParTache: Record<string, { description: string; totalHeures: number }> = {};
-
-      machines.forEach((machine: any) => {
-        let totalMachine = 0;
-        const techsSurMachine: any[] = [];
-
-        (machine.heuresParTechnicien || []).forEach((tech: any) => {
-          let totalTech = 0;
-
-          (tech.taches || []).forEach((tache: any) => {
-            const h = parseFloat(tache.heures) || 0;
-            totalTech += h;
-            totalMachine += h;
-            totalHeures += h;
-
-            if (!resumeParTache[tache.description]) {
-              resumeParTache[tache.description] = { description: tache.description, totalHeures: 0 };
-            }
-            resumeParTache[tache.description].totalHeures += h;
-          });
-
-          techsSurMachine.push({
-            technicienId: tech.technicienId,
-            technicienNom: tech.technicienNom,
-            heures: totalTech
-          });
-
-          let existingTech = resumeParTech.find((t) => t.technicienId === tech.technicienId);
-          if (!existingTech) {
-            existingTech = {
-              technicienId: tech.technicienId,
-              nom: tech.technicienNom,
-              totalHeures: 0,
-              parMachine: []
-            };
-            resumeParTech.push(existingTech);
-          }
-          existingTech.totalHeures += totalTech;
-          existingTech.parMachine.push({
-            machineId: machine.machineId,
-            machineNom: machine.nom,
-            heures: totalTech
-          });
-        });
-
-        resumeParMachine.push({
-          machineId: machine.machineId,
-          nom: machine.nom,
-          totalHeures: totalMachine,
-          parTechnicien: techsSurMachine
-        });
-      });
+      const collation = calculerCollationInstallation(machines);
 
       const journaliers = {
-        parTechnicien: resumeParTech,
-        parMachine: resumeParMachine,
-        parTache: Object.values(resumeParTache)
+        parTechnicien: collation.parTechnicien,
+        parCategorie: collation.parCategorie,
+        parMachine: collation.parMachine,
+        matrice: collation.matrice,
+        grandTotal: collation.grandTotalHeures
       };
 
       await saveMontage({
         statut: 'TERMINEE',
         journaliers,
-        totalHeures,
+        totalHeures: collation.grandTotalHeures,
         dateCloture: new Date().toISOString()
       });
 
@@ -995,27 +949,11 @@ export function InstallationProtocolScreen({
   // ═══════════════════════════════════════════════════════════════
   const machines = installationData.machines || [];
   const voitTout = currentUser?.permissions?.includes('admin_access') || currentUser?.role === 'ADMINISTRATEUR';
-  const totalGlobalHeures = calculerTotalGlobal();
+  const collation = useMemo(() => {
+    return calculerCollationInstallation(machines);
+  }, [machines]);
+  const totalGlobalHeures = collation.grandTotalHeures;
   const isChantierTermine = installationData.statut === 'TERMINEE';
-
-  // Décomposition des heures par technicien pour le chantier actif
-  const resumeHeuresTechniciens: Array<{ id: string; nom: string; heures: number; specialite?: string }> = [];
-  machines.forEach((m: any) => {
-    (m.heuresParTechnicien || []).forEach((t: any) => {
-      const existing = resumeHeuresTechniciens.find((x) => x.id === t.technicienId);
-      const h = (t.taches || []).reduce((sum: number, tach: any) => sum + (parseFloat(tach.heures) || 0), 0);
-      if (existing) {
-        existing.heures += h;
-      } else {
-        resumeHeuresTechniciens.push({
-          id: t.technicienId,
-          nom: t.technicienNom || 'Technicien',
-          heures: h,
-          specialite: t.specialite
-        });
-      }
-    });
-  });
 
   return (
     <div className="min-h-screen bg-gray-50 pb-28">
@@ -1114,7 +1052,7 @@ export function InstallationProtocolScreen({
             CARTE SYNTHÈSE & CALCUL DES HEURES
         ═══════════════════════════════════════════════════════════════ */}
         <Card className="bg-gradient-to-r from-emerald-50 via-teal-50 to-blue-50 border-emerald-200">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-emerald-100">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-emerald-200/80">
             <div>
               <div className="flex items-center gap-2">
                 <Clock className="w-5 h-5 text-emerald-700" />
@@ -1123,38 +1061,205 @@ export function InstallationProtocolScreen({
                 </h2>
               </div>
               <p className="text-xs text-emerald-700 mt-0.5">
-                Total cumulé enregistré sur l'ensemble des machines et des tâches de ce chantier
+                Total cumulé consolidé : {collation.totalMachinesCount} machine(s) • {collation.totalTechniciensCount} intervenant(s) • {collation.totalCategoriesCount} catégorie(s)
               </p>
             </div>
             <div className="bg-white/90 backdrop-blur px-4 py-2.5 rounded-xl border border-emerald-200 shadow-sm text-right">
               <span className="text-[11px] font-semibold text-emerald-700 uppercase block">Total Chantier</span>
               <span className="text-2xl md:text-3xl font-extrabold text-emerald-800 tabular-nums">
-                {formatHeures(totalGlobalHeures)}
+                {formatHeures(collation.grandTotalHeures)}
               </span>
             </div>
           </div>
 
-          {/* Décomposition par technicien */}
+          {/* Onglets de ventilation */}
           <div className="pt-3">
-            <h3 className="text-xs font-bold text-gray-700 uppercase mb-2">Ventilation par intervenant :</h3>
-            {resumeHeuresTechniciens.length === 0 ? (
-              <p className="text-xs text-gray-500 italic">
-                Aucune heure enregistrée pour le moment. Cliquez sur une machine ci-dessous pour saisir les temps passés.
-              </p>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                {resumeHeuresTechniciens.map((tech) => (
-                  <div
-                    key={tech.id}
-                    className="p-2.5 bg-white/80 rounded-lg border border-emerald-100 flex items-center justify-between text-xs"
-                  >
-                    <div>
-                      <p className="font-bold text-gray-900">{tech.nom}</p>
-                      {tech.specialite && <p className="text-[10px] text-gray-500">{tech.specialite}</p>}
-                    </div>
-                    <span className="font-bold text-emerald-800 text-sm">{formatHeures(tech.heures)}</span>
+            <div className="flex items-center gap-2 mb-3 border-b border-emerald-200/60 pb-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setSyntheseTab('techniciens')}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                  syntheseTab === 'techniciens'
+                    ? 'bg-emerald-700 text-white shadow-sm'
+                    : 'bg-white/70 text-emerald-900 hover:bg-white'
+                }`}
+              >
+                👥 Par Technicien ({collation.parTechnicien.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setSyntheseTab('categories')}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                  syntheseTab === 'categories'
+                    ? 'bg-emerald-700 text-white shadow-sm'
+                    : 'bg-white/70 text-emerald-900 hover:bg-white'
+                }`}
+              >
+                📑 Par Catégorie ({collation.parCategorie.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setSyntheseTab('matrice')}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                  syntheseTab === 'matrice'
+                    ? 'bg-emerald-700 text-white shadow-sm'
+                    : 'bg-white/70 text-emerald-900 hover:bg-white'
+                }`}
+              >
+                📊 Matrice Croisée
+              </button>
+            </div>
+
+            {/* Onglet 1 : Par Technicien */}
+            {syntheseTab === 'techniciens' && (
+              <div>
+                {collation.parTechnicien.length === 0 ? (
+                  <p className="text-xs text-gray-500 italic py-2">
+                    Aucune heure enregistrée pour le moment. Cliquez sur une machine ci-dessous pour saisir les temps passés.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                    {collation.parTechnicien.map((tech) => (
+                      <div
+                        key={tech.technicienId}
+                        className="p-3 bg-white/90 rounded-xl border border-emerald-100 shadow-xs flex flex-col justify-between text-xs"
+                      >
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div>
+                            <p className="font-bold text-gray-900 text-sm">{tech.technicienNom}</p>
+                            <p className="text-[11px] text-gray-500">{tech.specialite || 'Technicien'}</p>
+                          </div>
+                          <div className="text-right">
+                            <span className="font-extrabold text-emerald-800 text-base block tabular-nums">
+                              {formatHeures(tech.totalHeures)}
+                            </span>
+                            <span className="text-[10px] text-gray-400 font-semibold">{tech.pourcentage}% du chantier</span>
+                          </div>
+                        </div>
+
+                        {/* Détail par catégorie */}
+                        <div className="pt-2 border-t border-gray-100 space-y-1">
+                          <p className="text-[10px] uppercase font-bold text-gray-400">Détail par catégorie :</p>
+                          {tech.categories.map((cat, cIdx) => (
+                            <div key={cIdx} className="flex justify-between text-[11px] text-gray-700">
+                              <span className="truncate pr-1">{cat.description}</span>
+                              <span className="font-semibold text-gray-900 flex-shrink-0">{formatHeures(cat.heures)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
+              </div>
+            )}
+
+            {/* Onglet 2 : Par Catégorie */}
+            {syntheseTab === 'categories' && (
+              <div>
+                {collation.parCategorie.length === 0 ? (
+                  <p className="text-xs text-gray-500 italic py-2">
+                    Aucune catégorie renseignée pour le moment.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                    {collation.parCategorie.map((cat, idx) => (
+                      <div
+                        key={idx}
+                        className="p-3 bg-white/90 rounded-xl border border-emerald-100 shadow-xs flex flex-col justify-between text-xs"
+                      >
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div>
+                            <p className="font-bold text-gray-900 text-sm">{cat.description}</p>
+                            <p className="text-[10px] text-gray-500">
+                              {cat.machines.length} machine(s) : {cat.machines.map((m) => m.machineNom).join(', ')}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <span className="font-extrabold text-emerald-800 text-base block tabular-nums">
+                              {formatHeures(cat.totalHeures)}
+                            </span>
+                            <span className="text-[10px] text-gray-400 font-semibold">{cat.pourcentage}% du chantier</span>
+                          </div>
+                        </div>
+
+                        {/* Intervenants sur cette catégorie */}
+                        <div className="pt-2 border-t border-gray-100 space-y-1">
+                          <p className="text-[10px] uppercase font-bold text-gray-400">Intervenant(s) :</p>
+                          {cat.techniciens.map((t, tIdx) => (
+                            <div key={tIdx} className="flex justify-between text-[11px] text-gray-700">
+                              <span className="font-medium text-gray-800">{t.technicienNom}</span>
+                              <span className="font-bold text-gray-900">{formatHeures(t.heures)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Onglet 3 : Matrice Croisée */}
+            {syntheseTab === 'matrice' && (
+              <div className="overflow-x-auto bg-white rounded-xl border border-emerald-100 p-2 shadow-xs">
+                {collation.parCategorie.length === 0 ? (
+                  <p className="text-xs text-gray-500 italic py-2">Aucune donnée à afficher.</p>
+                ) : (
+                  <table className="w-full text-xs text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-gray-200 bg-gray-50/80">
+                        <th className="p-2 font-bold text-gray-700">Technicien</th>
+                        {collation.parCategorie.map((cat, idx) => (
+                          <th key={idx} className="p-2 font-bold text-gray-700 text-right whitespace-nowrap">
+                            {cat.description}
+                          </th>
+                        ))}
+                        <th className="p-2 font-extrabold text-emerald-800 text-right bg-emerald-50 whitespace-nowrap">
+                          Total Tech
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {collation.parTechnicien.map((tech) => (
+                        <tr key={tech.technicienId} className="border-b border-gray-100 hover:bg-gray-50/50">
+                          <td className="p-2 font-semibold text-gray-900 whitespace-nowrap">
+                            {tech.technicienNom}
+                          </td>
+                          {collation.parCategorie.map((cat, cIdx) => {
+                            const val = collation.matrice.valeurs[tech.technicienId]?.[cat.description] || 0;
+                            return (
+                              <td
+                                key={cIdx}
+                                className={`p-2 text-right tabular-nums ${
+                                  val > 0 ? 'font-bold text-gray-900 bg-emerald-50/40' : 'text-gray-300'
+                                }`}
+                              >
+                                {val > 0 ? formatHeures(val) : '-'}
+                              </td>
+                            );
+                          })}
+                          <td className="p-2 text-right font-extrabold text-emerald-800 bg-emerald-50/70 tabular-nums">
+                            {formatHeures(tech.totalHeures)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-emerald-100/70 font-extrabold text-emerald-950">
+                        <td className="p-2">TOTAL CATÉGORIE</td>
+                        {collation.parCategorie.map((cat, idx) => (
+                          <td key={idx} className="p-2 text-right tabular-nums">
+                            {formatHeures(cat.totalHeures)}
+                          </td>
+                        ))}
+                        <td className="p-2 text-right text-sm font-black text-emerald-950 bg-emerald-200 tabular-nums">
+                          {formatHeures(collation.grandTotalHeures)}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                )}
               </div>
             )}
           </div>
@@ -1304,8 +1409,9 @@ export function InstallationProtocolScreen({
           ) : (
             <div className="space-y-3">
               {machines.map((machine: any) => {
-                const totalHMachine = calculerTotalMachine(machine);
-                const nbTechs = (machine.heuresParTechnicien || []).length;
+                const machCollation = collation.parMachine.find((m) => m.id === machine.id);
+                const totalHMachine = machCollation ? machCollation.totalHeures : calculerTotalMachine(machine);
+                const nbTechs = machCollation ? machCollation.techniciens.length : (machine.heuresParTechnicien || []).length;
                 const isRef = machine.machineId === referenceMachine?._id || machine.machineId === referenceMachine?.id;
 
                 return (
@@ -1357,6 +1463,36 @@ export function InstallationProtocolScreen({
                         )}
                       </div>
                     </div>
+
+                    {/* Détail intervenants & catégories sur cette machine */}
+                    {machCollation && machCollation.techniciens.length > 0 && (
+                      <div className="mt-3 pt-2.5 border-t border-gray-100 flex flex-wrap items-center gap-1.5 text-xs">
+                        <span className="font-semibold text-gray-500 text-[11px] mr-1">Intervenants :</span>
+                        {machCollation.techniciens.map((t, tIdx) => (
+                          <span
+                            key={tIdx}
+                            className="bg-blue-50 text-blue-900 border border-blue-200 px-2 py-0.5 rounded-full text-[11px] font-medium"
+                          >
+                            👤 {t.technicienNom} : <strong>{formatHeures(t.heures)}</strong>
+                          </span>
+                        ))}
+                        <span className="text-gray-300 mx-1">|</span>
+                        <span className="font-semibold text-gray-500 text-[11px]">Top catégories :</span>
+                        {machCollation.categories.slice(0, 3).map((c, cIdx) => (
+                          <span
+                            key={cIdx}
+                            className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-[11px]"
+                          >
+                            {c.description} ({formatHeures(c.totalHeures)})
+                          </span>
+                        ))}
+                        {machCollation.categories.length > 3 && (
+                          <span className="text-[10px] text-gray-400">
+                            +{machCollation.categories.length - 3} autre(s)
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}
