@@ -681,7 +681,15 @@ export const db = {
             .from('clients')
             .select('*')
             .order('nom', { ascending: true });
-          if (!error && data) return toCamelCase(data);
+          if (!error && data) {
+            return toCamelCase(data).map((c: any) => ({
+              ...c,
+              numeroClient: c.numeroClient || c.numero_client || '',
+              nomFerme: c.nomFerme || c.nom_ferme || '',
+              codePostal: c.codePostal || c.code_postal || '',
+              contactPrincipal: c.contactPrincipal || c.contact_principal || null
+            }));
+          }
         } catch (e) {
           // Fallback démo
         }
@@ -697,7 +705,16 @@ export const db = {
             .select('*')
             .eq('id', id)
             .single();
-          if (!error && data) return toCamelCase(data);
+          if (!error && data) {
+            const c = toCamelCase(data);
+            return {
+              ...c,
+              numeroClient: c.numeroClient || c.numero_client || '',
+              nomFerme: c.nomFerme || c.nom_ferme || '',
+              codePostal: c.codePostal || c.code_postal || '',
+              contactPrincipal: c.contactPrincipal || c.contact_principal || null
+            };
+          }
         } catch (e) {
           // Fallback démo
         }
@@ -707,46 +724,88 @@ export const db = {
 
     create: async (clientData: any) => {
       if (isLiveSupabaseActive()) {
-        try {
-          const cleanData = { ...clientData };
-          delete cleanData.creator;
-          delete cleanData.createdBy;
-          const { data, error } = await supabase
-            .from('clients')
-            .insert(toSnakeCase(cleanData))
-            .select()
-            .single();
-          if (!error && data) return toCamelCase(data);
-        } catch (e) {
-          // Fallback démo
+        const payload: any = {
+          numero_client: String(clientData.numeroClient || clientData.numero_client || `CL-${Date.now().toString().slice(-4)}`).trim(),
+          nom: String(clientData.nom || clientData.name || 'Client').trim(),
+          nom_ferme: String(clientData.nomFerme || clientData.nom_ferme || '').trim(),
+          adresse: String(clientData.adresse || '').trim(),
+          ville: String(clientData.ville || '').trim(),
+          code_postal: String(clientData.codePostal || clientData.code_postal || '').trim(),
+          pays: String(clientData.pays || 'France').trim(),
+          telephone: String(clientData.telephone || '').trim(),
+          email: String(clientData.email || '').trim().toLowerCase(),
+          contact_principal: clientData.contactPrincipal || clientData.contact_principal || null,
+          notes: String(clientData.notes || '').trim(),
+          actif: clientData.actif !== undefined ? Boolean(clientData.actif) : true,
+          created_at: clientData.createdAt || clientData.created_at || new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        const potentialId = clientData.id || clientData._id;
+        const isUuid = (val: any) => typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(val);
+        if (potentialId && isUuid(potentialId)) {
+          payload.id = potentialId;
         }
+
+        const { data, error } = await supabase.from('clients').insert(payload).select().single();
+        if (error) {
+          console.error('❌ Erreur Supabase clients.create:', error);
+          if (error.code === '42501') {
+            throw new Error(`Supabase RLS bloqué (42501) sur clients : exécutez le script SQL de déblocage via le bouton 'Copier script SQL Déblocage RLS'.`);
+          }
+          throw new Error(`Supabase (clients): ${error.message} (${error.code || 'code'})`);
+        }
+        if (data) return toCamelCase(data);
       }
       return demoDb.insert('clients', clientData);
     },
 
     update: async (id: string, clientData: any) => {
       if (isLiveSupabaseActive()) {
-        try {
-          const { data, error } = await supabase
-            .from('clients')
-            .update(toSnakeCase(clientData))
-            .eq('id', id)
-            .select()
-            .single();
-          if (!error && data) return toCamelCase(data);
-        } catch (e) {
-          // Fallback démo
+        const payload: any = {};
+        if (clientData.numeroClient !== undefined || clientData.numero_client !== undefined) {
+          payload.numero_client = String(clientData.numeroClient ?? clientData.numero_client).trim();
         }
+        if (clientData.nom !== undefined) payload.nom = String(clientData.nom).trim();
+        if (clientData.nomFerme !== undefined || clientData.nom_ferme !== undefined) {
+          payload.nom_ferme = String(clientData.nomFerme ?? clientData.nom_ferme).trim();
+        }
+        if (clientData.adresse !== undefined) payload.adresse = String(clientData.adresse).trim();
+        if (clientData.ville !== undefined) payload.ville = String(clientData.ville).trim();
+        if (clientData.codePostal !== undefined || clientData.code_postal !== undefined) {
+          payload.code_postal = String(clientData.codePostal ?? clientData.code_postal).trim();
+        }
+        if (clientData.pays !== undefined) payload.pays = String(clientData.pays).trim();
+        if (clientData.telephone !== undefined) payload.telephone = String(clientData.telephone).trim();
+        if (clientData.email !== undefined) payload.email = String(clientData.email).trim().toLowerCase();
+        if (clientData.contactPrincipal !== undefined || clientData.contact_principal !== undefined) {
+          payload.contact_principal = clientData.contactPrincipal ?? clientData.contact_principal;
+        }
+        if (clientData.notes !== undefined) payload.notes = String(clientData.notes).trim();
+        if (clientData.actif !== undefined) payload.actif = Boolean(clientData.actif);
+        payload.updated_at = new Date().toISOString();
+
+        const { data, error } = await supabase.from('clients').update(payload).eq('id', id).select().single();
+        if (error) {
+          console.error('❌ Erreur Supabase clients.update:', error);
+          if (error.code === '42501') {
+            throw new Error(`Supabase RLS bloqué (42501) sur clients : exécutez le script SQL de déblocage via le bouton 'Copier script SQL Déblocage RLS'.`);
+          }
+          throw new Error(`Supabase (clients): ${error.message} (${error.code || 'code'})`);
+        }
+        if (data) return toCamelCase(data);
       }
       return demoDb.update('clients', id, clientData);
     },
 
     delete: async (id: string) => {
       if (isLiveSupabaseActive()) {
-        try {
-          await supabase.from('clients').delete().eq('id', id);
-        } catch (e) {
-          // Fallback démo
+        const { error } = await supabase.from('clients').delete().eq('id', id);
+        if (error) {
+          console.error('❌ Erreur Supabase clients.delete:', error);
+          if (error.code === '42501') {
+            throw new Error(`Supabase RLS bloqué (42501) sur clients : exécutez le script SQL de déblocage.`);
+          }
+          throw new Error(`Supabase (clients): ${error.message}`);
         }
       }
       return demoDb.delete('clients', id);
@@ -1199,7 +1258,16 @@ export const db = {
             .from('spare_parts')
             .select('*')
             .order('designation', { ascending: true });
-          if (!error && data) return toCamelCase(data);
+          if (!error && data) {
+            return toCamelCase(data).map((p: any) => ({
+              ...p,
+              stock: p.stockActuel ?? p.stock ?? 0,
+              stockActuel: p.stockActuel ?? p.stock ?? 0,
+              seuilAlerte: p.stockMinimum ?? p.seuilAlerte ?? 5,
+              stockMinimum: p.stockMinimum ?? p.seuilAlerte ?? 5,
+              prixUnitaire: p.prixUnitaire ?? p.prix_unitaire ?? 0
+            }));
+          }
         } catch (e) {
           // Fallback démo
         }
@@ -1211,7 +1279,17 @@ export const db = {
       if (isLiveSupabaseActive()) {
         try {
           const { data, error } = await supabase.from('spare_parts').select('*').eq('id', id).single();
-          if (!error && data) return toCamelCase(data);
+          if (!error && data) {
+            const p = toCamelCase(data);
+            return {
+              ...p,
+              stock: p.stockActuel ?? p.stock ?? 0,
+              stockActuel: p.stockActuel ?? p.stock ?? 0,
+              seuilAlerte: p.stockMinimum ?? p.seuilAlerte ?? 5,
+              stockMinimum: p.stockMinimum ?? p.seuilAlerte ?? 5,
+              prixUnitaire: p.prixUnitaire ?? p.prix_unitaire ?? 0
+            };
+          }
         } catch (e) {
           // Fallback démo
         }
@@ -1221,11 +1299,37 @@ export const db = {
 
     create: async (partData: any) => {
       if (isLiveSupabaseActive()) {
-        try {
-          const { data, error } = await supabase.from('spare_parts').insert(toSnakeCase(partData)).select().single();
-          if (!error && data) return toCamelCase(data);
-        } catch (e) {
-          // Fallback démo
+        const payload: any = {
+          reference: String(partData.reference || '').trim(),
+          designation: String(partData.designation || '').trim(),
+          prix_unitaire: parseFloat(partData.prixUnitaire ?? partData.prix_unitaire ?? 0) || 0,
+          stock_actuel: parseInt(partData.stockActuel ?? partData.stock ?? partData.stock_actuel ?? 0, 10) || 0,
+          stock_minimum: parseInt(partData.stockMinimum ?? partData.seuilAlerte ?? partData.stock_minimum ?? 5, 10) || 5,
+          categorie: partData.categorie || null,
+          famille: partData.famille || null,
+          emplacement: partData.emplacement || null,
+          fournisseur: partData.fournisseur || null,
+          actif: partData.actif !== undefined ? Boolean(partData.actif) : true,
+          created_at: partData.createdAt || partData.created_at || new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        const { data, error } = await supabase.from('spare_parts').insert(payload).select().single();
+        if (error) {
+          console.error('❌ Erreur Supabase spare_parts.create:', error);
+          if (error.code === '42501') {
+            throw new Error(`Supabase RLS bloqué (42501) sur spare_parts : exécutez le script SQL de déblocage via le bouton 'Copier script SQL Déblocage RLS'.`);
+          }
+          throw new Error(`Supabase (spare_parts): ${error.message} (${error.code || 'code'})`);
+        }
+        if (data) {
+          const res = toCamelCase(data);
+          return {
+            ...res,
+            stock: res.stockActuel ?? res.stock ?? 0,
+            stockActuel: res.stockActuel ?? res.stock ?? 0,
+            seuilAlerte: res.stockMinimum ?? res.seuilAlerte ?? 5,
+            stockMinimum: res.stockMinimum ?? res.seuilAlerte ?? 5
+          };
         }
       }
       return demoDb.insert('spareParts', partData);
@@ -1233,11 +1337,42 @@ export const db = {
 
     update: async (id: string, partData: any) => {
       if (isLiveSupabaseActive()) {
-        try {
-          const { data, error } = await supabase.from('spare_parts').update(toSnakeCase(partData)).eq('id', id).select().single();
-          if (!error && data) return toCamelCase(data);
-        } catch (e) {
-          // Fallback démo
+        const payload: any = {};
+        if (partData.reference !== undefined) payload.reference = String(partData.reference).trim();
+        if (partData.designation !== undefined) payload.designation = String(partData.designation).trim();
+        if (partData.prixUnitaire !== undefined || partData.prix_unitaire !== undefined) {
+          payload.prix_unitaire = parseFloat(partData.prixUnitaire ?? partData.prix_unitaire ?? 0) || 0;
+        }
+        if (partData.stockActuel !== undefined || partData.stock !== undefined || partData.stock_actuel !== undefined) {
+          payload.stock_actuel = parseInt(partData.stockActuel ?? partData.stock ?? partData.stock_actuel ?? 0, 10) || 0;
+        }
+        if (partData.stockMinimum !== undefined || partData.seuilAlerte !== undefined || partData.stock_minimum !== undefined) {
+          payload.stock_minimum = parseInt(partData.stockMinimum ?? partData.seuilAlerte ?? partData.stock_minimum ?? 5, 10) || 5;
+        }
+        if (partData.categorie !== undefined) payload.categorie = partData.categorie;
+        if (partData.famille !== undefined) payload.famille = partData.famille;
+        if (partData.emplacement !== undefined) payload.emplacement = partData.emplacement;
+        if (partData.fournisseur !== undefined) payload.fournisseur = partData.fournisseur;
+        if (partData.actif !== undefined) payload.actif = Boolean(partData.actif);
+        payload.updated_at = new Date().toISOString();
+
+        const { data, error } = await supabase.from('spare_parts').update(payload).eq('id', id).select().single();
+        if (error) {
+          console.error('❌ Erreur Supabase spare_parts.update:', error);
+          if (error.code === '42501') {
+            throw new Error(`Supabase RLS bloqué (42501) sur spare_parts : exécutez le script SQL de déblocage.`);
+          }
+          throw new Error(`Supabase (spare_parts): ${error.message} (${error.code || 'code'})`);
+        }
+        if (data) {
+          const res = toCamelCase(data);
+          return {
+            ...res,
+            stock: res.stockActuel ?? res.stock ?? 0,
+            stockActuel: res.stockActuel ?? res.stock ?? 0,
+            seuilAlerte: res.stockMinimum ?? res.seuilAlerte ?? 5,
+            stockMinimum: res.stockMinimum ?? res.seuilAlerte ?? 5
+          };
         }
       }
       return demoDb.update('spareParts', id, partData);
@@ -1245,10 +1380,13 @@ export const db = {
 
     delete: async (id: string) => {
       if (isLiveSupabaseActive()) {
-        try {
-          await supabase.from('spare_parts').delete().eq('id', id);
-        } catch (e) {
-          // Fallback démo
+        const { error } = await supabase.from('spare_parts').delete().eq('id', id);
+        if (error) {
+          console.error('❌ Erreur Supabase spare_parts.delete:', error);
+          if (error.code === '42501') {
+            throw new Error(`Supabase RLS bloqué (42501) sur spare_parts : exécutez le script SQL de déblocage.`);
+          }
+          throw new Error(`Supabase (spare_parts): ${error.message}`);
         }
       }
       return demoDb.delete('spareParts', id);
@@ -1261,7 +1399,21 @@ export const db = {
       if (isLiveSupabaseActive()) {
         try {
           const { data, error } = await supabase.from('error_codes').select('*').order('alarme', { ascending: true });
-          if (!error && data) return { list: toCamelCase(data) };
+          if (!error && data) {
+            const list = toCamelCase(data).map((item: any) => ({
+              ...item,
+              alarme: item.alarme || item.code || '',
+              titre: item.titre || item.title || '',
+              description: item.description || '',
+              gravite: item.gravite || item.severity || 'mineure',
+              machineType: item.machineType || item.machine_type || '',
+              cause: item.cause || '',
+              action: item.action || '',
+              chapitre: item.chapitre || '',
+              typeAlarme: item.typeAlarme || item.type_alarme || ''
+            }));
+            return { list };
+          }
         } catch (e) {
           // Fallback démo
         }
@@ -1292,36 +1444,114 @@ export const db = {
 
     create: async (errorCodeData: any) => {
       if (isLiveSupabaseActive()) {
-        try {
-          const payload = toSnakeCase(errorCodeData);
-          const { data, error } = await supabase.from('error_codes').insert(payload).select().single();
-          if (!error && data) return toCamelCase(data);
-        } catch (e) {
-          // Fallback démo
+        const alarme = String(errorCodeData.alarme || errorCodeData.code || '').trim();
+        const titre = String(errorCodeData.titre || errorCodeData.title || alarme || 'Code erreur').trim();
+        const cause = String(errorCodeData.cause || '').trim();
+        const action = String(errorCodeData.action || '').trim();
+        const chapitre = String(errorCodeData.chapitre || '').trim();
+        const typeAlarme = String(errorCodeData.typeAlarme || errorCodeData.type_alarme || '').trim();
+        const gravite = String(errorCodeData.gravite || errorCodeData.severity || 'mineure').trim();
+        const machineType = String(errorCodeData.machineType || errorCodeData.machine_type || '').trim();
+
+        const extraDetails: string[] = [];
+        if (chapitre) extraDetails.push(`[Chapitre: ${chapitre}]`);
+        if (typeAlarme) extraDetails.push(`[Type: ${typeAlarme}]`);
+        if (cause) extraDetails.push(`Cause: ${cause}`);
+        if (action) extraDetails.push(`Action: ${action}`);
+        const baseDescription = String(errorCodeData.description || '').trim();
+        const richDescription = baseDescription
+          ? (extraDetails.length > 0 ? `${baseDescription}\n\n${extraDetails.join('\n')}` : baseDescription)
+          : (extraDetails.length > 0 ? extraDetails.join('\n') : titre);
+
+        const fullPayload: any = {
+          alarme,
+          titre,
+          description: richDescription || titre,
+          gravite,
+          machine_type: machineType,
+          type_alarme: typeAlarme,
+          chapitre: chapitre,
+          cause: cause,
+          action: action,
+          actif: errorCodeData.actif !== undefined ? Boolean(errorCodeData.actif) : true,
+          created_at: errorCodeData.createdAt || errorCodeData.created_at || new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+
+        let { data, error } = await supabase.from('error_codes').insert(fullPayload).select().single();
+
+        if (error && error.code === 'PGRST204') {
+          const basicPayload = {
+            alarme,
+            titre,
+            description: richDescription || titre,
+            gravite,
+            machine_type: machineType,
+            actif: fullPayload.actif,
+            created_at: fullPayload.created_at,
+            updated_at: fullPayload.updated_at
+          };
+          const retry = await supabase.from('error_codes').insert(basicPayload).select().single();
+          data = retry.data;
+          error = retry.error;
         }
+
+        if (error) {
+          console.error('❌ Erreur Supabase error_codes.create:', error);
+          if (error.code === '42501') {
+            throw new Error(`Supabase RLS bloqué (42501) sur error_codes : exécutez le script SQL de déblocage via le bouton 'Copier script SQL Déblocage RLS'.`);
+          }
+          throw new Error(`Supabase (error_codes): ${error.message} (${error.code || 'code'})`);
+        }
+        if (data) return toCamelCase(data);
       }
       return demoDb.insert('errorCodes', errorCodeData);
     },
 
     update: async (id: string, errorCodeData: any) => {
       if (isLiveSupabaseActive()) {
-        try {
-          const payload = toSnakeCase(errorCodeData);
-          const { data, error } = await supabase.from('error_codes').update(payload).eq('id', id).select().single();
-          if (!error && data) return toCamelCase(data);
-        } catch (e) {
-          // Fallback démo
+        const payload: any = { ...toSnakeCase(errorCodeData), updated_at: new Date().toISOString() };
+        delete payload.id;
+        delete payload._id;
+
+        let { data, error } = await supabase.from('error_codes').update(payload).eq('id', id).select().single();
+        if (error && error.code === 'PGRST204') {
+          const basicPayload: any = {};
+          if (errorCodeData.alarme !== undefined) basicPayload.alarme = errorCodeData.alarme;
+          if (errorCodeData.titre !== undefined) basicPayload.titre = errorCodeData.titre;
+          if (errorCodeData.description !== undefined) basicPayload.description = errorCodeData.description;
+          if (errorCodeData.gravite !== undefined) basicPayload.gravite = errorCodeData.gravite;
+          if (errorCodeData.machineType !== undefined || errorCodeData.machine_type !== undefined) {
+            basicPayload.machine_type = errorCodeData.machineType || errorCodeData.machine_type;
+          }
+          if (errorCodeData.actif !== undefined) basicPayload.actif = Boolean(errorCodeData.actif);
+          basicPayload.updated_at = new Date().toISOString();
+          const retry = await supabase.from('error_codes').update(basicPayload).eq('id', id).select().single();
+          data = retry.data;
+          error = retry.error;
         }
+
+        if (error) {
+          console.error('❌ Erreur Supabase error_codes.update:', error);
+          if (error.code === '42501') {
+            throw new Error(`Supabase RLS bloqué (42501) sur error_codes : exécutez le script SQL de déblocage.`);
+          }
+          throw new Error(`Supabase (error_codes): ${error.message} (${error.code || 'code'})`);
+        }
+        if (data) return toCamelCase(data);
       }
       return demoDb.update('errorCodes', id, errorCodeData);
     },
 
     delete: async (id: string) => {
       if (isLiveSupabaseActive()) {
-        try {
-          await supabase.from('error_codes').delete().eq('id', id);
-        } catch (e) {
-          // Fallback démo
+        const { error } = await supabase.from('error_codes').delete().eq('id', id);
+        if (error) {
+          console.error('❌ Erreur Supabase error_codes.delete:', error);
+          if (error.code === '42501') {
+            throw new Error(`Supabase RLS bloqué (42501) sur error_codes : exécutez le script SQL de déblocage.`);
+          }
+          throw new Error(`Supabase (error_codes): ${error.message}`);
         }
       }
       return demoDb.delete('errorCodes', id);
@@ -1334,7 +1564,18 @@ export const db = {
       if (isLiveSupabaseActive()) {
         try {
           const { data, error } = await supabase.from('machine_fields').select('*').order('order', { ascending: true });
-          if (!error && data) return { list: toCamelCase(data) };
+          if (!error && data) {
+            const list = toCamelCase(data).map((f: any) => ({
+              ...f,
+              fieldType: f.type || f.fieldType || 'text',
+              type: f.type || f.fieldType || 'text',
+              machineType: f.machineType || f.machine_type || 'Tous',
+              isRequired: Boolean(f.isRequired ?? f.is_required),
+              isActive: f.isActive !== undefined ? Boolean(f.isActive) : (f.is_active !== undefined ? Boolean(f.is_active) : true),
+              order: f.order ?? f.ordre ?? 0
+            }));
+            return { list };
+          }
         } catch (e) {
           // Fallback démo
         }
@@ -1344,11 +1585,53 @@ export const db = {
 
     create: async (fieldData: any) => {
       if (isLiveSupabaseActive()) {
-        try {
-          const { data, error } = await supabase.from('machine_fields').insert(toSnakeCase(fieldData)).select().single();
-          if (!error && data) return toCamelCase(data);
-        } catch (e) {
-          // Fallback démo
+        const payload: any = {
+          label: fieldData.label || 'Champ sans titre',
+          type: fieldData.type || fieldData.fieldType || fieldData.field_type || 'text',
+          is_required: Boolean(fieldData.isRequired ?? fieldData.is_required),
+          is_active: fieldData.isActive !== undefined ? Boolean(fieldData.isActive) : (fieldData.is_active !== undefined ? Boolean(fieldData.is_active) : true),
+          order: parseInt(fieldData.order ?? fieldData.ordre ?? 0, 10) || 0,
+          created_at: fieldData.createdAt || fieldData.created_at || new Date().toISOString()
+        };
+        if (fieldData.machineType || fieldData.machine_type) {
+          payload.machine_type = fieldData.machineType || fieldData.machine_type;
+        }
+        if (fieldData.conditionalRules || fieldData.conditional_rules) {
+          payload.conditional_rules = fieldData.conditionalRules || fieldData.conditional_rules;
+        }
+        if (fieldData.allowCustomValue !== undefined || fieldData.allow_custom_value !== undefined) {
+          payload.allow_custom_value = Boolean(fieldData.allowCustomValue ?? fieldData.allow_custom_value);
+        }
+
+        let { data, error } = await supabase.from('machine_fields').insert(payload).select().single();
+        if (error && error.code === 'PGRST204') {
+          const basicPayload = {
+            label: payload.label,
+            type: payload.type,
+            is_required: payload.is_required,
+            is_active: payload.is_active,
+            order: payload.order,
+            created_at: payload.created_at
+          };
+          const retry = await supabase.from('machine_fields').insert(basicPayload).select().single();
+          data = retry.data;
+          error = retry.error;
+        }
+
+        if (error) {
+          console.error('❌ Erreur Supabase machine_fields.create:', error);
+          if (error.code === '42501') {
+            throw new Error(`Supabase RLS bloqué (42501) sur machine_fields : exécutez le script SQL de déblocage via le bouton 'Copier script SQL Déblocage RLS'.`);
+          }
+          throw new Error(`Supabase (machine_fields): ${error.message} (${error.code || 'code'})`);
+        }
+        if (data) {
+          const res = toCamelCase(data);
+          return {
+            ...res,
+            fieldType: res.type || res.fieldType || 'text',
+            machineType: res.machineType || res.machine_type || 'Tous'
+          };
         }
       }
       return demoDb.insert('machineFields', fieldData);
@@ -1356,22 +1639,53 @@ export const db = {
 
     update: async (id: string, fieldData: any) => {
       if (isLiveSupabaseActive()) {
-        try {
-          const { data, error } = await supabase.from('machine_fields').update(toSnakeCase(fieldData)).eq('id', id).select().single();
-          if (!error && data) return toCamelCase(data);
-        } catch (e) {
-          // Fallback démo
+        const payload: any = {};
+        if (fieldData.label !== undefined) payload.label = fieldData.label;
+        if (fieldData.type !== undefined || fieldData.fieldType !== undefined || fieldData.field_type !== undefined) {
+          payload.type = fieldData.type || fieldData.fieldType || fieldData.field_type || 'text';
         }
+        if (fieldData.isRequired !== undefined || fieldData.is_required !== undefined) {
+          payload.is_required = Boolean(fieldData.isRequired ?? fieldData.is_required);
+        }
+        if (fieldData.isActive !== undefined || fieldData.is_active !== undefined) {
+          payload.is_active = Boolean(fieldData.isActive ?? fieldData.is_active);
+        }
+        if (fieldData.order !== undefined || fieldData.ordre !== undefined) {
+          payload.order = parseInt(fieldData.order ?? fieldData.ordre ?? 0, 10) || 0;
+        }
+        if (fieldData.machineType !== undefined || fieldData.machine_type !== undefined) {
+          payload.machine_type = fieldData.machineType || fieldData.machine_type;
+        }
+
+        let { data, error } = await supabase.from('machine_fields').update(payload).eq('id', id).select().single();
+        if (error && error.code === 'PGRST204') {
+          delete payload.machine_type;
+          const retry = await supabase.from('machine_fields').update(payload).eq('id', id).select().single();
+          data = retry.data;
+          error = retry.error;
+        }
+
+        if (error) {
+          console.error('❌ Erreur Supabase machine_fields.update:', error);
+          if (error.code === '42501') {
+            throw new Error(`Supabase RLS bloqué (42501) sur machine_fields : exécutez le script SQL de déblocage.`);
+          }
+          throw new Error(`Supabase (machine_fields): ${error.message} (${error.code || 'code'})`);
+        }
+        if (data) return toCamelCase(data);
       }
       return demoDb.update('machineFields', id, fieldData);
     },
 
     delete: async (id: string) => {
       if (isLiveSupabaseActive()) {
-        try {
-          await supabase.from('machine_fields').delete().eq('id', id);
-        } catch (e) {
-          // Fallback démo
+        const { error } = await supabase.from('machine_fields').delete().eq('id', id);
+        if (error) {
+          console.error('❌ Erreur Supabase machine_fields.delete:', error);
+          if (error.code === '42501') {
+            throw new Error(`Supabase RLS bloqué (42501) sur machine_fields : exécutez le script SQL de déblocage.`);
+          }
+          throw new Error(`Supabase (machine_fields): ${error.message}`);
         }
       }
       return demoDb.delete('machineFields', id);
@@ -1384,7 +1698,16 @@ export const db = {
       if (isLiveSupabaseActive()) {
         try {
           const { data, error } = await supabase.from('machine_field_options').select('*').order('order', { ascending: true });
-          if (!error && data) return { list: toCamelCase(data) };
+          if (!error && data) {
+            const list = toCamelCase(data).map((o: any) => ({
+              ...o,
+              fieldId: o.fieldId || o.field_id,
+              value: o.value,
+              label: o.label || o.value,
+              order: o.order ?? 0
+            }));
+            return { list };
+          }
         } catch (e) {
           // Fallback démo
         }
@@ -1396,44 +1719,77 @@ export const db = {
       if (isLiveSupabaseActive()) {
         try {
           const { data, error } = await supabase.from('machine_field_options').select('*').eq('field_id', fieldId).order('order', { ascending: true });
-          if (!error && data) return toCamelCase(data);
+          if (!error && data) {
+            return toCamelCase(data).map((o: any) => ({
+              ...o,
+              fieldId: o.fieldId || o.field_id,
+              value: o.value,
+              label: o.label || o.value,
+              order: o.order ?? 0
+            }));
+          }
         } catch (e) {
           // Fallback démo
         }
       }
-      return demoDb.getTable('machineFieldOptions').filter((o: any) => o.fieldId === fieldId);
+      return demoDb.getTable('machineFieldOptions').filter((o: any) => (o.fieldId === fieldId || o.field_id === fieldId));
     },
 
     create: async (optionData: any) => {
       if (isLiveSupabaseActive()) {
-        try {
-          const { data, error } = await supabase.from('machine_field_options').insert(toSnakeCase(optionData)).select().single();
-          if (!error && data) return toCamelCase(data);
-        } catch (e) {
-          // Fallback démo
+        const payload: any = {
+          field_id: optionData.fieldId || optionData.field_id,
+          value: optionData.value || '',
+          label: optionData.label || optionData.value || '',
+          order: parseInt(optionData.order ?? optionData.ordre ?? 0, 10) || 0,
+          created_at: optionData.createdAt || optionData.created_at || new Date().toISOString()
+        };
+        const { data, error } = await supabase.from('machine_field_options').insert(payload).select().single();
+        if (error) {
+          console.error('❌ Erreur Supabase machine_field_options.create:', error);
+          if (error.code === '42501') {
+            throw new Error(`Supabase RLS bloqué (42501) sur machine_field_options : exécutez le script SQL de déblocage via le bouton 'Copier script SQL Déblocage RLS'.`);
+          }
+          throw new Error(`Supabase (machine_field_options): ${error.message} (${error.code || 'code'})`);
         }
+        if (data) return toCamelCase(data);
       }
       return demoDb.insert('machineFieldOptions', optionData);
     },
 
     update: async (id: string, optionData: any) => {
       if (isLiveSupabaseActive()) {
-        try {
-          const { data, error } = await supabase.from('machine_field_options').update(toSnakeCase(optionData)).eq('id', id).select().single();
-          if (!error && data) return toCamelCase(data);
-        } catch (e) {
-          // Fallback démo
+        const payload: any = {};
+        if (optionData.fieldId !== undefined || optionData.field_id !== undefined) {
+          payload.field_id = optionData.fieldId || optionData.field_id;
         }
+        if (optionData.value !== undefined) payload.value = optionData.value;
+        if (optionData.label !== undefined) payload.label = optionData.label;
+        if (optionData.order !== undefined || optionData.ordre !== undefined) {
+          payload.order = parseInt(optionData.order ?? optionData.ordre ?? 0, 10) || 0;
+        }
+        const { data, error } = await supabase.from('machine_field_options').update(payload).eq('id', id).select().single();
+        if (error) {
+          console.error('❌ Erreur Supabase machine_field_options.update:', error);
+          if (error.code === '42501') {
+            throw new Error(`Supabase RLS bloqué (42501) sur machine_field_options : exécutez le script SQL de déblocage.`);
+          }
+          throw new Error(`Supabase (machine_field_options): ${error.message} (${error.code || 'code'})`);
+        }
+        if (data) return toCamelCase(data);
       }
       return demoDb.update('machineFieldOptions', id, optionData);
     },
 
     delete: async (id: string) => {
       if (isLiveSupabaseActive()) {
-        try {
-          await supabase.from('machine_field_options').delete().eq('id', id);
-        } catch (e) {
-          // Fallback démo
+        const { error } = await supabase.from('machine_field_options').delete().eq('id', id);
+        if (error) {
+          console.error('❌ Erreur Supabase machine_field_options.delete:', error);
+          if (error.code === '42501') {
+            throw new Error(`Supabase RLS bloqué (42501) sur machine_field_options : exécutez le script SQL de déblocage.`);
+          }
+          throw new Error(`Supabase (machine_field_options): ${error.message}`);
         }
       }
       return demoDb.delete('machineFieldOptions', id);
@@ -1617,7 +1973,22 @@ export const db = {
           }
           if (options?.limit) query = query.limit(options.limit);
           const { data, error } = await query;
-          if (!error && data) return { list: toCamelCase(data) };
+          if (!error && data) {
+            const list = toCamelCase(data).map((t: any) => ({
+              ...t,
+              idTache: t.taskId || t.task_id || t.idTache || t.id,
+              taskId: t.taskId || t.task_id || t.idTache || t.id,
+              kitId: t.kitId || t.kit_id || '',
+              section: t.sectionTitle || t.section_title || t.section || 'Général',
+              sectionTitle: t.sectionTitle || t.section_title || t.section || 'Général',
+              description: t.taskLabel || t.task_label || t.description || t.titre || '',
+              taskLabel: t.taskLabel || t.task_label || t.description || t.titre || '',
+              ordre: t.taskOrder ?? t.task_order ?? t.ordre ?? 1,
+              taskOrder: t.taskOrder ?? t.task_order ?? t.ordre ?? 1,
+              machineType: t.machineType || t.machine_type || ''
+            }));
+            return { list };
+          }
         } catch (e) {
           // Fallback démo
         }
@@ -1627,46 +1998,76 @@ export const db = {
 
     create: async (taskData: any) => {
       if (isLiveSupabaseActive()) {
-        const payload = toSnakeCase(taskData);
-        if (payload.kit_number !== undefined && typeof payload.kit_number === 'string' && /^\d+$/.test(payload.kit_number)) {
-          payload.kit_number = parseInt(payload.kit_number, 10);
-        }
-        if (payload.service_number !== undefined && typeof payload.service_number === 'string') {
-          payload.service_number = parseInt(payload.service_number, 10) || 1;
-        }
-        try {
-          const { data, error } = await supabase.from('taches_entretien').insert(payload).select().single();
-          if (error) {
-            console.error('❌ Erreur Supabase taches_entretien.create:', error);
-            throw new Error(`Supabase: ${error.message} (${error.code || 'code'})`);
+        const taskId = String(taskData.taskId || taskData.idTache || taskData.task_id || `task_${Date.now()}`).trim();
+        const section = String(taskData.section || taskData.sectionTitle || taskData.section_title || 'Section générale').trim();
+        const sectionId = String(taskData.sectionId || taskData.section_id || section.toLowerCase().replace(/[^a-z0-9]+/g, '_') || 'sec_defaut').trim();
+        const description = String(taskData.description || taskData.taskLabel || taskData.task_label || 'Entretien').trim();
+        const titre = String(taskData.titre || taskData.taskLabel || taskData.task_label || description.slice(0, 100) || 'Tâche d entretien').trim();
+        const kitId = String(taskData.kitId || taskData.kit_id || '').trim();
+        const order = parseInt(taskData.ordre ?? taskData.taskOrder ?? taskData.task_order ?? 1, 10) || 1;
+
+        const payload: any = {
+          task_id: taskId,
+          section_id: sectionId,
+          titre: titre,
+          section_title: section,
+          section: section,
+          task_label: description,
+          description: description,
+          kit_id: kitId,
+          machine_type: taskData.machineType || taskData.machine_type || null,
+          kit_number: parseInt(taskData.kitNumber ?? taskData.kit_number ?? 0, 10) || null,
+          service_number: parseInt(taskData.serviceNumber ?? taskData.service_number ?? 1, 10) || 1,
+          task_order: order,
+          ordre: order,
+          is_critical: Boolean(taskData.isCritical ?? taskData.is_critical),
+          estimated_duration: parseInt(taskData.estimatedDuration ?? taskData.estimated_duration ?? 5, 10) || 5,
+          actif: taskData.actif !== undefined ? Boolean(taskData.actif) : true,
+          created_at: taskData.createdAt || taskData.created_at || new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+
+        const { data, error } = await supabase.from('taches_entretien').insert(payload).select().single();
+        if (error) {
+          console.error('❌ Erreur Supabase taches_entretien.create:', error);
+          if (error.code === '42501') {
+            throw new Error(`Supabase RLS bloqué (42501) sur taches_entretien : exécutez le script SQL de déblocage via le bouton 'Copier script SQL Déblocage RLS'.`);
           }
-          if (data) return toCamelCase(data);
-        } catch (e: any) {
-          console.error('Échec insertion Supabase taches_entretien:', e);
-          throw e;
+          throw new Error(`Supabase (taches_entretien): ${error.message} (${error.code || 'code'})`);
         }
+        if (data) return toCamelCase(data);
       }
       return demoDb.insert('tachesEntretien', taskData);
     },
 
     update: async (id: string, taskData: any) => {
       if (isLiveSupabaseActive()) {
-        try {
-          const { data, error } = await supabase.from('taches_entretien').update(toSnakeCase(taskData)).eq('id', id).select().single();
-          if (!error && data) return toCamelCase(data);
-        } catch (e) {
-          // Fallback démo
+        const payload: any = { ...toSnakeCase(taskData), updated_at: new Date().toISOString() };
+        delete payload.id;
+        delete payload._id;
+
+        const { data, error } = await supabase.from('taches_entretien').update(payload).eq('id', id).select().single();
+        if (error) {
+          console.error('❌ Erreur Supabase taches_entretien.update:', error);
+          if (error.code === '42501') {
+            throw new Error(`Supabase RLS bloqué (42501) sur taches_entretien : exécutez le script SQL de déblocage.`);
+          }
+          throw new Error(`Supabase (taches_entretien): ${error.message} (${error.code || 'code'})`);
         }
+        if (data) return toCamelCase(data);
       }
       return demoDb.update('tachesEntretien', id, taskData);
     },
 
     delete: async (id: string) => {
       if (isLiveSupabaseActive()) {
-        try {
-          await supabase.from('taches_entretien').delete().eq('id', id);
-        } catch (e) {
-          // Fallback démo
+        const { error } = await supabase.from('taches_entretien').delete().eq('id', id);
+        if (error) {
+          console.error('❌ Erreur Supabase taches_entretien.delete:', error);
+          if (error.code === '42501') {
+            throw new Error(`Supabase RLS bloqué (42501) sur taches_entretien : exécutez le script SQL de déblocage.`);
+          }
+          throw new Error(`Supabase (taches_entretien): ${error.message}`);
         }
       }
       return demoDb.delete('tachesEntretien', id);

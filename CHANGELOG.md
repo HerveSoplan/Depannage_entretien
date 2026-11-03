@@ -4,6 +4,25 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.12.4] - 2026-11-03
+
+### Corrigé & Amélioré (Synchronisation Directe Supabase & Déblocage des Injections CSV)
+- **Résolution définitive du non-remplissage des tables Supabase lors de l'injection CSV ou de l'ajout d'enregistrements** :
+  - **Correction du schéma `spare_parts` ([supabase.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/lib/supabase.ts))** :
+    - Alignement des colonnes d'insertion et mise à jour sur le schéma PostgreSQL exact (`stock_actuel` et `stock_minimum` au lieu de `stock` et `seuil_alerte` qui provoquaient l'erreur `PGRST204: Could not find 'stock' column` et un repli silencieux vers le localStorage).
+    - Normalisation à la lecture pour exposer simultanément `stock`, `stockActuel`, `seuilAlerte`, `stockMinimum` et `prixUnitaire`.
+  - **Correction du schéma `taches_entretien` ([supabase.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/lib/supabase.ts))** :
+    - Garantie des colonnes `section_id` et `titre` obligatoires (NOT NULL) dans le payload d'insertion pour éviter les erreurs de contrainte d'intégrité `23502`.
+    - Normalisation des alias `task_id`, `task_label`, `section_title`, `task_order`.
+  - **Correction et résilience sur `error_codes`, `machine_fields`, `machine_field_options` ([supabase.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/lib/supabase.ts))** :
+    - Mapping précis des types et colonnes Supabase (`type` au lieu de `field_type`, `field_id`, etc.).
+    - Mécanisme de repli automatique sur colonnes standard en cas de colonnes étendues non encore créées.
+    - Élimination des erreurs silencieuses : capture claire des rejets Supabase et détection du code d'erreur RLS `42501`.
+  - **Amélioration de l'import CSV et retour utilisateur ([DatabaseAdminScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/admin/DatabaseAdminScreen.tsx))** :
+    - Introduction de `handleImportFeedback` sur toutes les tables (`clients`, `utilisateurs`, `spare_parts`, `error_codes`, `taches_entretien`, `machine_fields`, `machine_field_options`).
+    - En cas de blocage RLS Supabase (erreur 42501), l'utilisateur est immédiatement averti avec proposition d'un clic pour copier dans le presse-papier le script SQL officiel de déblocage.
+    - Bannière Supabase enrichie avec instructions claires et bouton permanent de copie du script SQL.
+
 ## [1.12.3] - 2026-11-03
 
 ### Corrigé & Réparé (Administration des Bases : Déblocage des 4 Onglets Défaillants)

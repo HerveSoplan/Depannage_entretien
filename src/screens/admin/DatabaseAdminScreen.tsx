@@ -1219,6 +1219,28 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
     }
   };
 
+  const handleImportFeedback = async (entityName: string, successCount: number, errorCount: number, errors: string[]) => {
+    if (successCount > 0 && errorCount === 0) {
+      alert(`✅ ${successCount} ${entityName} importé(s) avec succès dans la base de données !`);
+      return;
+    }
+    if (successCount > 0 && errorCount > 0) {
+      alert(`⚠️ ${successCount} ${entityName} importé(s), mais ${errorCount} ligne(s) ont échoué.`);
+    }
+    if (errorCount > 0) {
+      const isRlsBlocked = errors.some(e => e.includes('42501') || e.toLowerCase().includes('rls') || e.toLowerCase().includes('row-level security'));
+      if (isRlsBlocked) {
+        const copyNow = confirm(`⚠️ Supabase a bloqué l'enregistrement de ${errorCount} ligne(s) en raison des politiques de sécurité (RLS).\n\nPour autoriser l'écriture sur cette table, vous devez exécuter le script SQL officiel dans la console Supabase.\n\nVoulez-vous COPIER le script SQL Déblocage RLS maintenant ?`);
+        if (copyNow) {
+          await navigator.clipboard.writeText(SUPABASE_REPAIR_SQL);
+          alert("✅ Script SQL copié dans le presse-papier !\n\nOuvrez Supabase (SQL Editor), collez le script et cliquez sur 'Run' pour débloquer définitivement toutes les tables.");
+        }
+      } else {
+        const detail = errors.slice(0, 3).join('\n');
+        alert(`⚠️ ${errorCount} erreur(s) lors de l'import :\n\n${detail}\n\n(Consultez la console F12 pour les détails complets)`);
+      }
+    }
+  };
 
   const tableConfigs: any = { // Typé comme 'any' pour éviter les erreurs de structure complexes
     clients: {
@@ -1236,33 +1258,36 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
       onImport: async (data: any[]) => {
         let successCount = 0;
         let errorCount = 0;
+        const errors: string[] = [];
 
         for (const row of data) {
           try {
             // Nettoyage des données
             const cleanRow = {
-              numeroClient: row.numeroClient,
-              nom: row.nom,
-              nomFerme: row.nomFerme,
+              numeroClient: row.numeroClient || row.numero_client,
+              nom: row.nom || row.name,
+              nomFerme: row.nomFerme || row.nom_ferme,
               email: row.email,
               telephone: row.telephone,
               ville: row.ville,
+              adresse: row.adresse,
+              codePostal: row.codePostal || row.code_postal,
+              pays: row.pays || 'France',
               creator: 'admin',
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString()
             };
 
-            await (db as any).clients.create(cleanRow); // FIXED: Was db.users.create
+            await (db as any).clients.create(cleanRow);
             successCount++;
-          } catch (e) {
+          } catch (e: any) {
             console.error('Erreur import client:', row, e);
+            errors.push(e?.message || 'Erreur inconnue');
             errorCount++;
           }
         }
 
-        if (successCount > 0) alert(`✅ ${successCount} clients importés avec succès !`);
-        if (errorCount > 0) alert(`⚠️ ${errorCount} erreurs lors de l'import.`);
-
+        await handleImportFeedback('clients', successCount, errorCount, errors);
         await fetchClients();
       },
       onDelete: async (itemOrId: any) => {
@@ -1353,20 +1378,15 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
             console.log('Tentative de création utilisateur:', userData);
             await db.users.create(userData);
             successCount++;
-          } catch (e) {
+          } catch (e: any) {
             const errorMsg = `Erreur ligne ${successCount + errorCount + 1}: ${e instanceof Error ? e.message : 'Erreur inconnue'}`;
             console.error('Erreur import utilisateur:', row, e);
-            errors.push(errorMsg);
+            errors.push(e?.message || errorMsg);
             errorCount++;
           }
         }
 
-        if (successCount > 0) alert(`✅ ${successCount} utilisateurs importés avec succès !`);
-        if (errorCount > 0) {
-          alert(`⚠️ ${errorCount} erreurs lors de l'import.\n\nDétails dans la console (F12).`);
-          console.error('Détails des erreurs:', errors);
-        }
-
+        await handleImportFeedback('utilisateurs', successCount, errorCount, errors);
         await fetchUsers();
       },
       onDelete: async (id: string) => {
@@ -1417,6 +1437,7 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
       onImport: async (data: any[]) => {
         let successCount = 0;
         let errorCount = 0;
+        const errors: string[] = [];
 
         for (const row of data) {
           try {
@@ -1432,15 +1453,14 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
               updatedAt: new Date().toISOString()
             });
             successCount++;
-          } catch (e) {
+          } catch (e: any) {
             console.error('Erreur import pièce:', row, e);
+            errors.push(e?.message || 'Erreur inconnue');
             errorCount++;
           }
         }
 
-        if (successCount > 0) alert(`✅ ${successCount} pièces importées avec succès !`);
-        if (errorCount > 0) alert(`⚠️ ${errorCount} erreurs lors de l'import.`);
-
+        await handleImportFeedback('pièces détachées', successCount, errorCount, errors);
         await fetchSpareParts();
       },
       onDelete: async (itemOrId: any) => {
@@ -1501,9 +1521,7 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
           }
         }
 
-        if (successCount > 0) alert(`✅ ${successCount} codes erreur importés avec succès !`);
-        if (errorCount > 0) alert(`⚠️ ${errorCount} erreurs lors de l'import.`);
-
+        await handleImportFeedback('codes erreur', successCount, errorCount, errors);
         await fetchErrorCodes();
         return { success: successCount, errors, duplicates: 0 };
       },
@@ -1582,9 +1600,7 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
           }
         }
 
-        if (successCount > 0) alert(`✅ ${successCount} tâches importées avec succès !`);
-        if (errorCount > 0) alert(`⚠️ ${errorCount} erreurs lors de l'import.`);
-
+        await handleImportFeedback('tâches d\'entretien', successCount, errorCount, errors);
         await fetchTachesEntretien();
         return { success: successCount, errors, duplicates: 0 };
       },
@@ -1670,9 +1686,7 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
           }
         }
 
-        if (successCount > 0) alert(`✅ ${successCount} champs machines importés avec succès !`);
-        if (errorCount > 0) alert(`⚠️ ${errorCount} erreurs lors de l'import.`);
-
+        await handleImportFeedback('champs machines', successCount, errorCount, errors);
         await fetchMachineFields();
         return { success: successCount, errors, duplicates: 0 };
       },
@@ -1730,9 +1744,7 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
           }
         }
 
-        if (successCount > 0) alert(`✅ ${successCount} options de champs importées avec succès !`);
-        if (errorCount > 0) alert(`⚠️ ${errorCount} erreurs lors de l'import.`);
-
+        await handleImportFeedback('options de champs', successCount, errorCount, errors);
         await fetchMachineFieldOptions();
         return { success: successCount, errors, duplicates: 0 };
       },
@@ -1813,20 +1825,25 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
         )}
         {supabaseHealth && supabaseHealth.connected && (
           <div className="flex items-center justify-between flex-wrap gap-2 text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl p-3 shadow-xs">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 size={16} className="text-emerald-600 flex-shrink-0" />
-              <span>Supabase connecté en direct — Projet : <code className="font-mono bg-white px-1.5 py-0.5 rounded border border-emerald-200">{supabaseHealth.url}</code></span>
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 size={16} className="text-emerald-600 flex-shrink-0" />
+                <span className="font-semibold">Supabase connecté en direct — Projet : <code className="font-mono bg-white px-1.5 py-0.5 rounded border border-emerald-200">{supabaseHealth.url}</code></span>
+              </div>
+              <p className="text-emerald-700 text-[11px] ml-6">
+                💡 Si certaines tables ne se remplissent pas lors d'un import CSV (sécurité RLS active), cliquez sur le bouton ci-contre puis exécutez le script dans votre console Supabase (<span className="font-medium">SQL Editor</span>).
+              </p>
             </div>
             <button
               type="button"
               onClick={async () => {
                 await navigator.clipboard.writeText(SUPABASE_REPAIR_SQL);
-                alert("Script SQL officiel de déblocage Supabase copié !\n\nCollez-le dans votre console Supabase (SQL Editor) et cliquez sur 'Run' pour débloquer les enregistrements d'utilisateurs et de données.");
+                alert("Script SQL officiel de déblocage Supabase copié !\n\nCollez-le dans votre console Supabase (SQL Editor) et cliquez sur 'Run' pour débloquer les enregistrements de toutes les tables.");
               }}
-              className="px-3 py-1 bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs"
+              className="px-3 py-1.5 bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs"
               title="Copier le script SQL pour débloquer RLS et aligner les colonnes de Supabase"
             >
-              <Database size={13} className="text-emerald-600" />
+              <Database size={14} className="text-emerald-600" />
               <span>Copier script SQL Déblocage RLS</span>
             </button>
           </div>

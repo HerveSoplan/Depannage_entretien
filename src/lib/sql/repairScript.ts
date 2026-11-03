@@ -79,100 +79,87 @@ CREATE POLICY "Accès complet utilisateurs app" ON public.utilisateurs
   WITH CHECK (true);
 
 -- ==============================================================================
--- 4. DÉBLOCAGE RLS DES AUTRES TABLES APPLICATIVES
+-- 4. ALIGNEMENT DES COLONNES & TYPES DES AUTRES TABLES
+-- ==============================================================================
+
+-- Pièces détachées
+ALTER TABLE IF EXISTS public.spare_parts
+  ADD COLUMN IF NOT EXISTS stock NUMERIC DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS stock_actuel NUMERIC DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS seuil_alerte NUMERIC DEFAULT 5,
+  ADD COLUMN IF NOT EXISTS stock_minimum NUMERIC DEFAULT 5,
+  ADD COLUMN IF NOT EXISTS creator TEXT;
+
+-- Codes erreur
+ALTER TABLE IF EXISTS public.error_codes
+  ADD COLUMN IF NOT EXISTS cause TEXT,
+  ADD COLUMN IF NOT EXISTS action TEXT,
+  ADD COLUMN IF NOT EXISTS chapitre TEXT,
+  ADD COLUMN IF NOT EXISTS type_alarme TEXT,
+  ADD COLUMN IF NOT EXISTS machine_type TEXT DEFAULT 'Tous',
+  ADD COLUMN IF NOT EXISTS creator TEXT;
+
+-- Tâches d'entretien
+ALTER TABLE IF EXISTS public.taches_entretien
+  ADD COLUMN IF NOT EXISTS titre TEXT,
+  ADD COLUMN IF NOT EXISTS machine_type TEXT DEFAULT 'Tous',
+  ADD COLUMN IF NOT EXISTS kit_number NUMERIC DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS service_number NUMERIC DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS section_id TEXT,
+  ADD COLUMN IF NOT EXISTS section_title TEXT,
+  ADD COLUMN IF NOT EXISTS task_id TEXT,
+  ADD COLUMN IF NOT EXISTS task_label TEXT,
+  ADD COLUMN IF NOT EXISTS task_order NUMERIC DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS is_critical BOOLEAN DEFAULT false,
+  ADD COLUMN IF NOT EXISTS estimated_duration NUMERIC DEFAULT 5,
+  ADD COLUMN IF NOT EXISTS creator TEXT;
+
+ALTER TABLE IF EXISTS public.taches_entretien ALTER COLUMN section_id DROP NOT NULL;
+ALTER TABLE IF EXISTS public.taches_entretien ALTER COLUMN titre DROP NOT NULL;
+
+-- Champs machines personnalisés
+ALTER TABLE IF EXISTS public.machine_fields
+  ADD COLUMN IF NOT EXISTS machine_type TEXT DEFAULT 'Tous',
+  ADD COLUMN IF NOT EXISTS field_type TEXT DEFAULT 'text',
+  ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'text',
+  ADD COLUMN IF NOT EXISTS allow_custom_value BOOLEAN DEFAULT false,
+  ADD COLUMN IF NOT EXISTS conditional_rules JSONB,
+  ADD COLUMN IF NOT EXISTS creator TEXT;
+
+-- Options de champs machines
+ALTER TABLE IF EXISTS public.machine_field_options
+  ADD COLUMN IF NOT EXISTS label TEXT,
+  ADD COLUMN IF NOT EXISTS machine_type TEXT,
+  ADD COLUMN IF NOT EXISTS creator TEXT;
+
+-- Clients
+ALTER TABLE IF EXISTS public.clients
+  ADD COLUMN IF NOT EXISTS creator TEXT;
+
+-- Kits d'entretien
+ALTER TABLE IF EXISTS public.maintenance_kits
+  ADD COLUMN IF NOT EXISTS kit_id TEXT,
+  ADD COLUMN IF NOT EXISTS kit_number NUMERIC,
+  ADD COLUMN IF NOT EXISTS service_number NUMERIC,
+  ADD COLUMN IF NOT EXISTS machine_type TEXT,
+  ADD COLUMN IF NOT EXISTS pieces JSONB,
+  ADD COLUMN IF NOT EXISTS creator TEXT;
+
+-- ==============================================================================
+-- 5. DÉBLOCAGE INCONDITIONNEL DES POLITIQUES RLS SUR TOUTES LES TABLES
 -- ==============================================================================
 DO $$
+DECLARE
+  tbl text;
 BEGIN
-  -- Clients
-  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'clients') THEN
-    ALTER TABLE public.clients ENABLE ROW LEVEL SECURITY;
-    DROP POLICY IF EXISTS "Accès utilisateurs authentifiés" ON public.clients;
-    DROP POLICY IF EXISTS "Accès complet clients app" ON public.clients;
-    CREATE POLICY "Accès complet clients app" ON public.clients FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
-  END IF;
-
-  -- Machines
-  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'machines') THEN
-    ALTER TABLE public.machines ENABLE ROW LEVEL SECURITY;
-    DROP POLICY IF EXISTS "Accès machines authentifiés" ON public.machines;
-    DROP POLICY IF EXISTS "Accès complet machines app" ON public.machines;
-    CREATE POLICY "Accès complet machines app" ON public.machines FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
-  END IF;
-
-  -- Interventions
-  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'interventions') THEN
-    ALTER TABLE public.interventions ENABLE ROW LEVEL SECURITY;
-    DROP POLICY IF EXISTS "Accès interventions authentifiés" ON public.interventions;
-    DROP POLICY IF EXISTS "Accès complet interventions app" ON public.interventions;
-    CREATE POLICY "Accès complet interventions app" ON public.interventions FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
-  END IF;
-
-  -- Protocoles installation
-  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'installation_protocols') THEN
-    ALTER TABLE public.installation_protocols ENABLE ROW LEVEL SECURITY;
-    DROP POLICY IF EXISTS "Accès protocoles installation" ON public.installation_protocols;
-    DROP POLICY IF EXISTS "Accès complet protocoles installation app" ON public.installation_protocols;
-    CREATE POLICY "Accès complet protocoles installation app" ON public.installation_protocols FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
-  END IF;
-
-  -- Protocoles mise en service
-  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'commissioning_protocols') THEN
-    ALTER TABLE public.commissioning_protocols ENABLE ROW LEVEL SECURITY;
-    DROP POLICY IF EXISTS "Accès protocoles mise en service" ON public.commissioning_protocols;
-    DROP POLICY IF EXISTS "Accès complet protocoles mise en service app" ON public.commissioning_protocols;
-    CREATE POLICY "Accès complet protocoles mise en service app" ON public.commissioning_protocols FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
-  END IF;
-
-  -- Pièces détachées
-  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'spare_parts') THEN
-    ALTER TABLE public.spare_parts ENABLE ROW LEVEL SECURITY;
-    DROP POLICY IF EXISTS "Lecture publique pièces" ON public.spare_parts;
-    DROP POLICY IF EXISTS "Accès complet pieces app" ON public.spare_parts;
-    CREATE POLICY "Accès complet pieces app" ON public.spare_parts FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
-  END IF;
-
-  -- Messages clients
-  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'client_messages') THEN
-    ALTER TABLE public.client_messages ENABLE ROW LEVEL SECURITY;
-    DROP POLICY IF EXISTS "Accès messages clients authentifiés" ON public.client_messages;
-    DROP POLICY IF EXISTS "Accès complet client_messages app" ON public.client_messages;
-    CREATE POLICY "Accès complet client_messages app" ON public.client_messages FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
-  END IF;
-
-  -- Kits d'entretien
-  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'maintenance_kits') THEN
-    ALTER TABLE public.maintenance_kits ENABLE ROW LEVEL SECURITY;
-    DROP POLICY IF EXISTS "Accès complet maintenance_kits app" ON public.maintenance_kits;
-    CREATE POLICY "Accès complet maintenance_kits app" ON public.maintenance_kits FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
-  END IF;
-
-  -- Tâches d'entretien
-  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'taches_entretien') THEN
-    ALTER TABLE public.taches_entretien ENABLE ROW LEVEL SECURITY;
-    DROP POLICY IF EXISTS "Accès complet taches_entretien app" ON public.taches_entretien;
-    CREATE POLICY "Accès complet taches_entretien app" ON public.taches_entretien FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
-  END IF;
-
-  -- Codes erreur
-  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'error_codes') THEN
-    ALTER TABLE public.error_codes ENABLE ROW LEVEL SECURITY;
-    DROP POLICY IF EXISTS "Accès complet error_codes app" ON public.error_codes;
-    CREATE POLICY "Accès complet error_codes app" ON public.error_codes FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
-  END IF;
-
-  -- Champs machines
-  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'machine_fields') THEN
-    ALTER TABLE public.machine_fields ENABLE ROW LEVEL SECURITY;
-    DROP POLICY IF EXISTS "Accès complet machine_fields app" ON public.machine_fields;
-    CREATE POLICY "Accès complet machine_fields app" ON public.machine_fields FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
-  END IF;
-
-  -- Options de champs machines
-  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'machine_field_options') THEN
-    ALTER TABLE public.machine_field_options ENABLE ROW LEVEL SECURITY;
-    DROP POLICY IF EXISTS "Accès complet machine_field_options app" ON public.machine_field_options;
-    CREATE POLICY "Accès complet machine_field_options app" ON public.machine_field_options FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
-  END IF;
+  FOR tbl IN
+    SELECT tablename FROM pg_tables WHERE schemaname = 'public'
+  LOOP
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY;', tbl);
+    EXECUTE format('DROP POLICY IF EXISTS "Accès complet %I app" ON public.%I;', tbl, tbl);
+    EXECUTE format('DROP POLICY IF EXISTS "Accès complet app %I" ON public.%I;', tbl, tbl);
+    EXECUTE format('CREATE POLICY "Accès complet %I app" ON public.%I FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);', tbl, tbl);
+  END LOOP;
 END $$;
 
 -- ==============================================================================
