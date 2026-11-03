@@ -5,10 +5,10 @@ export function useInterventions() {
   const [interventions, setInterventions] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const fetchInterventions = async () => {
+  const fetchInterventions = async (options?: any) => {
     setLoading(true);
     try {
-      const data = await db.interventions.list();
+      const data = await db.interventions.list(options);
       console.log('Interventions chargées:', data);
       setInterventions(data || []);
     } catch (error) {

@@ -206,9 +206,9 @@ export const sanitizeUserDataForSupabase = (
   }
 
   // Ne transmettre l'UUID que si c'est un format UUID valide (en création)
-  const isUuid = (val: any) => typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(val);
+  const isUuidCheck = (val: any) => typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(val);
   const potentialId = userData.id || userData._id;
-  if (potentialId && isUuid(potentialId) && !options.isUpdate) {
+  if (potentialId && isUuidCheck(potentialId) && !options.isUpdate) {
     payload.id = potentialId;
   }
 
@@ -229,6 +229,203 @@ export const sanitizeUserDataForSupabase = (
   }
 
   return payload;
+};
+
+// Helper universel de validation de format UUID PostgreSQL
+export const isUuid = (val: any): boolean => {
+  return typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val.trim());
+};
+
+// Mappeur de type d'intervention vers la contrainte CHECK PostgreSQL ('installation', 'mise_en_service', 'maintenance', 'depannage', 'controle')
+export const mapInterventionTypeToDb = (type?: string): 'installation' | 'mise_en_service' | 'maintenance' | 'depannage' | 'controle' => {
+  const t = (type || '').toLowerCase();
+  if (t === 'repair' || t === 'depannage') return 'depannage';
+  if (t === 'installation' || t === 'montage') return 'installation';
+  if (t === 'commissioning' || t.includes('service')) return 'mise_en_service';
+  if (t === 'controle') return 'controle';
+  return 'maintenance';
+};
+
+// Mappeur de type d'intervention depuis PostgreSQL vers la nomenclature applicative
+export const mapInterventionTypeFromDb = (type?: string): string => {
+  const t = (type || '').toLowerCase();
+  if (t === 'depannage') return 'REPAIR';
+  if (t === 'installation') return 'INSTALLATION';
+  if (t === 'mise_en_service') return 'COMMISSIONING';
+  if (t === 'controle') return 'CONTROLE';
+  return 'MAINTENANCE';
+};
+
+// Mappeur de statut vers la contrainte CHECK PostgreSQL ('planifiee', 'en_cours', 'terminee', 'annulee')
+export const mapInterventionStatutToDb = (statut?: string): 'planifiee' | 'en_cours' | 'terminee' | 'annulee' => {
+  const s = (statut || '').toLowerCase();
+  if (s === 'en_cours' || s === 'in_progress') return 'en_cours';
+  if (s === 'terminee' || s === 'completed' || s === 'cloturee') return 'terminee';
+  if (s === 'annulee' || s === 'cancelled') return 'annulee';
+  return 'planifiee';
+};
+
+// Mappeur de statut depuis PostgreSQL vers la nomenclature applicative
+export const mapInterventionStatutFromDb = (statut?: string): string => {
+  const s = (statut || '').toLowerCase();
+  if (s === 'en_cours') return 'EN_COURS';
+  if (s === 'terminee') return 'TERMINEE';
+  if (s === 'annulee') return 'ANNULEE';
+  return 'PLANIFIEE';
+};
+
+// Sérialiseur strict pour la table interventions de Supabase
+export const sanitizeInterventionForSupabase = (
+  interventionData: any,
+  options: { existingRapport?: any; isUpdate?: boolean } = {}
+) => {
+  if (!interventionData || typeof interventionData !== 'object') return {};
+
+  const existingRapport = options.existingRapport || {};
+  const currentRapport = typeof interventionData.rapport === 'object' && interventionData.rapport !== null ? interventionData.rapport : {};
+
+  // Vérification stricte des identifiants UUID pour éviter l'erreur Postgres "invalid input syntax for type uuid"
+  const rawClientId = interventionData.clientId || interventionData.client_id;
+  const clientId = isUuid(rawClientId) ? rawClientId : null;
+
+  const rawFirstMachineId = Array.isArray(interventionData.machineIds) && interventionData.machineIds.length > 0
+    ? interventionData.machineIds[0]
+    : (interventionData.machineId || interventionData.machine_id);
+  const machineId = isUuid(rawFirstMachineId) ? rawFirstMachineId : null;
+
+  const rawTechId = interventionData.technicienPrincipalId || interventionData.technicienId || interventionData.technicien_principal_id;
+  const technicienPrincipalId = isUuid(rawTechId) ? rawTechId : null;
+
+  // Préservation intégrale des données riches (protocolData, kits, sections, montage, etc.) dans la colonne JSONB rapport
+  const rapport = {
+    ...existingRapport,
+    ...currentRapport,
+    protocolData: interventionData.protocolData ?? currentRapport.protocolData ?? existingRapport.protocolData ?? null,
+    machines: interventionData.machines ?? currentRapport.machines ?? existingRapport.machines ?? null,
+    machineIds: interventionData.machineIds ?? currentRapport.machineIds ?? existingRapport.machineIds ?? (machineId ? [machineId] : []),
+    kits: interventionData.kits ?? currentRapport.kits ?? existingRapport.kits ?? null,
+    selectedSections: interventionData.selectedSections ?? currentRapport.selectedSections ?? existingRapport.selectedSections ?? null,
+    tachesCompletees: interventionData.tachesCompletees ?? currentRapport.tachesCompletees ?? existingRapport.tachesCompletees ?? null,
+    progressionGlobale: interventionData.progressionGlobale ?? interventionData.progress ?? currentRapport.progressionGlobale ?? existingRapport.progressionGlobale ?? null,
+    totalTasks: interventionData.totalTasks ?? interventionData.totalTaches ?? currentRapport.totalTasks ?? existingRapport.totalTasks ?? null,
+    completedTasks: interventionData.completedTasks ?? interventionData.tachesCompleteesCount ?? currentRapport.completedTasks ?? existingRapport.completedTasks ?? null,
+    montageId: interventionData.montageId ?? currentRapport.montageId ?? existingRapport.montageId ?? null,
+    technicienIdOriginal: rawTechId ?? currentRapport.technicienIdOriginal ?? existingRapport.technicienIdOriginal ?? null,
+    technicienNom: interventionData.technicianName ?? interventionData.technicienNom ?? currentRapport.technicienNom ?? existingRapport.technicienNom ?? null,
+    clientNom: interventionData.clientNom ?? currentRapport.clientNom ?? existingRapport.clientNom ?? null,
+    geolocalisation: interventionData.geolocalisation ?? currentRapport.geolocalisation ?? existingRapport.geolocalisation ?? null,
+    creator: interventionData.creator ?? currentRapport.creator ?? existingRapport.creator ?? null
+  };
+
+  const payload: Record<string, any> = {
+    rapport,
+    updated_at: new Date().toISOString()
+  };
+
+  if (interventionData.type || interventionData.type_intervention) {
+    payload.type_intervention = mapInterventionTypeToDb(interventionData.type || interventionData.type_intervention);
+  } else if (!options.isUpdate) {
+    payload.type_intervention = 'maintenance';
+  }
+
+  if (interventionData.statut || interventionData.status) {
+    payload.statut = mapInterventionStatutToDb(interventionData.statut || interventionData.status);
+  } else if (!options.isUpdate) {
+    payload.statut = 'planifiee';
+  }
+
+  if (clientId !== undefined) payload.client_id = clientId;
+  if (machineId !== undefined) payload.machine_id = machineId;
+  if (technicienPrincipalId !== undefined) payload.technicien_principal_id = technicienPrincipalId;
+
+  if (interventionData.numeroIntervention || interventionData.numero_intervention) {
+    payload.numero_intervention = interventionData.numeroIntervention || interventionData.numero_intervention;
+  }
+
+  if (interventionData.description !== undefined || interventionData.diagnostic !== undefined) {
+    payload.description = interventionData.description || interventionData.diagnostic || null;
+  }
+
+  if (interventionData.observations !== undefined || interventionData.actionsRealisees !== undefined) {
+    payload.observations = interventionData.observations || interventionData.actionsRealisees || null;
+  }
+
+  if (interventionData.piecesUtilisees !== undefined || interventionData.pieces !== undefined || interventionData.pieces_utilisees !== undefined) {
+    payload.pieces_utilisees = interventionData.piecesUtilisees || interventionData.pieces || interventionData.pieces_utilisees || [];
+  }
+
+  if (interventionData.dateDebut || interventionData.date_debut) {
+    payload.date_debut = interventionData.dateDebut || interventionData.date_debut;
+  }
+
+  if (interventionData.dateFin || interventionData.date_fin) {
+    payload.date_fin = interventionData.dateFin || interventionData.date_fin;
+  }
+
+  if (interventionData.datePrevue || interventionData.date_prevue) {
+    payload.date_prevue = interventionData.datePrevue || interventionData.date_prevue;
+  }
+
+  if (interventionData.signatureClient || interventionData.signature_client) {
+    payload.signature_client = interventionData.signatureClient || interventionData.signature_client;
+  }
+
+  if (interventionData.nomSignataire || interventionData.nom_signataire) {
+    payload.nom_signataire = interventionData.nomSignataire || interventionData.nom_signataire;
+  }
+
+  if (interventionData.dateSignature || interventionData.date_signature) {
+    payload.date_signature = interventionData.dateSignature || interventionData.date_signature;
+  }
+
+  if (interventionData.dureeMinutes !== undefined || interventionData.duree_minutes !== undefined || interventionData.tempsPasse !== undefined) {
+    payload.duree_minutes = interventionData.dureeMinutes ?? interventionData.duree_minutes ?? interventionData.tempsPasse ?? null;
+  }
+
+  return payload;
+};
+
+// Désérialiseur d'intervention depuis Supabase vers les composants React
+export const formatInterventionFromSupabase = (raw: any): any => {
+  if (!raw) return null;
+  const rapport = typeof raw.rapport === 'object' && raw.rapport !== null ? raw.rapport : {};
+  const typeUpper = mapInterventionTypeFromDb(raw.type_intervention || raw.type);
+  const statutUpper = mapInterventionStatutFromDb(raw.statut || raw.status);
+
+  return {
+    ...raw,
+    ...rapport,
+    _id: raw.id,
+    id: raw.id,
+    numeroIntervention: raw.numero_intervention || raw.numeroIntervention,
+    type: typeUpper,
+    typeIntervention: raw.type_intervention || raw.typeIntervention,
+    statut: statutUpper,
+    status: raw.statut || raw.status,
+    clientId: raw.client_id || raw.clientId,
+    clientNom: raw.client_nom || raw.clientNom || rapport.clientNom || 'Client',
+    clientVille: raw.client_ville || raw.clientVille || '',
+    machineId: raw.machine_id || raw.machineId,
+    machineIds: rapport.machineIds || (raw.machine_id ? [raw.machine_id] : (raw.machineIds || [])),
+    machineNumeroSerie: raw.machine_numero_serie || raw.machineNumeroSerie || 'N/A',
+    machineModele: raw.machine_modele || raw.machineModele || 'Équipement',
+    technicienPrincipalId: raw.technicien_principal_id || raw.technicienPrincipalId,
+    technicienId: raw.technicien_principal_id || rapport.technicienIdOriginal || raw.technicienId || 'TECH001',
+    technicienNom: raw.technicien_nom || raw.technicienNom || (rapport.technicienNom || 'Technicien'),
+    technicianName: raw.technicien_nom || raw.technicienNom || (rapport.technicienNom || 'Technicien'),
+    dateDebut: raw.date_debut || raw.dateDebut,
+    dateFin: raw.date_fin || raw.dateFin,
+    datePrevue: raw.date_prevue || raw.datePrevue,
+    piecesUtilisees: raw.pieces_utilisees || raw.piecesUtilisees || [],
+    protocolData: rapport.protocolData ?? raw.protocolData,
+    machines: rapport.machines ?? raw.machines,
+    kits: rapport.kits ?? raw.kits,
+    selectedSections: rapport.selectedSections ?? raw.selectedSections,
+    montageId: rapport.montageId ?? raw.montageId,
+    progressionGlobale: rapport.progressionGlobale ?? raw.progressionGlobale ?? raw.progress,
+    totalTasks: rapport.totalTasks ?? raw.totalTasks ?? raw.totalTaches,
+    completedTasks: rapport.completedTasks ?? raw.completedTasks ?? raw.tachesCompleteesCount
+  };
 };
 
 // API universelle avec bascule automatique Démo instantanée / Supabase en ligne
@@ -923,101 +1120,240 @@ export const db = {
     }
   },
 
-  // Interventions
+  // Interventions (Dépannages, Entretiens, Montages, Mises en service)
   interventions: {
-    list: async () => {
+    list: async (options?: any) => {
+      let list: any[] = [];
+      let loadedFromSupabase = false;
+
       if (isLiveSupabaseActive()) {
         try {
-          const { data, error } = await supabase
-            .from('v_interventions_details')
-            .select('*')
-            .order('date_prevue', { ascending: false });
-          if (!error && data) return toCamelCase(data);
+          // Utilise en priorité la vue détaillée SQL si disponible, sinon la table interventions
+          let query = supabase.from('v_interventions_details').select('*');
+          if (options?.limit) query = query.limit(options.limit);
+          const { data, error } = await query.order('created_at', { ascending: false });
+
+          if (!error && Array.isArray(data)) {
+            list = data.map(formatInterventionFromSupabase);
+            loadedFromSupabase = true;
+          } else if (error) {
+            console.warn('Requête v_interventions_details en erreur, tentative directe sur table interventions:', error.message);
+            const { data: directData, error: directErr } = await supabase
+              .from('interventions')
+              .select('*')
+              .order('created_at', { ascending: false });
+            if (!directErr && Array.isArray(directData)) {
+              list = directData.map(formatInterventionFromSupabase);
+              loadedFromSupabase = true;
+            }
+          }
         } catch (e) {
-          // Fallback démo
+          console.warn('Exception interventions.list Supabase:', e);
         }
       }
-      const raw = demoDb.getTable('interventions');
+
+      // Si Supabase a répondu avec des données, synchroniser demoDb
+      if (loadedFromSupabase && list.length > 0) {
+        try {
+          list.forEach((item: any) => {
+            const existing = demoDb.findById('interventions', item.id);
+            if (!existing) {
+              demoDb.insert('interventions', item);
+            }
+          });
+        } catch {
+          // ignore
+        }
+        return list;
+      }
+
+      // Repli sur le stockage local (demoDb) si Supabase vide ou hors ligne
+      const raw = demoDb.getTable('interventions') || [];
       return raw.map((i: any) => {
         const client = demoDb.findById('clients', i.clientId);
         const machine = demoDb.findById('machines', i.machineId);
-        const tech = demoDb.findById('utilisateurs', i.technicienPrincipalId);
+        const tech = demoDb.findById('utilisateurs', i.technicienPrincipalId || i.technicienId);
         return {
           ...i,
-          clientNom: client?.nom || 'Client démo',
-          clientVille: client?.ville || 'Reims',
-          machineNumeroSerie: machine?.numeroSerie || 'N/A',
-          machineModele: machine?.modele || 'Équipement démo',
-          technicienNom: tech ? `${tech.prenom} ${tech.nom}` : 'Technicien Démo'
+          _id: i.id || i._id,
+          id: i.id || i._id,
+          type: i.type || mapInterventionTypeFromDb(i.type_intervention || i.typeIntervention),
+          statut: i.statut || mapInterventionStatutFromDb(i.statut || i.status),
+          clientNom: i.clientNom || client?.nom || 'Client',
+          clientVille: i.clientVille || client?.ville || '',
+          machineNumeroSerie: i.machineNumeroSerie || machine?.numeroSerie || 'N/A',
+          machineModele: i.machineModele || machine?.modele || 'Équipement',
+          technicienNom: i.technicienNom || (tech ? `${tech.prenom || ''} ${tech.nom || ''}`.trim() : 'Technicien')
         };
       });
     },
 
     get: async (id: string) => {
+      if (!id) return null;
+
       if (isLiveSupabaseActive()) {
         try {
-          const { data, error } = await supabase
-            .from('interventions')
-            .select('*')
-            .eq('id', id)
-            .single();
-          if (!error && data) return toCamelCase(data);
+          if (isUuid(id)) {
+            const { data, error } = await supabase
+              .from('v_interventions_details')
+              .select('*')
+              .eq('id', id)
+              .maybeSingle();
+            if (!error && data) return formatInterventionFromSupabase(data);
+
+            const { data: directData, error: directErr } = await supabase
+              .from('interventions')
+              .select('*')
+              .eq('id', id)
+              .maybeSingle();
+            if (!directErr && directData) return formatInterventionFromSupabase(directData);
+          } else {
+            // Recherche par numero_intervention ou id texte
+            const { data, error } = await supabase
+              .from('v_interventions_details')
+              .select('*')
+              .eq('numero_intervention', id)
+              .limit(1)
+              .maybeSingle();
+            if (!error && data) return formatInterventionFromSupabase(data);
+          }
         } catch (e) {
-          // Fallback démo
+          console.warn('Exception interventions.get Supabase:', e);
         }
       }
-      const item = demoDb.findById('interventions', id);
+
+      const item = demoDb.findById('interventions', id) || (demoDb.getTable('interventions') || []).find((i: any) => i.numeroIntervention === id || i.numero_intervention === id);
       if (item) {
         const client = demoDb.findById('clients', item.clientId);
         const machine = demoDb.findById('machines', item.machineId);
         return {
           ...item,
-          clientNom: client?.nom || 'Client démo',
-          machineModele: machine?.modele || 'Équipement démo'
+          _id: item.id || item._id,
+          id: item.id || item._id,
+          type: item.type || mapInterventionTypeFromDb(item.type_intervention || item.typeIntervention),
+          statut: item.statut || mapInterventionStatutFromDb(item.statut || item.status),
+          clientNom: item.clientNom || client?.nom || 'Client',
+          machineModele: item.machineModele || machine?.modele || 'Équipement'
         };
       }
       return null;
     },
 
     create: async (interventionData: any) => {
+      console.log('🚀 [SUPABASE] Création intervention:', interventionData?.numeroIntervention, interventionData?.type);
+      let createdItem: any = null;
+
       if (isLiveSupabaseActive()) {
         try {
+          const payload = sanitizeInterventionForSupabase(interventionData);
           const { data, error } = await supabase
             .from('interventions')
-            .insert(toSnakeCase(interventionData))
+            .insert(payload)
             .select()
             .single();
-          if (!error && data) return toCamelCase(data);
-        } catch (e) {
-          // Fallback démo
+
+          if (error) {
+            console.error('❌ Erreur Supabase interventions.create:', error);
+          } else if (data) {
+            createdItem = formatInterventionFromSupabase(data);
+            console.log('✅ Intervention enregistrée avec succès dans Supabase ID:', createdItem.id);
+          }
+        } catch (e: any) {
+          console.error('❌ Exception Supabase interventions.create:', e);
         }
       }
-      return demoDb.insert('interventions', interventionData);
+
+      // Enregistrement miroir dans le stockage local pour assurer l'accès immédiat et hors-connexion
+      const localToSave = createdItem || {
+        ...interventionData,
+        _id: interventionData._id || interventionData.id || ('int_' + Date.now().toString(36)),
+        id: interventionData._id || interventionData.id || ('int_' + Date.now().toString(36)),
+        createdAt: interventionData.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      demoDb.insert('interventions', localToSave);
+
+      return createdItem || localToSave;
     },
 
     update: async (id: string, interventionData: any) => {
+      console.log('🔄 [SUPABASE] Mise à jour intervention ID:', id);
+      let updatedItem: any = null;
+
       if (isLiveSupabaseActive()) {
         try {
-          const { data, error } = await supabase
-            .from('interventions')
-            .update(toSnakeCase(interventionData))
-            .eq('id', id)
-            .select()
-            .single();
-          if (!error && data) return toCamelCase(data);
+          let targetUuid: string | null = isUuid(id) ? id : null;
+          let existingRapport: any = {};
+          let existingType: string | undefined = undefined;
+
+          if (targetUuid) {
+            const { data: existing } = await supabase
+              .from('interventions')
+              .select('id, rapport, type_intervention')
+              .eq('id', targetUuid)
+              .maybeSingle();
+            if (existing) {
+              existingRapport = existing.rapport || {};
+              existingType = existing.type_intervention;
+            }
+          } else {
+            // Chercher par numero_intervention si l'id n'est pas un UUID
+            const num = interventionData.numeroIntervention || interventionData.numero_intervention || id;
+            const { data: existing } = await supabase
+              .from('interventions')
+              .select('id, rapport, type_intervention')
+              .eq('numero_intervention', num)
+              .maybeSingle();
+            if (existing) {
+              targetUuid = existing.id;
+              existingRapport = existing.rapport || {};
+              existingType = existing.type_intervention;
+            }
+          }
+
+          if (targetUuid) {
+            const payload = sanitizeInterventionForSupabase(interventionData, {
+              existingRapport,
+              isUpdate: true
+            });
+            if (!payload.type_intervention && existingType) {
+              payload.type_intervention = existingType;
+            }
+
+            const { data, error } = await supabase
+              .from('interventions')
+              .update(payload)
+              .eq('id', targetUuid)
+              .select()
+              .single();
+
+            if (error) {
+              console.error('❌ Erreur Supabase interventions.update:', error);
+            } else if (data) {
+              updatedItem = formatInterventionFromSupabase(data);
+              console.log('✅ Intervention mise à jour dans Supabase ID:', targetUuid);
+            }
+          }
         } catch (e) {
-          // Fallback démo
+          console.error('❌ Exception Supabase interventions.update:', e);
         }
       }
-      return demoDb.update('interventions', id, interventionData);
+
+      // Mise à jour miroir dans le stockage local
+      const localResult = demoDb.update('interventions', id, updatedItem || interventionData);
+      return updatedItem || localResult;
     },
 
     delete: async (id: string) => {
       if (isLiveSupabaseActive()) {
         try {
-          await supabase.from('interventions').delete().eq('id', id);
+          if (isUuid(id)) {
+            await supabase.from('interventions').delete().eq('id', id);
+          } else {
+            await supabase.from('interventions').delete().eq('numero_intervention', id);
+          }
         } catch (e) {
-          // Fallback démo
+          console.warn('Exception Supabase interventions.delete:', e);
         }
       }
       return demoDb.delete('interventions', id);
@@ -1029,31 +1365,85 @@ export const db = {
     get: async (interventionId: string) => {
       if (isLiveSupabaseActive()) {
         try {
-          const { data, error } = await supabase
-            .from('installation_protocols')
-            .select('*')
-            .eq('intervention_id', interventionId)
-            .single();
-          if (!error && data) return toCamelCase(data);
+          if (isUuid(interventionId)) {
+            const { data, error } = await supabase
+              .from('installation_protocols')
+              .select('*')
+              .eq('intervention_id', interventionId)
+              .limit(1)
+              .maybeSingle();
+            if (!error && data) {
+              const camel = toCamelCase(data);
+              const points = (data.points_controle && typeof data.points_controle === 'object') ? data.points_controle : {};
+              return {
+                ...camel,
+                ...points,
+                id: data.id,
+                _id: data.id,
+                interventionId: data.intervention_id || interventionId
+              };
+            }
+          }
         } catch (e) {
-          // Fallback démo
+          console.warn('Exception installationProtocols.get:', e);
         }
       }
-      const all = demoDb.getTable('installationProtocols');
-      return all.find((p: any) => p.interventionId === interventionId) || null;
+      const all = demoDb.getTable('installationProtocols') || [];
+      return all.find((p: any) => p.interventionId === interventionId || p.id === interventionId) || null;
     },
 
     upsert: async (protocolData: any) => {
       if (isLiveSupabaseActive()) {
         try {
-          const { data, error } = await supabase
-            .from('installation_protocols')
-            .upsert(toSnakeCase(protocolData), { onConflict: 'intervention_id' })
-            .select()
-            .single();
-          if (!error && data) return toCamelCase(data);
+          const interId = isUuid(protocolData.interventionId) ? protocolData.interventionId : null;
+          const machId = isUuid(protocolData.machineId || protocolData.machineReferenceId)
+            ? (protocolData.machineId || protocolData.machineReferenceId)
+            : null;
+
+          const payload: any = {
+            statut: protocolData.statut?.toLowerCase() === 'terminee' ? 'terminee' : 'en_cours',
+            commentaires: protocolData.commentaires || protocolData.numeroIntervention || null,
+            etapes: Array.isArray(protocolData.machines) ? protocolData.machines : (protocolData.etapes || []),
+            points_controle: protocolData,
+            updated_at: new Date().toISOString()
+          };
+          if (interId) payload.intervention_id = interId;
+          if (machId) payload.machine_id = machId;
+
+          let resData: any = null;
+          if (interId) {
+            const { data: existing } = await supabase
+              .from('installation_protocols')
+              .select('id')
+              .eq('intervention_id', interId)
+              .limit(1)
+              .maybeSingle();
+            if (existing) {
+              const { data, error } = await supabase
+                .from('installation_protocols')
+                .update(payload)
+                .eq('id', existing.id)
+                .select()
+                .single();
+              if (!error && data) resData = data;
+            }
+          }
+
+          if (!resData) {
+            const { data, error } = await supabase
+              .from('installation_protocols')
+              .insert(payload)
+              .select()
+              .single();
+            if (!error && data) resData = data;
+          }
+
+          if (resData) {
+            const camel = toCamelCase(resData);
+            return { ...camel, ...protocolData, id: resData.id, _id: resData.id };
+          }
         } catch (e) {
-          // Fallback démo
+          console.warn('Exception installationProtocols.upsert:', e);
         }
       }
       const existing = (demoDb.getTable('installationProtocols') || []).find((p: any) => p.interventionId === protocolData.interventionId);
@@ -1067,48 +1457,123 @@ export const db = {
   // Montages & Protocoles de montage avec calcul des heures
   montages: {
     list: async (options?: any) => {
+      let supabaseMontages: any[] = [];
       if (isLiveSupabaseActive()) {
         try {
           const { data, error } = await supabase
             .from('installation_protocols')
             .select('*')
             .order('created_at', { ascending: false });
-          if (!error && data && data.length > 0) {
-            return toCamelCase(data).map((item: any) => ({
-              ...item,
-              _id: item.montageId || item.id,
-              id: item.montageId || item.id
-            }));
+
+          if (!error && Array.isArray(data) && data.length > 0) {
+            supabaseMontages = data.map((item: any) => {
+              const pts = (item.points_controle && typeof item.points_controle === 'object') ? item.points_controle : {};
+              const generatedId = pts.montageId || pts.id || pts._id || item.id;
+              return {
+                ...toCamelCase(item),
+                ...pts,
+                _id: generatedId,
+                id: generatedId,
+                protocolDbId: item.id,
+                interventionId: item.intervention_id || pts.interventionId
+              };
+            });
           }
         } catch (e) {
           console.warn('Erreur Supabase montages.list:', e);
         }
       }
-      return demoDb.getTable('montages') || [];
+
+      // Fusion avec demoDb
+      const local = demoDb.getTable('montages') || [];
+      if (supabaseMontages.length > 0) {
+        const ids = new Set(supabaseMontages.map(m => m.id || m._id));
+        const merged = [...supabaseMontages];
+        local.forEach((loc: any) => {
+          if (!ids.has(loc.id) && !ids.has(loc._id)) {
+            merged.push(loc);
+          }
+        });
+        return merged;
+      }
+      return local;
     },
 
     get: async (id: string) => {
       if (!id) return null;
       if (isLiveSupabaseActive()) {
         try {
-          const { data, error } = await supabase
+          // 1. Chercher dans installation_protocols
+          if (isUuid(id)) {
+            const { data, error } = await supabase
+              .from('installation_protocols')
+              .select('*')
+              .or(`id.eq.${id},intervention_id.eq.${id}`)
+              .limit(1)
+              .maybeSingle();
+            if (!error && data) {
+              const pts = (data.points_controle && typeof data.points_controle === 'object') ? data.points_controle : {};
+              const genId = pts.montageId || pts.id || pts._id || data.id;
+              return {
+                ...toCamelCase(data),
+                ...pts,
+                _id: genId,
+                id: genId,
+                protocolDbId: data.id,
+                interventionId: data.intervention_id || pts.interventionId
+              };
+            }
+          }
+
+          // 2. Chercher dans installation_protocols par liste globale (points_controle->montageId)
+          const { data: allProtocols } = await supabase
             .from('installation_protocols')
             .select('*')
-            .or(`id.eq.${id},montage_id.eq.${id},intervention_id.eq.${id}`)
-            .limit(1)
-            .maybeSingle();
-          if (!error && data) {
-            const camel = toCamelCase(data);
-            return {
-              ...camel,
-              _id: camel.montageId || camel.id,
-              id: camel.montageId || camel.id
-            };
+            .order('created_at', { ascending: false });
+
+          if (Array.isArray(allProtocols)) {
+            const match = allProtocols.find((r: any) => {
+              const pts = r.points_controle || {};
+              return r.id === id || r.intervention_id === id || pts.montageId === id || pts.id === id || pts._id === id;
+            });
+            if (match) {
+              const pts = match.points_controle || {};
+              const genId = pts.montageId || pts.id || pts._id || match.id;
+              return {
+                ...toCamelCase(match),
+                ...pts,
+                _id: genId,
+                id: genId,
+                protocolDbId: match.id,
+                interventionId: match.intervention_id || pts.interventionId
+              };
+            }
+          }
+
+          // 3. Chercher dans interventions si le montage y est rattaché
+          if (isUuid(id)) {
+            const inter = await db.interventions.get(id);
+            if (inter?.montageId) {
+              return db.montages.get(inter.montageId);
+            }
+            if (inter?.machines && Array.isArray(inter.machines)) {
+              return {
+                _id: inter.id,
+                id: inter.id,
+                interventionId: inter.id,
+                numeroIntervention: inter.numeroIntervention,
+                clientId: inter.clientId,
+                machines: inter.machines,
+                statut: inter.statut,
+                totalHeures: inter.totalHeures || 0
+              };
+            }
           }
         } catch (e) {
           console.warn('Erreur Supabase montages.get:', e);
         }
       }
+
       const all = demoDb.getTable('montages') || [];
       return all.find((m: any) => m.id === id || m._id === id || m.interventionId === id || m.montageId === id) || null;
     },
@@ -1119,23 +1584,27 @@ export const db = {
         ...montageData,
         _id: generatedId,
         id: generatedId,
+        montageId: generatedId,
         createdAt: montageData.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
 
       if (isLiveSupabaseActive()) {
         try {
+          const interId = isUuid(fullMontage.interventionId) ? fullMontage.interventionId : null;
+          const machId = isUuid(fullMontage.machineReferenceId || fullMontage.machineId)
+            ? (fullMontage.machineReferenceId || fullMontage.machineId)
+            : null;
+
           const supabasePayload: any = {
-            montage_id: generatedId,
-            intervention_id: fullMontage.interventionId || null,
-            client_id: fullMontage.clientId || null,
-            numero_intervention: fullMontage.numeroIntervention || null,
-            statut: fullMontage.statut || 'EN_COURS',
-            chef_de_chantier_id: fullMontage.chefDeChantierId || null,
-            machines: fullMontage.machines || [],
-            sections: fullMontage.sections || fullMontage.journaliers || {},
-            temps_total: Math.round((fullMontage.totalHeures || 0) * 60)
+            statut: fullMontage.statut === 'TERMINEE' ? 'terminee' : 'en_cours',
+            commentaires: fullMontage.numeroIntervention || 'Protocole de montage',
+            etapes: Array.isArray(fullMontage.machines) ? fullMontage.machines : [],
+            points_controle: fullMontage,
+            updated_at: new Date().toISOString()
           };
+          if (interId) supabasePayload.intervention_id = interId;
+          if (machId) supabasePayload.machine_id = machId;
 
           const { data, error } = await supabase
             .from('installation_protocols')
@@ -1144,44 +1613,76 @@ export const db = {
             .single();
 
           if (!error && data) {
-            const saved = { ...fullMontage, ...toCamelCase(data), _id: generatedId, id: generatedId };
-            demoDb.insert('montages', saved);
-            return saved;
+            console.log('✅ Montage enregistré avec succès dans Supabase (installation_protocols)');
+          } else if (error) {
+            console.error('❌ Erreur Supabase montages.create:', error);
+          }
+
+          // Si une intervention est liée, mettre à jour son rapport avec le montageId et les machines
+          if (interId) {
+            await db.interventions.update(interId, {
+              montageId: generatedId,
+              machines: fullMontage.machines,
+              statut: fullMontage.statut || 'EN_COURS'
+            });
           }
         } catch (e) {
-          console.warn('Erreur Supabase montages.create:', e);
+          console.warn('Exception Supabase montages.create:', e);
         }
       }
 
-      return demoDb.insert('montages', fullMontage);
+      demoDb.insert('montages', fullMontage);
+      return fullMontage;
     },
 
     update: async (id: string, updates: any) => {
       const all = demoDb.getTable('montages') || [];
-      const existing = demoDb.findById('montages', id) || all.find((m: any) => m.interventionId === id || m.montageId === id);
+      const existing = demoDb.findById('montages', id) || all.find((m: any) => m.id === id || m._id === id || m.interventionId === id || m.montageId === id);
       const updatedMontage = {
         ...(existing || {}),
         ...updates,
         _id: existing?._id || id,
         id: existing?.id || id,
+        montageId: existing?.montageId || id,
         updatedAt: new Date().toISOString()
       };
 
       if (isLiveSupabaseActive()) {
         try {
-          const supabasePayload: any = {
+          const updatePayload: any = {
+            statut: updatedMontage.statut === 'TERMINEE' ? 'terminee' : 'en_cours',
+            commentaires: updatedMontage.numeroIntervention || null,
+            etapes: Array.isArray(updatedMontage.machines) ? updatedMontage.machines : [],
+            points_controle: updatedMontage,
             updated_at: new Date().toISOString()
           };
-          if (updates.statut) supabasePayload.statut = updates.statut;
-          if (updates.chefDeChantierId !== undefined) supabasePayload.chef_de_chantier_id = updates.chefDeChantierId;
-          if (updates.machines !== undefined) supabasePayload.machines = updates.machines;
-          if (updates.totalHeures !== undefined) supabasePayload.temps_total = Math.round(updates.totalHeures * 60);
-          if (updates.journaliers !== undefined) supabasePayload.sections = updates.journaliers;
 
-          await supabase
-            .from('installation_protocols')
-            .update(supabasePayload)
-            .or(`id.eq.${id},montage_id.eq.${id}`);
+          if (isUuid(id)) {
+            await supabase
+              .from('installation_protocols')
+              .update(updatePayload)
+              .or(`id.eq.${id},intervention_id.eq.${id}`);
+          } else {
+            // Trouver la ligne correspondante
+            const { data: rows } = await supabase.from('installation_protocols').select('id, points_controle');
+            if (Array.isArray(rows)) {
+              const matchedRow = rows.find(r => r.points_controle?.montageId === id || r.points_controle?.id === id || r.id === id);
+              if (matchedRow) {
+                await supabase.from('installation_protocols').update(updatePayload).eq('id', matchedRow.id);
+              }
+            }
+          }
+
+          // Mise à jour de l'intervention liée si présente
+          const targetInterId = updatedMontage.interventionId;
+          if (targetInterId && isUuid(targetInterId)) {
+            await db.interventions.update(targetInterId, {
+              montageId: updatedMontage.montageId || id,
+              machines: updatedMontage.machines,
+              statut: updatedMontage.statut,
+              totalHeures: updatedMontage.totalHeures
+            });
+          }
         } catch (e) {
           console.warn('Erreur Supabase montages.update:', e);
         }
@@ -1197,10 +1698,17 @@ export const db = {
     delete: async (id: string) => {
       if (isLiveSupabaseActive()) {
         try {
-          await supabase
-            .from('installation_protocols')
-            .delete()
-            .or(`id.eq.${id},montage_id.eq.${id}`);
+          if (isUuid(id)) {
+            await supabase.from('installation_protocols').delete().or(`id.eq.${id},intervention_id.eq.${id}`);
+          } else {
+            const { data: rows } = await supabase.from('installation_protocols').select('id, points_controle');
+            if (Array.isArray(rows)) {
+              const matched = rows.find(r => r.points_controle?.montageId === id || r.points_controle?.id === id);
+              if (matched) {
+                await supabase.from('installation_protocols').delete().eq('id', matched.id);
+              }
+            }
+          }
         } catch (e) {
           console.warn('Erreur Supabase montages.delete:', e);
         }
@@ -1209,38 +1717,118 @@ export const db = {
     }
   },
 
-  // Commissioning Protocols
+  // Commissioning Protocols (Protocoles de mise en service)
   commissioningProtocols: {
     get: async (interventionId: string) => {
       if (isLiveSupabaseActive()) {
         try {
-          const { data, error } = await supabase
-            .from('commissioning_protocols')
-            .select('*')
-            .eq('intervention_id', interventionId)
-            .single();
-          if (!error && data) return toCamelCase(data);
+          if (isUuid(interventionId)) {
+            const { data, error } = await supabase
+              .from('commissioning_protocols')
+              .select('*')
+              .eq('intervention_id', interventionId)
+              .limit(1)
+              .maybeSingle();
+
+            if (!error && data) {
+              const mesures = (data.mesures && typeof data.mesures === 'object') ? data.mesures : {};
+              return {
+                ...toCamelCase(data),
+                ...mesures,
+                id: data.id,
+                _id: data.id,
+                interventionId: data.intervention_id || interventionId,
+                session: mesures.session || {},
+                verifications: mesures.verifications || {},
+                progress: mesures.progress || { total: 0, completed: 0 },
+                status: data.statut === 'terminee' ? 'completed' : 'in_progress',
+                statut: data.statut === 'terminee' ? 'TERMINEE' : 'EN_COURS'
+              };
+            }
+          }
         } catch (e) {
-          // Fallback démo
+          console.warn('Exception commissioningProtocols.get:', e);
         }
       }
-      const all = demoDb.getTable('commissioningProtocols');
-      return all.find((p: any) => p.interventionId === interventionId) || null;
+      const all = demoDb.getTable('commissioningProtocols') || [];
+      return all.find((p: any) => p.interventionId === interventionId || p.id === interventionId) || null;
     },
 
     upsert: async (protocolData: any) => {
+      console.log('🚀 [SUPABASE] Enregistrement protocole mise en service:', protocolData?.interventionId);
+      const isCompleted = protocolData.status === 'completed' || protocolData.statut === 'TERMINEE' || protocolData.statut === 'terminee';
+
       if (isLiveSupabaseActive()) {
         try {
-          const { data, error } = await supabase
-            .from('commissioning_protocols')
-            .upsert(toSnakeCase(protocolData), { onConflict: 'intervention_id' })
-            .select()
-            .single();
-          if (!error && data) return toCamelCase(data);
+          const interId = isUuid(protocolData.interventionId) ? protocolData.interventionId : null;
+          const machId = isUuid(protocolData.machineId) ? protocolData.machineId : null;
+
+          const verifs = protocolData.verifications || {};
+          const testsEffectues = protocolData.testsEffectues || Object.values(verifs).flat();
+
+          const payload: any = {
+            statut: isCompleted ? 'terminee' : 'en_cours',
+            conforme: protocolData.conforme !== undefined ? Boolean(protocolData.conforme) : true,
+            tests_effectues: Array.isArray(testsEffectues) ? testsEffectues : [],
+            mesures: {
+              session: protocolData.session || {},
+              verifications: protocolData.verifications || {},
+              progress: protocolData.progress || {}
+            },
+            reserves: protocolData.reserves || null,
+            updated_at: new Date().toISOString()
+          };
+          if (interId) payload.intervention_id = interId;
+          if (machId) payload.machine_id = machId;
+
+          let resData: any = null;
+          if (interId) {
+            const { data: existing } = await supabase
+              .from('commissioning_protocols')
+              .select('id')
+              .eq('intervention_id', interId)
+              .limit(1)
+              .maybeSingle();
+
+            if (existing) {
+              const { data, error } = await supabase
+                .from('commissioning_protocols')
+                .update(payload)
+                .eq('id', existing.id)
+                .select()
+                .single();
+              if (!error && data) resData = data;
+              else if (error) console.error('❌ Erreur Supabase commissioning update:', error);
+            }
+          }
+
+          if (!resData) {
+            const { data, error } = await supabase
+              .from('commissioning_protocols')
+              .insert(payload)
+              .select()
+              .single();
+            if (!error && data) resData = data;
+            else if (error) console.error('❌ Erreur Supabase commissioning insert:', error);
+          }
+
+          if (resData) {
+            console.log('✅ Protocole mise en service enregistré avec succès dans Supabase ID:', resData.id);
+          }
+
+          // Mise à jour de l'intervention liée pour préserver son protocolData dans rapport
+          if (interId) {
+            await db.interventions.update(interId, {
+              protocolData,
+              statut: isCompleted ? 'TERMINEE' : 'EN_COURS',
+              dateFin: isCompleted ? new Date().toISOString() : undefined
+            });
+          }
         } catch (e) {
-          // Fallback démo
+          console.error('❌ Exception Supabase commissioningProtocols.upsert:', e);
         }
       }
+
       const existing = (demoDb.getTable('commissioningProtocols') || []).find((p: any) => p.interventionId === protocolData.interventionId);
       if (existing) {
         return demoDb.update('commissioningProtocols', existing.id, protocolData);
@@ -2210,6 +2798,27 @@ export const db = {
 
   get error_codes() {
     return this.errorCodes;
+  },
+
+  get spare_parts() {
+    return this.spareParts;
+  },
+
+  get intervention_parts() {
+    return {
+      list: async (options?: any) => {
+        const all = demoDb.getTable('intervention_parts') || [];
+        if (options?.filter?.interventionId) {
+          const filtered = all.filter((p: any) => p.interventionId === options.filter.interventionId);
+          return { list: filtered, count: filtered.length };
+        }
+        return { list: all, count: all.length };
+      },
+      get: async (id: string) => demoDb.findById('intervention_parts', id),
+      create: async (data: any) => demoDb.insert('intervention_parts', data),
+      update: async (id: string, data: any) => demoDb.update('intervention_parts', id, data),
+      delete: async (id: string) => demoDb.delete('intervention_parts', id)
+    };
   },
 
   get utilisateurs() {

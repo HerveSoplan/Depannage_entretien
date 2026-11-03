@@ -4,7 +4,23 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
-## [1.12.6] - 2026-11-03
+## [1.12.7] - 2026-11-03
+
+### Corrigé & Fiabilisé (Enregistrement Supabase — Montages, Dépannages, Mises en service & Entretiens)
+- **Résolution critique de l'échec d'enregistrement Supabase pour les 4 modules d'intervention ([supabase.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/lib/supabase.ts))** :
+  - **Correction du schéma de colonne PostgreSQL (`type_intervention` vs `type`)** : L'application envoyait `type: 'REPAIR'`, `type: 'INSTALLATION'`, `type: 'COMMISSIONING'`, `type: 'MAINTENANCE'`, ce qui déclenchait l'erreur PostgreSQL PostgREST 400 (`PGRST204: Could not find the 'type' column of 'interventions'`). Le mappeur automatique convertit désormais les types vers les valeurs de la contrainte CHECK PostgreSQL (`depannage`, `installation`, `mise_en_service`, `maintenance`, `controle`).
+  - **Normalisation des statuts PostgreSQL (`statut`)** : Mappage automatique entre la nomenclature frontend majuscule (`EN_COURS`, `TERMINEE`, `PLANIFIEE`, `ANNULEE`) et la contrainte CHECK PostgreSQL minuscule (`en_cours`, `terminee`, `planifiee`, `annulee`).
+  - **Protection des identifiants UUID (`client_id`, `machine_id`, `technicien_principal_id`)** : Validation stricte via `isUuid` évitant les rejets Postgres `invalid input syntax for type uuid` lorsque des identifiants de démonstration ou textuels sont fournis.
+  - **Préservation intégrale des données applicatives dans la colonne JSONB `rapport`** : Stockage complet des objets `protocolData` (constatations, tests, vérifications), `machines`, `kits`, `selectedSections`, `tachesCompletees`, `progressionGlobale`, et `montageId`.
+  - **Désérialisation bidirectionnelle ([formatInterventionFromSupabase](file:///d:/Aplli/D%C3%A9pannage_entretien/src/lib/supabase.ts))** : À la lecture depuis Supabase (`v_interventions_details` ou table `interventions`), reconstitution complète des attributs frontend (`type`, `statut`, `protocolData`, `machineIds`, etc.) permettant le bon fonctionnement des filtres, des badges de couleur et de la reprise d'interventions.
+- **Fiabilisation des protocoles de montage ([montages](file:///d:/Aplli/D%C3%A9pannage_entretien/src/lib/supabase.ts) & [installationProtocols](file:///d:/Aplli/D%C3%A9pannage_entretien/src/lib/supabase.ts))** :
+  - Sauvegarde et mise à jour des montages dans la table `installation_protocols` (`points_controle` JSONB, `etapes` JSONB, statut et commentaires) et liaison bidirectionnelle avec l'intervention parente.
+- **Fiabilisation des protocoles de mise en service ([commissioningProtocols](file:///d:/Aplli/D%C3%A9pannage_entretien/src/lib/supabase.ts))** :
+  - Sauvegarde des sessions, vérifications et progressions dans la table `commissioning_protocols` (`mesures` JSONB, `tests_effectues` JSONB, `statut`, `conforme`) et mise à jour de l'intervention liée.
+- **Ajout des accesseurs de compatibilité `db.utilisateurs`, `db.spare_parts` et `db.intervention_parts` ([supabase.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/lib/supabase.ts))** :
+  - Empêche tout crash JavaScript lors de l'accès à ces collections depuis les formulaires d'intervention.
+- **Support des options de pagination et de filtres dans `useInterventions` ([useInterventions.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/hooks/useInterventions.ts))** :
+  - `fetchInterventions(options?: any)` transmet désormais les options (ex: `{ limit: 100 }`) à `db.interventions.list()`.
 
 ### Corrigé & Fiabilisé (Accès Mobile & Multi-Appareil / Résolution Écran Blanc)
 - **Correction critique des imports manquants `db` ([App.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/App.tsx) & [LoginScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/components/auth/LoginScreen.tsx))** :
