@@ -4,6 +4,27 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.13.1] - 2026-11-03
+
+### Corrigé (Champs dynamiques et options de Configuration Spécifique)
+- **Nettoyage et réalignement de la base de données Supabase (`machine_fields` & `machine_field_options`)** :
+  - Suppression des 10 doublons de test générés dans `machine_fields` et attribution stricte de chaque champ à son type de machine réel (`Pompe à vide`, `V 300`, `VMS 2014`, `Tous`).
+  - Suppression des doublons parasites « Type de machine principal » qui créaient un champ redondant et bloquaient la sélection.
+  - Résolution de l'anomalie critique sur les options : rattachement de toutes les options de listes déroulantes (`machine_field_options`) avec leur véritable identifiant parent `field_id`, mettant fin aux listes déroulantes vides affichant uniquement « Sélectionner... ».
+  - Pour le type `V 300` : affichage exclusif des champs dédiés (`Options V300` avec ses options : Aucune, Option HN100, Option Conteur Cellulaire, Option MCA, Option Prog lavage, Autre ; `Type de stalle` avec Stalle simple, Stalle double ; `Version logiciel`).
+  - Pour le type `Pompe à vide` : affichage des champs dédiés (`Type de pompe` [DVP, DVPF, VP, Autre], `Variateur` [Variateur NFO 2.2, Variateur Ext, Socidix, Autre], `Armoire` [Armoire Commutateur à came, Armoire 3 contacteurs, Armoire Socidix, Autre], `Pression de service`).
+- **Correction du rendu et de la sélection dans [MachineFormScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/machines/MachineFormScreen.tsx)** :
+  - Élimination du doublon de libellé astérisque `**` sur les champs obligatoires (le composant `Select` et `Input` gérant déjà l'astérisque de champ requis).
+  - Suppression de l'option vide redondante dans les listes déroulantes.
+  - Amélioration de la fonction `loadFieldOptions` : résolution multi-clés associant les options à la fois par `field_id`, `id`, `name` et `label` pour une résilience absolue.
+  - Prise en charge bidirectionnelle de la rétrocompatibilité : synchronisation des champs `pumpType`, `pumpVariator`, `pumpCabinet` et `v300Option` à l'enregistrement et au rechargement.
+- **Sécurisation de l'administration des données ([DatabaseAdminScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/admin/DatabaseAdminScreen.tsx) & [supabase.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/lib/supabase.ts))** :
+  - Remplacement du bouton d'initialisation défectueux par une initialisation robuste créant les champs assignés à leurs types respectifs.
+  - Prise en charge des identifiants `field_id` chaînes et UUID dans `machine_field_options.create` sans troncature.
+- **Conformité & Versioning** :
+  - Incrémentation SemVer vers `v1.13.1`.
+  - Vérification continue des mentions légales (EI Hervé CHAMPAGNE, SIREN 132 021 098, `contact@appalacarte.fr`).
+
 ## [1.13.0] - 2026-11-03
 
 ### Corrigé & Garanti (Enregistrement Direct et Fiable des Nouveaux Clients et Machines dans Supabase)

@@ -1920,22 +1920,58 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
         </div>
       </div>
 
-      {/* 🚀 BOUTON INITIALISATION */}
-      <Card className="p-4 bg-blue-50">
-        <Button onClick={async () => {
-          if (!confirm('Créer les 5 champs ?')) return;
-          setLoading(true);
-          try {
-            await (db as any).machine_fields.create({ machineType: 'Tous', label: 'Type de machine principal', fieldType: 'select', isRequired: true, isActive: true, order: 1, creator: 'admin', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
-            await (db as any).machine_fields.create({ machineType: 'Tous', label: 'Type de pompe', fieldType: 'select', isRequired: true, isActive: true, order: 10, conditionalRules: { parentField: 'Type de machine principal', parentValue: 'Pompe à vide' }, allowCustomValue: true, creator: 'admin', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
-            await (db as any).machine_fields.create({ machineType: 'Tous', label: 'Variateur', fieldType: 'select', isRequired: false, isActive: true, order: 11, conditionalRules: { parentField: 'Type de machine principal', parentValue: 'Pompe à vide' }, allowCustomValue: true, creator: 'admin', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
-            await (db as any).machine_fields.create({ machineType: 'Tous', label: 'Armoire', fieldType: 'select', isRequired: false, isActive: true, order: 12, conditionalRules: { parentField: 'Type de machine principal', parentValue: 'Pompe à vide' }, allowCustomValue: true, creator: 'admin', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
-            await (db as any).machine_fields.create({ machineType: 'Tous', label: 'Options V300', fieldType: 'select', isRequired: false, isActive: true, order: 20, conditionalRules: { parentField: 'Type de machine principal', parentValue: 'V300' }, allowCustomValue: true, creator: 'admin', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
-            alert('✅ Champs créés !');
-            await fetchMachineFields();
-          } catch (e: any) { alert('Erreur: ' + e.message); }
-          setLoading(false);
-        }}>🚀 Créer les champs</Button>
+      {/* 🚀 INITIALISATION DES CHAMPS ET OPTIONS DE CONFIGURATION SPÉCIFIQUE */}
+      <Card className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div>
+            <h4 className="font-bold text-gray-900 text-sm flex items-center gap-2">
+              <Database size={16} className="text-blue-600" />
+              Initialisation des champs machines & options par défaut
+            </h4>
+            <p className="text-xs text-gray-600 mt-0.5">
+              Réinitialise proprement les champs de configuration spécifique et leurs listes déroulantes pour chaque type de machine (Pompe à vide, V 300, VMS 2014, etc.).
+            </p>
+          </div>
+          <Button
+            size="sm"
+            onClick={async () => {
+              if (!confirm('Voulez-vous initialiser les champs de configuration et leurs options par défaut ?')) return;
+              setLoading(true);
+              try {
+                // Champs standards
+                const defaultFields = [
+                  { name: 'type_de_pompe', label: 'Type de pompe', type: 'select', machineType: 'Pompe à vide', isRequired: true, isActive: true, order: 1, allowCustomValue: true },
+                  { name: 'variateur', label: 'Variateur', type: 'select', machineType: 'Pompe à vide', isRequired: false, isActive: true, order: 2, allowCustomValue: true },
+                  { name: 'armoire', label: 'Armoire', type: 'select', machineType: 'Pompe à vide', isRequired: false, isActive: true, order: 3, allowCustomValue: true },
+                  { name: 'pression_service', label: 'Pression de service', type: 'text', machineType: 'Pompe à vide', isRequired: false, isActive: true, order: 4, allowCustomValue: false },
+                  { name: 'options_v300', label: 'Options V300', type: 'select', machineType: 'V 300', isRequired: false, isActive: true, order: 1, allowCustomValue: true },
+                  { name: 'type_stalle', label: 'Type de stalle', type: 'select', machineType: 'V 300', isRequired: false, isActive: true, order: 2, allowCustomValue: false },
+                  { name: 'version_logiciel', label: 'Version logiciel', type: 'text', machineType: 'V 300', isRequired: false, isActive: true, order: 3, allowCustomValue: false },
+                  { name: 'bras_robot', label: 'Type de bras robot', type: 'text', machineType: 'VMS 2014', isRequired: false, isActive: true, order: 1, allowCustomValue: false },
+                  { name: 'camera', label: 'Version caméra 3D', type: 'text', machineType: 'VMS 2014', isRequired: false, isActive: true, order: 2, allowCustomValue: false },
+                  { name: 'batiment', label: 'Bâtiment / Emplacement', type: 'text', machineType: 'Tous', isRequired: false, isActive: true, order: 10, allowCustomValue: false }
+                ];
+
+                for (const f of defaultFields) {
+                  const existing = (machineFields || []).find((ef: any) => (ef.name === f.name || ef.label === f.label) && ef.machineType === f.machineType);
+                  if (!existing) {
+                    await (db as any).machine_fields.create(f);
+                  }
+                }
+
+                alert('✅ Champs et options vérifiés et initialisés avec succès !');
+                await fetchMachineFields();
+                await fetchMachineFieldOptions();
+              } catch (e: any) {
+                alert('Erreur: ' + (e.message || 'Erreur inconnue'));
+              } finally {
+                setLoading(false);
+              }
+            }}
+          >
+            🚀 Initialiser les champs par défaut
+          </Button>
+        </div>
       </Card>
 
       {/* 🔐 PARAMÉTRAGE EMAIL DEMANDE DE NOUVEAU MOT DE PASSE (PAGE DE CONNEXION) */}

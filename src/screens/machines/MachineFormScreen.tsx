@@ -236,14 +236,40 @@ export function MachineFormScreen({ onNavigate, machineId, clientId }: MachineFo
       const result: any = await db.machineFieldOptions.list();
       const options = Array.isArray(result) ? result : (result?.list || []);
       const groupedOptions: Record<string, string[]> = {};
+
+      // Récupération des champs pour enrichir le mapping id <-> label <-> name
+      const fieldsResult: any = await db.machineFields.list();
+      const fieldsList = Array.isArray(fieldsResult) ? fieldsResult : (fieldsResult?.list || []);
+      const fieldLookup: Record<string, any> = {};
+      fieldsList.forEach((f: any) => {
+        const fid = f.id || f._id;
+        if (fid) fieldLookup[fid] = f;
+        if (f.name) fieldLookup[f.name] = f;
+        if (f.label) fieldLookup[f.label] = f;
+      });
+
       options.forEach((opt: any) => {
         const fieldKey = opt.fieldId || opt.field_id;
         const val = opt.value || opt.label;
-        if (fieldKey && val) {
-          if (!groupedOptions[fieldKey]) groupedOptions[fieldKey] = [];
-          if (!groupedOptions[fieldKey].includes(val)) {
-            groupedOptions[fieldKey].push(val);
+        if (val) {
+          const keysToMap = new Set<string>();
+          if (fieldKey) {
+            keysToMap.add(fieldKey);
+            const matchedField = fieldLookup[fieldKey];
+            if (matchedField) {
+              if (matchedField.id) keysToMap.add(matchedField.id);
+              if (matchedField._id) keysToMap.add(matchedField._id);
+              if (matchedField.name) keysToMap.add(matchedField.name);
+              if (matchedField.label) keysToMap.add(matchedField.label);
+            }
           }
+
+          keysToMap.forEach((k) => {
+            if (!groupedOptions[k]) groupedOptions[k] = [];
+            if (!groupedOptions[k].includes(val)) {
+              groupedOptions[k].push(val);
+            }
+          });
         }
       });
       setFieldOptions(groupedOptions);
@@ -406,7 +432,10 @@ export function MachineFormScreen({ onNavigate, machineId, clientId }: MachineFo
         if (machine.pumpType) loadedConfig['Type de pompe'] = machine.pumpType;
         if (machine.pumpVariator) loadedConfig['Variateur'] = machine.pumpVariator;
         if (machine.pumpCabinet) loadedConfig['Armoire'] = machine.pumpCabinet;
-        if (machine.v300Option) loadedConfig['Option principale'] = machine.v300Option;
+        if (machine.v300Option) {
+          loadedConfig['Option principale'] = machine.v300Option;
+          loadedConfig['Options V300'] = machine.v300Option;
+        }
 
         setSpecificConfigValues(loadedConfig);
 
@@ -443,20 +472,24 @@ export function MachineFormScreen({ onNavigate, machineId, clientId }: MachineFo
   const renderDynamicField = (field: any) => {
     const fieldKey = field.label || field.name;
     const fieldValue = specificConfigValues[fieldKey] ?? specificConfigValues[field.name] ?? '';
-    const options = fieldOptions[field.id] || fieldOptions[field._id] || field.options || [];
+    const rawOptions =
+      fieldOptions[field.id] ||
+      fieldOptions[field._id] ||
+      fieldOptions[field.name] ||
+      fieldOptions[field.label] ||
+      (Array.isArray(field.options) ? field.options : []) ||
+      [];
+    const options = Array.from(new Set(rawOptions.filter(Boolean)));
 
     return (
       <div key={field.id || field._id || field.name} className="space-y-1">
         {field.fieldType === 'select' ? (
           <div>
             <Select
-              label={field.label + (field.isRequired ? ' *' : '')}
+              label={field.label}
               value={fieldValue}
               onChange={(e) => updateSpecificConfigValue(fieldKey, e.target.value)}
-              options={[
-                { value: '', label: 'Sélectionner...' },
-                ...options.map((opt: string) => ({ value: opt, label: opt }))
-              ]}
+              options={options.map((opt: string) => ({ value: opt, label: opt }))}
               required={field.isRequired}
             />
             {field.allowCustomValue && fieldValue === 'Autre' && (
@@ -472,7 +505,7 @@ export function MachineFormScreen({ onNavigate, machineId, clientId }: MachineFo
           </div>
         ) : field.fieldType === 'number' ? (
           <Input
-            label={field.label + (field.isRequired ? ' *' : '')}
+            label={field.label}
             type="number"
             value={fieldValue}
             onChange={(e) => updateSpecificConfigValue(fieldKey, e.target.value)}
@@ -481,7 +514,7 @@ export function MachineFormScreen({ onNavigate, machineId, clientId }: MachineFo
           />
         ) : field.fieldType === 'date' ? (
           <Input
-            label={field.label + (field.isRequired ? ' *' : '')}
+            label={field.label}
             type="date"
             value={fieldValue}
             onChange={(e) => updateSpecificConfigValue(fieldKey, e.target.value)}
@@ -502,7 +535,7 @@ export function MachineFormScreen({ onNavigate, machineId, clientId }: MachineFo
           </div>
         ) : field.fieldType === 'textarea' ? (
           <TextArea
-            label={field.label + (field.isRequired ? ' *' : '')}
+            label={field.label}
             value={fieldValue}
             onChange={(e) => updateSpecificConfigValue(fieldKey, e.target.value)}
             rows={2}
@@ -511,7 +544,7 @@ export function MachineFormScreen({ onNavigate, machineId, clientId }: MachineFo
           />
         ) : (
           <Input
-            label={field.label + (field.isRequired ? ' *' : '')}
+            label={field.label}
             value={fieldValue}
             onChange={(e) => updateSpecificConfigValue(fieldKey, e.target.value)}
             required={field.isRequired}
@@ -556,7 +589,9 @@ export function MachineFormScreen({ onNavigate, machineId, clientId }: MachineFo
         customFields: finalCustomFields,
         configType: formData.typeMachine || null,
         pumpType: specificConfigValues['Type de pompe'] || specificConfigValues['type_pompe'] || null,
-        v300Option: specificConfigValues['Option principale'] || specificConfigValues['Option'] || specificConfigValues['option_principale'] || null,
+        pumpVariator: specificConfigValues['Variateur'] || specificConfigValues['variateur'] || null,
+        pumpCabinet: specificConfigValues['Armoire'] || specificConfigValues['armoire'] || null,
+        v300Option: specificConfigValues['Options V300'] || specificConfigValues['options_v300'] || specificConfigValues['Option principale'] || specificConfigValues['Option'] || specificConfigValues['option_principale'] || null,
         updatedAt: new Date().toISOString()
       };
 

@@ -2808,9 +2808,8 @@ export const db = {
           created_at: optionData.createdAt || optionData.created_at || new Date().toISOString()
         };
         const rawFieldId = optionData.fieldId || optionData.field_id;
-        const isUuid = (v: any) => typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
-        if (rawFieldId && isUuid(rawFieldId)) {
-          payload.field_id = rawFieldId;
+        if (rawFieldId && typeof rawFieldId === 'string' && rawFieldId.trim() !== '') {
+          payload.field_id = rawFieldId.trim();
         }
 
         const { data, error } = await supabase.from('machine_field_options').insert(payload).select().single();
