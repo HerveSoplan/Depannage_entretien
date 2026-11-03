@@ -226,8 +226,9 @@ export function UsersScreen({ onNavigate }: UsersScreenProps) {
   const formatInvitationMessage = (u: any) => {
     // Utilisation systématique de l'URL publique de production pour que le lien soit accessible sur tout appareil
     const appUrl = getInviteAppBaseUrl();
-    const tempMdp = u.tempPassword || u.motDePasseTemporaire || generateTemporaryPassword(u.prenom || 'technicien');
-    const loginLink = `${appUrl}/login?email=${encodeURIComponent(u.email || '')}&temp=${encodeURIComponent(tempMdp)}&action=login`;
+    const tempMdp = (u.tempPassword || u.motDePasseTemporaire || generateTemporaryPassword(u.prenom || 'technicien')).trim();
+    const cleanEmail = (u.email || '').trim().toLowerCase();
+    const loginLink = `${appUrl}/login?email=${encodeURIComponent(cleanEmail)}&temp=${encodeURIComponent(tempMdp)}&action=login`;
     const roleLabel = roles.find((r) => r.value === u.role)?.label || u.role || 'Technicien';
     const senderEmail = getPasswordRequestEmail();
 
@@ -235,12 +236,14 @@ export function UsersScreen({ onNavigate }: UsersScreenProps) {
 
 Votre compte d'accès à l'application ${APP_NAME} a été configuré avec le rôle : ${roleLabel}.
 
-📱 Vos identifiants pour vous connecter depuis votre téléphone, tablette ou PC :
-- Lien de connexion direct : ${loginLink}
-- Identifiant (Email) : ${u.email}
+📱 LIEN DIRECT DE CONNEXION (cliquez directement pour vous connecter en 1 clic) :
+${loginLink}
+
+Identifiants de connexion :
+- Identifiant (Email) : ${cleanEmail}
 - Mot de passe temporaire : ${tempMdp}
 
-⚠️ Première connexion : Dès votre connexion avec ce mot de passe temporaire, l'application vous demandera immédiatement de définir votre mot de passe personnel définitif.
+⚠️ Première connexion : Dès votre ouverture via ce lien, l'application vous demandera de définir votre mot de passe personnel définitif pour sécuriser votre accès.
 
 En cas de question ou pour toute demande d'assistance : ${senderEmail}
 
@@ -332,8 +335,9 @@ contact@appalacarte.fr`.trim();
   const handleCopyDirectLoginLink = async (user: any) => {
     if (!user.email) return;
     const appUrl = getInviteAppBaseUrl();
-    const tempMdp = user.motDePasseTemporaire || generateTemporaryPassword(user.prenom || 'technicien');
-    const loginLink = `${appUrl}/login?email=${encodeURIComponent(user.email.trim())}&temp=${encodeURIComponent(tempMdp)}&action=login`;
+    const tempMdp = (user.tempPassword || user.motDePasseTemporaire || generateTemporaryPassword(user.prenom || 'technicien')).trim();
+    const cleanEmail = user.email.trim().toLowerCase();
+    const loginLink = `${appUrl}/login?email=${encodeURIComponent(cleanEmail)}&temp=${encodeURIComponent(tempMdp)}&action=login`;
     await copyToClipboard(loginLink, `invite-${user._id || user.id}`);
   };
 
@@ -1869,16 +1873,43 @@ Cordialement,
               </pre>
             </div>
 
-            {/* Boutons d'actions épurés et sans confusion */}
-            <div className="pt-2 border-t border-gray-100 flex items-center justify-between gap-2">
-              <a
-                href={`mailto:${encodeURIComponent(createdCredentialsModal.email)}?subject=${encodeURIComponent(`Vos identifiants d'accès à ${APP_NAME}`)}&body=${encodeURIComponent(formatInvitationMessage(createdCredentialsModal))}`}
-                className="px-3.5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors"
-                title="Ouvrir dans votre logiciel de messagerie par défaut"
-              >
-                <Mail size={15} className="text-gray-600" />
-                <span>Ouvrir dans ma messagerie</span>
-              </a>
+            {/* Boutons d'actions pour la messagerie */}
+            <div className="pt-2 border-t border-gray-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-1.5">
+                {/* Envoi direct via Outlook / Hotmail Web */}
+                <a
+                  href={`https://outlook.live.com/mail/0/deeplink/compose?to=${encodeURIComponent(createdCredentialsModal.email)}&subject=${encodeURIComponent(`Vos identifiants d'accès à ${APP_NAME}`)}&body=${encodeURIComponent(formatInvitationMessage(createdCredentialsModal))}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center justify-center gap-1.5 transition-colors"
+                  title="Ouvrir dans Outlook / Hotmail (Web)"
+                >
+                  <Mail size={14} />
+                  <span>Outlook / Hotmail</span>
+                </a>
+
+                {/* Envoi direct via Gmail Web */}
+                <a
+                  href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(createdCredentialsModal.email)}&su=${encodeURIComponent(`Vos identifiants d'accès à ${APP_NAME}`)}&body=${encodeURIComponent(formatInvitationMessage(createdCredentialsModal))}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center justify-center gap-1.5 transition-colors"
+                  title="Ouvrir dans Google Gmail (Web)"
+                >
+                  <Mail size={14} />
+                  <span>Gmail</span>
+                </a>
+
+                {/* Option alternative mailto logiciel par défaut */}
+                <a
+                  href={`mailto:${encodeURIComponent(createdCredentialsModal.email)}?subject=${encodeURIComponent(`Vos identifiants d'accès à ${APP_NAME}`)}&body=${encodeURIComponent(formatInvitationMessage(createdCredentialsModal))}`}
+                  className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 transition-colors"
+                  title="Ouvrir dans votre logiciel de messagerie par défaut (Thunderbird, Courrier, Apple Mail, etc.)"
+                >
+                  <Send size={13} className="text-gray-500" />
+                  <span>Messagerie locale</span>
+                </a>
+              </div>
 
               <Button
                 type="button"

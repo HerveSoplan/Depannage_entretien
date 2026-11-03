@@ -60,6 +60,10 @@ export function LoginScreen({
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [passwordRequestEmail, setPasswordRequestEmail] = useState<string>(() => getPasswordRequestEmail());
 
+  // Connexion automatique via lien d'invitation ou lien direct
+  const [autoLoggingIn, setAutoLoggingIn] = useState(false);
+  const [autoLoginSuccessMessage, setAutoLoginSuccessMessage] = useState<string | null>(null);
+
   // Champs Changement obligatoire de mot de passe (première connexion ou réinitialisation)
   const [targetUserForPasswordChange, setTargetUserForPasswordChange] = useState<any>(null);
   const [newPassword, setNewPassword] = useState('');
@@ -82,6 +86,73 @@ export function LoginScreen({
   const [demandeMotif, setDemandeMotif] = useState('');
   const [demandeSuccessData, setDemandeSuccessData] = useState<any>(null);
 
+  // Décodage sécurisé (prend en charge simple, double ou non-encodé %40 / @)
+  const safeDecode = (val: string | null): string => {
+    if (!val) return '';
+    try {
+      const decodedOnce = decodeURIComponent(val);
+      if (decodedOnce.includes('%')) {
+        try {
+          return decodeURIComponent(decodedOnce);
+        } catch {
+          return decodedOnce;
+        }
+      }
+      return decodedOnce;
+    } catch {
+      return val;
+    }
+  };
+
+  // Connexion automatique directe via le lien reçu par messagerie
+  const performDirectLogin = async (cleanEmail: string, cleanPassword: string) => {
+    setAutoLoggingIn(true);
+    setLoading(true);
+    setError(null);
+    setErrorCode(null);
+
+    // Si une session active antérieure appartient à un autre email, la purger immédiatement
+    const stored = localStorage.getItem('maintenance_current_user');
+    if (stored) {
+      try {
+        const u = JSON.parse(stored);
+        if (u.email && u.email.toLowerCase() !== cleanEmail) {
+          localStorage.removeItem('maintenance_authenticated');
+          localStorage.removeItem('maintenance_current_user');
+        }
+      } catch {}
+    }
+
+    try {
+      const res: any = await auth.signIn(cleanEmail, cleanPassword);
+
+      if (res?.requirePasswordChange) {
+        setTargetUserForPasswordChange(res.user);
+        setActiveTab('change_password');
+        setAutoLoginSuccessMessage(`Bienvenue ${res.user?.prenom || ''} ! Votre lien d'accès a été validé avec succès. Veuillez maintenant définir votre mot de passe personnel définitif.`);
+        setError(null);
+        setErrorCode(null);
+        return;
+      }
+
+      if (res?.user) {
+        sessionStorage.removeItem('pending_auth_email');
+        onLoginSuccess(res.user);
+      } else {
+        setError('Impossible de se connecter. Veuillez vérifier vos identifiants.');
+      }
+    } catch (err: any) {
+      console.warn('Connexion directe via lien d\'invitation :', err);
+      setError(err?.message || 'Identifiants de connexion invalides.');
+      if (err?.code) {
+        setErrorCode(err.code);
+      }
+    } finally {
+      setAutoLoggingIn(false);
+      setLoading(false);
+    }
+  };
+
   // Détection des paramètres d'URL (invitation, reset, etc.)
   useEffect(() => {
     try {
@@ -89,20 +160,24 @@ export function LoginScreen({
         const params = new URLSearchParams(window.location.search);
         const hash = window.location.hash || '';
         const action = params.get('action');
-        const inviteEmail = params.get('email');
-        const inviteNom = params.get('nom');
-        const invitePrenom = params.get('prenom');
-        const inviteTemp = params.get('temp') || params.get('pwd') || params.get('password');
+        const rawEmail = params.get('email');
+        const rawNom = params.get('nom');
+        const rawPrenom = params.get('prenom');
+        const rawTemp = params.get('temp') || params.get('pwd') || params.get('password');
         const isRecovery = params.get('type') === 'recovery' || hash.includes('type=recovery');
 
+        const inviteEmail = safeDecode(rawEmail).trim().toLowerCase();
+        const inviteTemp = safeDecode(rawTemp).trim();
+        const inviteNom = safeDecode(rawNom).trim();
+        const invitePrenom = safeDecode(rawPrenom).trim();
+
         if (inviteEmail) {
-          const cleanEmail = inviteEmail.trim().toLowerCase();
-          setEmail(cleanEmail);
-          setDemandeEmail(cleanEmail);
-          setForgotEmail(cleanEmail);
+          setEmail(inviteEmail);
+          setDemandeEmail(inviteEmail);
+          setForgotEmail(inviteEmail);
 
           if (inviteTemp) {
-            setPassword(inviteTemp.trim());
+            setPassword(inviteTemp);
           }
         }
         if (inviteNom) setDemandeNom(inviteNom);
@@ -114,6 +189,10 @@ export function LoginScreen({
           setActiveTab('demande');
         } else if (action === 'forgot' || params.get('forgot') === 'true') {
           setActiveTab('forgot_password');
+        } else if (inviteEmail && inviteTemp && (action === 'login' || params.has('temp') || params.has('pwd') || params.has('invite'))) {
+          // Lien de connexion direct reçu par messagerie : connexion automatique immédiate
+          setActiveTab('login');
+          performDirectLogin(inviteEmail, inviteTemp);
         } else if (action === 'login' || inviteTemp) {
           setActiveTab('login');
         }
@@ -343,113 +422,132 @@ export function LoginScreen({
             </p>
           </div>
 
-          {/* Bandeau session active si l'utilisateur est déjà connecté */}
-          {currentUser && (
-            <div className="mb-5 p-3 bg-blue-50 border border-blue-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs text-blue-900 shadow-sm">
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="w-2.5 h-2.5 rounded-full bg-green-500 flex-shrink-0 animate-pulse" />
-                <span className="truncate">
-                  Connecté : <strong>{currentUser.prenom} {currentUser.nom}</strong>
-                </span>
+          {/* Écran d'attente lors d'une connexion automatique via lien direct */}
+          {autoLoggingIn ? (
+            <div className="py-10 text-center space-y-4">
+              <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
+              <div>
+                <h3 className="font-bold text-gray-900 text-base">Connexion automatique en cours...</h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  Validation sécurisée de votre lien d'accès pour <strong className="text-gray-800">{email}</strong>
+                </p>
               </div>
-              {onContinueToApp && (
-                <button
-                  type="button"
-                  onClick={onContinueToApp}
-                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-xs whitespace-nowrap shadow-sm transition-colors"
-                >
-                  Accéder à l'application →
-                </button>
-              )}
             </div>
-          )}
-
-          {/* Deux onglets clairs : Connexion / Demande d'accès */}
-          {!demandeSuccessData && activeTab !== 'change_password' && activeTab !== 'forgot_password' && (
-            <div className="flex rounded-xl bg-gray-100 p-1 mb-5 border border-gray-200">
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab('login');
-                  setError(null);
-                  setErrorCode(null);
-                }}
-                className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                  activeTab === 'login'
-                    ? 'bg-white text-blue-600 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <KeyRound className="w-4 h-4" />
-                <span>Se connecter</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab('demande');
-                  setError(null);
-                  setErrorCode(null);
-                }}
-                className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                  activeTab === 'demande'
-                    ? 'bg-white text-blue-600 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <UserPlus className="w-4 h-4" />
-                <span>Demande d'accès</span>
-              </button>
-            </div>
-          )}
-
-          {/* Messages d'erreur et alertes contextuelles */}
-          {error && (
-            <div className="mb-4">
-              {errorCode === 'USER_PENDING' ? (
-                <div className="p-3.5 bg-amber-50 border border-amber-300 rounded-xl text-amber-900 text-xs space-y-1.5 shadow-sm">
-                  <div className="flex items-center gap-2 font-bold text-amber-950">
-                    <Clock className="w-4 h-4 text-amber-600 flex-shrink-0" />
-                    <span>Demande en attente de validation</span>
+          ) : (
+            <>
+              {/* Bandeau session active si l'utilisateur est déjà connecté */}
+              {currentUser && !autoLoggingIn && (
+                <div className="mb-5 p-3 bg-blue-50 border border-blue-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs text-blue-900 shadow-sm">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-2.5 h-2.5 rounded-full bg-green-500 flex-shrink-0 animate-pulse" />
+                    <span className="truncate">
+                      Connecté : <strong>{currentUser.prenom} {currentUser.nom}</strong>
+                    </span>
                   </div>
-                  <p className="text-amber-800 leading-relaxed">
-                    Votre compte a été enregistré et est en cours d'approbation par l'administrateur ou le responsable technique.
-                  </p>
+                  {onContinueToApp && (
+                    <button
+                      type="button"
+                      onClick={onContinueToApp}
+                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-xs whitespace-nowrap shadow-sm transition-colors"
+                    >
+                      Accéder à l'application →
+                    </button>
+                  )}
                 </div>
-              ) : errorCode === 'USER_NOT_FOUND' ? (
-                <div className="p-3.5 bg-blue-50 border border-blue-300 rounded-xl text-blue-900 text-xs space-y-2 shadow-sm">
-                  <div className="flex items-center gap-2 font-bold text-blue-950">
-                    <UserPlus className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                    <span>Adresse non enregistrée</span>
-                  </div>
-                  <p className="text-blue-800">
-                    Cette adresse email n'est pas encore enregistrée. Formulez votre demande d'accès en un clic :
-                  </p>
+              )}
+
+              {/* Deux onglets clairs : Connexion / Demande d'accès */}
+              {!demandeSuccessData && activeTab !== 'change_password' && activeTab !== 'forgot_password' && (
+                <div className="flex rounded-xl bg-gray-100 p-1 mb-5 border border-gray-200">
                   <button
                     type="button"
                     onClick={() => {
-                      setDemandeEmail(email);
+                      setActiveTab('login');
+                      setError(null);
+                      setErrorCode(null);
+                    }}
+                    className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                      activeTab === 'login'
+                        ? 'bg-white text-blue-600 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <KeyRound className="w-4 h-4" />
+                    <span>Se connecter</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
                       setActiveTab('demande');
                       setError(null);
+                      setErrorCode(null);
                     }}
-                    className="w-full py-1.5 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors flex items-center justify-center gap-1.5"
+                    className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                      activeTab === 'demande'
+                        ? 'bg-white text-blue-600 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
                   >
-                    <UserPlus className="w-3.5 h-3.5" />
-                    <span>Faire ma demande d'accès avec cet email</span>
+                    <UserPlus className="w-4 h-4" />
+                    <span>Demande d'accès</span>
                   </button>
                 </div>
-              ) : (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs flex items-start gap-2 shadow-xs">
-                  <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
-                  <span>{error}</span>
+              )}
+
+              {/* Messages d'erreur et alertes contextuelles */}
+              {error && (
+                <div className="mb-4">
+                  {errorCode === 'USER_PENDING' ? (
+                    <div className="p-3.5 bg-amber-50 border border-amber-300 rounded-xl text-amber-900 text-xs space-y-1.5 shadow-sm">
+                      <div className="flex items-center gap-2 font-bold text-amber-950">
+                        <Clock className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                        <span>Demande en attente de validation</span>
+                      </div>
+                      <p className="text-amber-800 leading-relaxed">
+                        Votre compte a été enregistré et est en cours d'approbation par l'administrateur ou le responsable technique.
+                      </p>
+                    </div>
+                  ) : errorCode === 'USER_NOT_FOUND' ? (
+                    <div className="p-3.5 bg-blue-50 border border-blue-300 rounded-xl text-blue-900 text-xs space-y-2 shadow-sm">
+                      <div className="flex items-center gap-2 font-bold text-blue-950">
+                        <UserPlus className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                        <span>Adresse non enregistrée</span>
+                      </div>
+                      <p className="text-blue-800">
+                        Cette adresse email n'est pas encore enregistrée. Formulez votre demande d'accès en un clic :
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDemandeEmail(email);
+                          setActiveTab('demande');
+                          setError(null);
+                        }}
+                        className="w-full py-1.5 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors flex items-center justify-center gap-1.5"
+                      >
+                        <UserPlus className="w-3.5 h-3.5" />
+                        <span>Faire ma demande d'accès avec cet email</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs flex items-start gap-2 shadow-xs">
+                      <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+                      <span>{error}</span>
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
-          )}
 
-          {/* ================= ÉCRAN 1 : CHANGEMENT OBLIGATOIRE DE MOT DE PASSE ================= */}
-          {activeTab === 'change_password' ? (
-            <div className="space-y-4">
-              <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
+              {/* ================= ÉCRAN 1 : CHANGEMENT OBLIGATOIRE DE MOT DE PASSE ================= */}
+              {activeTab === 'change_password' ? (
+                <div className="space-y-4">
+                  {autoLoginSuccessMessage && (
+                    <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-950 text-xs flex items-center gap-2.5 shadow-xs">
+                      <CheckCircle2 size={18} className="text-emerald-600 flex-shrink-0" />
+                      <span className="font-semibold leading-relaxed">{autoLoginSuccessMessage}</span>
+                    </div>
+                  )}
+                  <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
                 <div className="p-2 bg-amber-600 text-white rounded-lg flex-shrink-0 mt-0.5">
                   <Lock size={18} />
                 </div>
@@ -1018,6 +1116,8 @@ export function LoginScreen({
                 </button>
               </div>
             </form>
+          )}
+          </>
           )}
         </Card>
       </div>

@@ -4,6 +4,21 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.12.2] - 2026-11-03
+
+### Corrigé & Amélioré (Messagerie : Connexion Automatique et Prise en Charge Multi-Webmails)
+- **Résolution définitive du lien d'invitation dans la messagerie ([LoginScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/components/auth/LoginScreen.tsx), [App.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/App.tsx))** :
+  - **Connexion automatique transparente en 1 clic** : Dès l'ouverture du lien envoyé par messagerie (`/login?email=...&temp=...&action=login`), l'écran de connexion déclenche automatiquement l'authentification sans forcer l'utilisateur à deviner qu'il doit cliquer manuellement sur le formulaire avec un mot de passe masqué.
+  - **Détection et purge des sessions concurrentes** : Détection automatique des collisions de session dans [App.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/App.tsx) et [LoginScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/components/auth/LoginScreen.tsx) lorsqu'un administrateur teste un lien d'invitation destiné à un collaborateur différent, déconnectant l'ancienne session pour garantir l'authentification de l'utilisateur ciblé.
+  - **Transition guidée vers le mot de passe définitif** : Si l'utilisateur utilise un mot de passe temporaire pour sa première connexion, il est directement dirigé vers l'écran de création de mot de passe personnel avec message d'accueil personnalisé (`Bienvenue [Prénom] !`). S'il a déjà configuré son mot de passe, il est connecté directement au tableau de bord.
+  - **Décodage résilient des paramètres URL (`safeDecode`)** : Prise en charge sans faille des adresses email et tokens encodés, double-encodés (`%2540` / `%40` / `@`) ou altérés par les clients de messagerie.
+- **Optimisation de la mise en forme du message d'invitation & options webmails ([UsersScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/users/UsersScreen.tsx))** :
+  - **Isolation du lien sur sa propre ligne** : Le lien de connexion direct est désormais isolé sans tiret ni deux-points collés au protocole `https://`, empêchant tout retour à la ligne RFC 5322 (limite 78 caractères) de tronquer le lien dans Outlook, Hotmail, Gmail ou les messageries mobiles.
+  - **Prise en charge native d'Outlook.com / Hotmail et Google Gmail** : Rétablissement de boutons d'action dédiés « Outlook / Hotmail » et « Gmail » pour les utilisateurs de webmails dans le navigateur, en plus du client de messagerie local (`mailto:`) et des boutons de copie 1-clic.
+- **Conformité & Versioning** :
+  - Incrémentation SemVer vers `v1.12.2` synchronisée dans `package.json`, `src/version.ts`, `public/version.json` et le footer applicatif.
+  - Vérification continue des mentions légales (EI Hervé CHAMPAGNE, SIREN 132 021 098).
+
 ## [1.12.1] - 2026-11-03
 
 ### Corrigé & Blindé (Résolution Définitive de l'Actualisation de Version et du Cache Vercel)

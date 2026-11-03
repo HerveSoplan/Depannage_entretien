@@ -416,6 +416,29 @@ export default function App() {
     }
   }, [location.search]);
 
+  // Si l'URL contient une invitation ou un lien direct de connexion pour un email spécifique,
+  // et que la session active appartient à un autre compte, déconnecter l'ancien compte pour éviter tout conflit
+  useEffect(() => {
+    const rawEmail = searchParams.get('email');
+    if (rawEmail) {
+      try {
+        const inviteEmail = decodeURIComponent(rawEmail).trim().toLowerCase();
+        const stored = localStorage.getItem('maintenance_current_user');
+        if (stored) {
+          const user = JSON.parse(stored);
+          if (user?.email && user.email.toLowerCase() !== inviteEmail) {
+            console.log('🔄 Invitation pour un utilisateur différent détectée, purge de la session résiduelle...');
+            localStorage.removeItem('maintenance_authenticated');
+            localStorage.removeItem('maintenance_current_user');
+            setIsAuthenticated(false);
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+  }, [location.search]);
+
   const getCurrentUser = () => {
     try {
       const stored = localStorage.getItem('maintenance_current_user');
