@@ -2398,18 +2398,46 @@ export const db = {
         try {
           const { data, error } = await supabase.from('error_codes').select('*').order('alarme', { ascending: true });
           if (!error && data) {
-            const list = toCamelCase(data).map((item: any) => ({
-              ...item,
-              alarme: item.alarme || item.code || '',
-              titre: item.titre || item.title || '',
-              description: item.description || '',
-              gravite: item.gravite || item.severity || 'mineure',
-              machineType: item.machineType || item.machine_type || '',
-              cause: item.cause || '',
-              action: item.action || '',
-              chapitre: item.chapitre || '',
-              typeAlarme: item.typeAlarme || item.type_alarme || ''
-            }));
+            const list = toCamelCase(data).map((item: any) => {
+              let alarme = item.alarme || item.code || '';
+              let titre = item.titre || item.title || '';
+              if (titre === 'Code erreur') titre = '';
+              let cause = item.cause || '';
+              let action = item.action || '';
+              let typeAlarme = item.typeAlarme || item.type_alarme || '';
+              const raw = item.chapitre || item.description || '';
+
+              if ((!alarme || !titre || !cause) && raw) {
+                const clean = raw.replace(/^\[Chapitre:\s*/, '').replace(/\]$/, '');
+                const parts = clean.split(',');
+                if (parts.length >= 2) {
+                  const p1 = parts[1].trim();
+                  if (p1.includes('|')) {
+                    const sub = p1.split('|');
+                    if (!alarme) alarme = sub[0].trim();
+                    if (!titre) titre = sub.slice(1).join('|').trim();
+                  } else if (!alarme) {
+                    alarme = p1;
+                  }
+                }
+                if (!typeAlarme && parts.length >= 4) typeAlarme = parts[3].trim();
+                if (!cause && parts.length >= 5) cause = parts[4].trim();
+                if (!action && parts.length >= 6) action = parts.slice(5).join(',').trim();
+              }
+
+              return {
+                ...item,
+                alarme: alarme.replace(/\//g, '').trim(),
+                titre: (titre || (alarme ? `Alarme ${alarme}` : 'Code erreur')).replace(/\//g, '').trim(),
+                description: item.description || '',
+                gravite: item.gravite || item.severity || 'mineure',
+                machineType: item.machineType || item.machine_type || '',
+                cause: cause.replace(/\//g, '').trim(),
+                action: action.replace(/\//g, '').trim(),
+                chapitre: item.chapitre || '',
+                typeAlarme: typeAlarme.trim()
+              };
+            });
             return { list };
           }
         } catch (e) {

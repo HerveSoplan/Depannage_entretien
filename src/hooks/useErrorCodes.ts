@@ -27,14 +27,57 @@ export function useErrorCodes() {
   const [errorCodes, setErrorCodes] = useState<ErrorCode[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const fixAccents = (str: string): string => {
+    if (!str) return '';
+    return str
+      .replace(/\u201a/g, 'é')
+      .replace(/\u0160/g, 'è')
+      .replace(/\u02c6/g, 'ê')
+      .replace(/\u2026/g, 'à')
+      .replace(/\u0192/g, 'â')
+      .replace(/\u201c/g, 'ô')
+      .replace(/\u2021/g, 'ç')
+      .replace(/\u201d/g, 'î')
+      .replace(/\{ms\}/gi, '')
+      .trim();
+  };
+
   const normalizeErrorCodes = (items: any[]): ErrorCode[] => {
     return items.map((code: any) => {
-      const alarme = code.alarme || code.Alarme || '';
-      const titre = code.titre || code.Titre || '';
-      const chapitre = code.chapitre || code.Chapitre || '';
-      const typeAlarme = code.typeAlarme || code.Type_alarme || code.type_alarme || code.TypeAlarme || '';
-      const cause = code.cause || code.Cause || '';
-      const action = code.action || code.Action || '';
+      let alarme = String(code.alarme || code.Alarme || '').trim();
+      let titre = String(code.titre || code.Titre || '').trim();
+      if (titre === 'Code erreur') titre = '';
+      const chapitre = String(code.chapitre || code.Chapitre || '').trim();
+      let typeAlarme = String(code.typeAlarme || code.Type_alarme || code.type_alarme || code.TypeAlarme || '').trim();
+      let cause = String(code.cause || code.Cause || '').trim();
+      let action = String(code.action || code.Action || '').trim();
+
+      // Extraction automatique de secours si les données brutes sont dans chapitre ou description
+      if ((!alarme || !titre || !cause) && (chapitre || code.description)) {
+        const raw = chapitre || code.description || '';
+        const clean = raw.replace(/^\[Chapitre:\s*/, '').replace(/\]$/, '');
+        const parts = clean.split(',');
+        if (parts.length >= 2) {
+          const p1 = parts[1].trim();
+          if (p1.includes('|')) {
+            const sub = p1.split('|');
+            if (!alarme) alarme = sub[0].trim();
+            if (!titre) titre = sub.slice(1).join('|').trim();
+          } else if (!alarme) {
+            alarme = p1;
+          }
+        }
+        if (!typeAlarme && parts.length >= 4) typeAlarme = parts[3].trim();
+        if (!cause && parts.length >= 5) cause = parts[4].trim();
+        if (!action && parts.length >= 6) action = parts.slice(5).join(',').trim();
+      }
+
+      alarme = alarme.replace(/\//g, '').trim();
+      titre = fixAccents(titre).replace(/\//g, '').trim();
+      typeAlarme = fixAccents(typeAlarme).trim();
+      cause = fixAccents(cause).replace(/\//g, '').trim();
+      action = fixAccents(action).replace(/\//g, '').trim();
+
       const id = code.id || code._id || `err_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
       return {
@@ -43,8 +86,8 @@ export function useErrorCodes() {
         id: id,
         alarme,
         Alarme: alarme,
-        titre,
-        Titre: titre,
+        titre: titre || (alarme ? `Alarme ${alarme}` : 'Code erreur'),
+        Titre: titre || (alarme ? `Alarme ${alarme}` : 'Code erreur'),
         chapitre,
         Chapitre: chapitre,
         typeAlarme,
@@ -70,8 +113,13 @@ export function useErrorCodes() {
         const regexStr = options.filter.Alarme.$regex.toLowerCase();
         normalized = normalized.filter(c =>
           c.Alarme?.toLowerCase().includes(regexStr) ||
+          c.alarme?.toLowerCase().includes(regexStr) ||
           c.Titre?.toLowerCase().includes(regexStr) ||
-          c.Cause?.toLowerCase().includes(regexStr)
+          c.titre?.toLowerCase().includes(regexStr) ||
+          c.Cause?.toLowerCase().includes(regexStr) ||
+          c.cause?.toLowerCase().includes(regexStr) ||
+          c.typeAlarme?.toLowerCase().includes(regexStr) ||
+          c.chapitre?.toLowerCase().includes(regexStr)
         );
       }
 

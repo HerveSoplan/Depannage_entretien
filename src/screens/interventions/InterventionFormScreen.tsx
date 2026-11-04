@@ -90,12 +90,17 @@ export function InterventionFormScreen({
         const bExact = bAlarme === query;
         if (aExact && !bExact) return -1;
         if (!aExact && bExact) return 1;
-        // 2. Préfixe commençant par le terme (ex: "8" affiche "8.16..." en premier)
+        // 2. Préfixe commençant par le terme (ex: "8" ou "8." affiche "8.16..." en premier)
         const aStarts = aAlarme.startsWith(query);
         const bStarts = bAlarme.startsWith(query);
         if (aStarts && !bStarts) return -1;
         if (!aStarts && bStarts) return 1;
-        return aAlarme.localeCompare(bAlarme);
+        // 3. Contient la portion dans le code d'alarme (ex: "6.10" dans "8.16.6.10")
+        const aInAlarme = aAlarme.includes(query);
+        const bInAlarme = bAlarme.includes(query);
+        if (aInAlarme && !bInAlarme) return -1;
+        if (!aInAlarme && bInAlarme) return 1;
+        return aAlarme.localeCompare(bAlarme, undefined, { numeric: true });
       });
   }, [errorCodes, errorCodeInput]);
 
@@ -128,7 +133,10 @@ export function InterventionFormScreen({
       ? `Code erreur ${alarme}${titre ? ` (${titre})` : ''} inscrit automatiquement dans le diagnostic.`
       : `Code erreur ${alarme}${titre ? ` (${titre})` : ''} sélectionné et inscrit dans le diagnostic.`;
     setInscribedCodeMessage(msg);
-    setShowErrorCodeSuggestions(false);
+    // En mode automatique on garde les suggestions ouvertes pour visibilité
+    if (!isAuto) {
+      setShowErrorCodeSuggestions(false);
+    }
   }, []);
 
   // Détection et inscription automatique dès le 1er chiffre / saisie
@@ -156,7 +164,7 @@ export function InterventionFormScreen({
       const singleMatch = matchingErrorCodes[0];
       const singleAlarme = (singleMatch.alarme || singleMatch.Alarme || '').trim().toLowerCase();
       const codeKey = (singleMatch.alarme || singleMatch.Alarme || '').trim();
-      if (singleAlarme.startsWith(query) && lastInscribedCodeRef.current !== codeKey) {
+      if ((singleAlarme.startsWith(query) || singleAlarme.includes(query)) && lastInscribedCodeRef.current !== codeKey) {
         applyErrorCode(singleMatch, true);
       }
     }

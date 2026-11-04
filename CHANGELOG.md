@@ -4,6 +4,24 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.14.4] - 2026-11-04
+
+### Corrigé & Amélioré (Nettoyage de la base de codes erreur, recherche sur fragments 8. ou 6.10 & auto-inscription)
+- **Nettoyage et normalisation de la base Supabase `error_codes`** :
+  - Résolution de l'anomalie où le champ `alarme` était vide `""` sur les 51 codes erreur en base (les codes étaient concaténés dans `chapitre`).
+  - Extraction et renseignement automatique du code d'alarme officiel (ex: `8.16.6.10`, `8.16.7.25`), du titre clair, de la cause, de l'action et du type d'alarme.
+  - Correction des caractères d'encodage CP850 / DOS (`é`, `è`, `ê`, `à`, `â`, `ô`, `ç`, `î`).
+  - Suppression de la ligne d'en-tête de section vide.
+- **Support complet de la recherche par préfixe ou sous-chaîne (`8.`, `6.10`, etc.) ([InterventionFormScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/interventions/InterventionFormScreen.tsx))** :
+  - La recherche dès `8.` renvoie immédiatement l'ensemble des 50 codes d'alarmes de la famille 8 (stations de traite, bras de robot, etc.).
+  - La recherche sur une sous-chaîne comme `6.10` isole directement `8.16.6.10 (1:204 Le programme de la station de traite a été relancé)`.
+  - Tri prioritaire optimisé : correspondance exacte > début du code > segment d'alarme inclus > autres champs.
+  - Inscription automatique opérationnelle sur correspondance exacte ou résultat unique identifié.
+- **Catalogue de repli hors-ligne intégré ([defaultErrorCodes.json](file:///d:/Aplli/D%C3%A9pannage_entretien/src/data/defaultErrorCodes.json) & [demoDatabase.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/services/demoDatabase.ts))** :
+  - Intégration de `defaultErrorCodes.json` avec les 50 codes d'alarme parfaitement nettoyés et renseignés.
+  - Chargement autonome dans `demoDb.getTable('errorCodes')` pour garantir un fonctionnement immédiat sans latence même en cas de déconnexion.
+  - Incrémentation SemVer vers `v1.14.4`.
+
 ## [1.14.3] - 2026-11-04
 
 ### Amélioré & Ajouté (Recherche instantanée de code erreur dès le 1er chiffre & inscription automatique)

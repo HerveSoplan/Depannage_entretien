@@ -2,6 +2,7 @@
 // Gestionnaire de stockage local autonome (aucun faux client ni fausse machine en dur)
 
 import defaultTachesData from '../data/defaultTachesEntretien.json';
+import defaultErrorCodesData from '../data/defaultErrorCodes.json';
 
 export interface DemoDatabaseState {
   utilisateurs: any[];
@@ -172,7 +173,7 @@ const INITIAL_CLEAN_DATA: DemoDatabaseState = {
   installationProtocols: [],
   commissioningProtocols: [],
   spareParts: [],
-  errorCodes: [],
+  errorCodes: defaultErrorCodesData as any[],
   maintenanceKits: DEFAULT_MAINTENANCE_KITS,
   tachesEntretien: defaultTachesData as any[],
   machineFields: [
