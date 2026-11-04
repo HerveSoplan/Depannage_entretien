@@ -46,7 +46,7 @@ export function ErrorCodeSearchModal({ isVisible, onClose, onSelect, initialSear
     return null;
   }
 
-  const hasInitialSearch = initialSearchTerm.length > 0;
+  const hasInitialSearch = false;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -63,7 +63,7 @@ export function ErrorCodeSearchModal({ isVisible, onClose, onSelect, initialSear
         {!hasInitialSearch && (
           <div className="p-4">
             <Input
-              placeholder="Ex: 8.16.7.25"
+              placeholder="Rechercher dès le 1er chiffre (ex: 8 ou 8.16.7.25)..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               leftIcon={<Search size={20} />}

@@ -1,9 +1,9 @@
 //InterventionFormScreen.tsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Card } from '../../components/common/Card';
 import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
-import { ArrowLeft, Save, MapPin, Clock, Play, Pause, StopCircle, Plus, X, Search, Package, FileText, Info } from 'lucide-react';
+import { ArrowLeft, Save, MapPin, Clock, Play, Pause, StopCircle, Plus, X, Search, Package, FileText, Info, CheckCircle, AlertCircle } from 'lucide-react';
 import { useClients } from '../../hooks/useClients';
 import { useMachines } from '../../hooks/useMachines';
 import { useInterventions } from '../../hooks/useInterventions';
@@ -13,6 +13,7 @@ import { useInterventionGPS } from '../../hooks/useInterventionGPS';
 import { getCurrentPosition } from '../../utils/geoUtils';
 import { db } from '../../lib/supabase';
 import { ErrorCodeSearchModal } from '../../components/common/ErrorCodeSearchModal';
+import { useErrorCodes } from '../../hooks/useErrorCodes';
 import { useSelectedClient } from '../../contexts/SelectedClientContext';
 
 interface InterventionFormScreenProps {
@@ -51,9 +52,277 @@ export function InterventionFormScreen({
   const { spareParts, fetchSpareParts } = useSpareParts();
   const { selectedClient: globalSelectedClient } = useSelectedClient();
 
-  // États Modal
+  // États Modal et Recherche instantanée de Codes Erreur
   const [isErrorCodeModalOpen, setIsErrorCodeModalOpen] = useState(false);
   const [errorCodeInput, setErrorCodeInput] = useState('');
+  const [showErrorCodeSuggestions, setShowErrorCodeSuggestions] = useState(false);
+  const [inscribedCodeMessage, setInscribedCodeMessage] = useState<string | null>(null);
+  const lastInscribedCodeRef = useRef<string | null>(null);
+
+  // Chargement des codes erreur
+  const { errorCodes } = useErrorCodes();
+
+  // Codes erreur filtrés dès le 1er caractère / chiffre saisi
+  const matchingErrorCodes = useMemo(() => {
+    const query = errorCodeInput.trim().toLowerCase();
+    if (!query) return [];
+
+    return errorCodes
+      .filter((c: any) => {
+        const alarme = (c.alarme || c.Alarme || '').toLowerCase();
+        const titre = (c.titre || c.Titre || '').toLowerCase();
+        const cause = (c.cause || c.Cause || '').toLowerCase();
+        const action = (c.action || c.Action || '').toLowerCase();
+        const typeAlarme = (c.typeAlarme || c.Type_alarme || c.type_alarme || '').toLowerCase();
+        return (
+          alarme.includes(query) ||
+          titre.includes(query) ||
+          cause.includes(query) ||
+          action.includes(query) ||
+          typeAlarme.includes(query)
+        );
+      })
+      .sort((a: any, b: any) => {
+        const aAlarme = (a.alarme || a.Alarme || '').toLowerCase();
+        const bAlarme = (b.alarme || b.Alarme || '').toLowerCase();
+        // 1. Correspondance exacte en priorité absolue
+        const aExact = aAlarme === query;
+        const bExact = bAlarme === query;
+        if (aExact && !bExact) return -1;
+        if (!aExact && bExact) return 1;
+        // 2. Préfixe commençant par le terme (ex: "8" affiche "8.16..." en premier)
+        const aStarts = aAlarme.startsWith(query);
+        const bStarts = bAlarme.startsWith(query);
+        if (aStarts && !bStarts) return -1;
+        if (!aStarts && bStarts) return 1;
+        return aAlarme.localeCompare(bAlarme);
+      });
+  }, [errorCodes, errorCodeInput]);
+
+  // Fonction universelle d'inscription du code erreur dans le formulaire
+  const applyErrorCode = useCallback((code: any, isAuto: boolean = false) => {
+    if (!code) return;
+    const alarme = (code.alarme || code.Alarme || code.code || '').trim();
+    let titre = code.titre || code.Titre || '';
+    let cause = code.cause || code.Cause || '';
+    let action = code.action || code.Action || '';
+
+    if (!titre && !cause && !action && (code.chapitre || code.Chapitre)) {
+      const chap = code.chapitre || code.Chapitre;
+      const parts = chap.split(",");
+      if (parts.length >= 6) {
+        titre = parts[1].replace(/\//g, '').trim();
+        cause = parts[4].replace(/\//g, '').trim();
+        action = parts[5].replace(/\//g, '').trim();
+      }
+    }
+
+    const text = `CODE ERREUR: ${alarme}\nTITRE: ${titre || 'N/A'}\nCAUSE: ${cause || 'N/A'}\nACTION: ${action || 'N/A'}`;
+    setFormData(prev => ({
+      ...prev,
+      diagnostic: text
+    }));
+
+    lastInscribedCodeRef.current = alarme;
+    const msg = isAuto
+      ? `Code erreur ${alarme}${titre ? ` (${titre})` : ''} inscrit automatiquement dans le diagnostic.`
+      : `Code erreur ${alarme}${titre ? ` (${titre})` : ''} sélectionné et inscrit dans le diagnostic.`;
+    setInscribedCodeMessage(msg);
+    setShowErrorCodeSuggestions(false);
+  }, []);
+
+  // Détection et inscription automatique dès le 1er chiffre / saisie
+  useEffect(() => {
+    const query = errorCodeInput.trim().toLowerCase();
+    if (!query) {
+      lastInscribedCodeRef.current = null;
+      return;
+    }
+
+    // 1. Inscription automatique dès que la saisie correspond exactement à un code d'alarme
+    const exactMatch = matchingErrorCodes.find(
+      (c: any) => (c.alarme || c.Alarme || '').trim().toLowerCase() === query
+    );
+    if (exactMatch) {
+      const codeKey = (exactMatch.alarme || exactMatch.Alarme || '').trim();
+      if (lastInscribedCodeRef.current !== codeKey) {
+        applyErrorCode(exactMatch, true);
+      }
+      return;
+    }
+
+    // 2. Inscription automatique dès le 1er chiffre si correspondance unique dans la base
+    if (matchingErrorCodes.length === 1 && query.length >= 1) {
+      const singleMatch = matchingErrorCodes[0];
+      const singleAlarme = (singleMatch.alarme || singleMatch.Alarme || '').trim().toLowerCase();
+      const codeKey = (singleMatch.alarme || singleMatch.Alarme || '').trim();
+      if (singleAlarme.startsWith(query) && lastInscribedCodeRef.current !== codeKey) {
+        applyErrorCode(singleMatch, true);
+      }
+    }
+  }, [errorCodeInput, matchingErrorCodes, applyErrorCode]);
+
+  // Bloc UI de recherche instantanée de code erreur réutilisable
+  const renderErrorCodeSearchSection = () => (
+    <div className="mb-4 p-4 border border-blue-200 rounded-lg bg-blue-50/70">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+        <label className="block text-sm font-bold text-blue-900">
+          Recherche instantanée de Code Erreur
+        </label>
+        <span className="text-xs text-blue-800 bg-blue-100 px-2 py-0.5 rounded-full font-medium">
+          Dès le 1er chiffre & inscription automatique
+        </span>
+      </div>
+
+      <div className="relative">
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Input
+              placeholder="Tapez le code (ex: 8 ou 8.16.7.25)..."
+              value={errorCodeInput}
+              onChange={(e) => {
+                setErrorCodeInput(e.target.value);
+                setShowErrorCodeSuggestions(true);
+              }}
+              onFocus={() => {
+                if (errorCodeInput.trim().length >= 1) {
+                  setShowErrorCodeSuggestions(true);
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  if (matchingErrorCodes.length > 0) {
+                    applyErrorCode(matchingErrorCodes[0], false);
+                  }
+                }
+              }}
+              className="w-full pl-9 pr-8"
+              disabled={readOnly}
+            />
+            <Search className="absolute left-2.5 top-2.5 text-gray-400" size={18} />
+            {errorCodeInput && !readOnly && (
+              <button
+                type="button"
+                onClick={() => {
+                  setErrorCodeInput('');
+                  setShowErrorCodeSuggestions(false);
+                }}
+                className="absolute right-2.5 top-2.5 text-gray-400 hover:text-gray-600"
+                title="Effacer la recherche"
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => setIsErrorCodeModalOpen(true)}
+            className="flex items-center gap-1.5 whitespace-nowrap text-sm"
+            disabled={readOnly}
+          >
+            <Search size={16} />
+            Parcourir tout
+          </Button>
+        </div>
+
+        {/* Alerte confirmation inscription automatique */}
+        {inscribedCodeMessage && (
+          <div className="mt-2.5 p-2.5 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between text-xs text-green-800">
+            <div className="flex items-center gap-2">
+              <CheckCircle size={16} className="text-green-600 flex-shrink-0" />
+              <span className="font-medium">{inscribedCodeMessage}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setInscribedCodeMessage(null)}
+              className="text-green-600 hover:text-green-800 ml-2"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
+
+        {/* Suggestions instantanées dès le 1er caractère / chiffre */}
+        {showErrorCodeSuggestions && errorCodeInput.trim().length >= 1 && (
+          <div className="mt-2 bg-white border border-blue-200 rounded-lg shadow-lg max-h-72 overflow-y-auto divide-y divide-gray-100 z-20">
+            <div className="p-2 bg-blue-100 text-xs font-semibold text-blue-900 flex justify-between items-center sticky top-0 z-10">
+              <span>
+                {matchingErrorCodes.length} résultat{matchingErrorCodes.length > 1 ? 's' : ''} trouvé{matchingErrorCodes.length > 1 ? 's' : ''} pour « {errorCodeInput} »
+              </span>
+              <span className="text-gray-500 text-[11px] font-normal">
+                Cliquez pour inscrire ou Entrée
+              </span>
+            </div>
+
+            {matchingErrorCodes.length === 0 ? (
+              <div className="p-4 text-center text-sm text-gray-500 flex items-center justify-center gap-2">
+                <AlertCircle size={16} className="text-amber-500" />
+                <span>Aucun code erreur correspondant à « {errorCodeInput} »</span>
+              </div>
+            ) : (
+              matchingErrorCodes.slice(0, 15).map((code: any) => {
+                const alarme = code.alarme || code.Alarme || code.code || 'Code inconnu';
+                const titre = code.titre || code.Titre || '';
+                const cause = code.cause || code.Cause || '';
+                const action = code.action || code.Action || '';
+                const isCurrent = formData.diagnostic.includes(`CODE ERREUR: ${alarme}`);
+
+                return (
+                  <div
+                    key={code._id || code.id || alarme}
+                    onClick={() => applyErrorCode(code, false)}
+                    className={`p-3 cursor-pointer hover:bg-blue-50 transition-colors flex items-start justify-between gap-3 ${
+                      isCurrent ? 'bg-blue-50/70 border-l-4 border-l-blue-600' : ''
+                    }`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-blue-900 text-sm">{alarme}</span>
+                        {titre && (
+                          <span className="text-xs font-semibold text-gray-800 truncate">
+                            - {titre}
+                          </span>
+                        )}
+                        {isCurrent && (
+                          <span className="text-[10px] bg-green-100 text-green-800 px-1.5 py-0.5 rounded font-semibold">
+                            Inscrit ✓
+                          </span>
+                        )}
+                      </div>
+                      {cause && (
+                        <p className="text-xs text-gray-600 line-clamp-1 mt-0.5">
+                          <span className="font-semibold text-gray-700">Cause :</span> {cause}
+                        </p>
+                      )}
+                      {action && (
+                        <p className="text-xs text-gray-600 line-clamp-1 mt-0.5">
+                          <span className="font-semibold text-gray-700">Action :</span> {action}
+                        </p>
+                      )}
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={isCurrent ? "secondary" : "default"}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        applyErrorCode(code, false);
+                      }}
+                      className="text-xs py-1 px-2.5 h-auto flex-shrink-0"
+                    >
+                      {isCurrent ? 'Réinscrire' : 'Inscrire'}
+                    </Button>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   const [formData, setFormData] = useState({
     type: 'REPAIR' as 'REPAIR' | 'MAINTENANCE' | 'INSTALLATION' | 'COMMISSIONING',
@@ -892,6 +1161,7 @@ export function InterventionFormScreen({
         {formData.type === 'REPAIR' && (
           <Card>
             <h2 className="text-xl font-bold text-gray-900 mb-4">Diagnostics et Constatations</h2>
+            {!readOnly && renderErrorCodeSearchSection()}
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">Diagnostic principal</label>
               <textarea
@@ -973,15 +1243,24 @@ export function InterventionFormScreen({
           </Card>
         )}
 
-        {/* Code Erreur */}
-        {!readOnly && (
-          <div className="mb-4 p-4 border border-blue-200 rounded-lg bg-blue-50">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Recherche de Code Erreur</label>
-            <div className="flex gap-2">
-              <Input placeholder="Ex: 8.16.7.25" value={errorCodeInput} onChange={(e) => setErrorCodeInput(e.target.value)} className="flex-1" />
-              <Button type="button" onClick={() => setIsErrorCodeModalOpen(true)} disabled={!errorCodeInput}>Rechercher</Button>
-            </div>
-          </div>
+        {/* Code Erreur si hors REPAIR */}
+        {!readOnly && formData.type !== 'REPAIR' && (
+          <Card className="mb-4">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Recherche de Code Erreur</h2>
+            {renderErrorCodeSearchSection()}
+            {formData.diagnostic && (
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Diagnostic renseigné</label>
+                <textarea
+                  value={formData.diagnostic}
+                  onChange={(e) => setFormData(prev => ({ ...prev, diagnostic: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  rows={3}
+                  disabled={readOnly}
+                />
+              </div>
+            )}
+          </Card>
         )}
         {/* Info Complémentaires */}
         <Card>
@@ -1044,17 +1323,7 @@ export function InterventionFormScreen({
         isVisible={isErrorCodeModalOpen}
         onClose={() => setIsErrorCodeModalOpen(false)}
         onSelect={(errorCodeData) => {
-          let titre = errorCodeData.titre, cause = errorCodeData.cause, action = errorCodeData.action;
-          if (!titre && !cause && !action && errorCodeData.chapitre) {
-            const parts = errorCodeData.chapitre.split(",");
-            if (parts.length >= 6) {
-              titre = parts[1].replace(/\//g, '');
-              cause = parts[4].replace(/\//g, '');
-              action = parts[5].replace(/\//g, '');
-            }
-          }
-          const text = `CODE ERREUR: ${errorCodeData.alarme}\nTITRE: ${titre || 'N/A'}\nCAUSE: ${cause || 'N/A'}\nACTION: ${action || 'N/A'}`;
-          setFormData(prev => ({ ...prev, diagnostic: text }));
+          applyErrorCode(errorCodeData, false);
           setIsErrorCodeModalOpen(false);
           setErrorCodeInput('');
         }}

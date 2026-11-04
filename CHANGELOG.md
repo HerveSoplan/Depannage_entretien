@@ -4,6 +4,22 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.14.3] - 2026-11-04
+
+### Amélioré & Ajouté (Recherche instantanée de code erreur dès le 1er chiffre & inscription automatique)
+- **Recherche temps réel dès le 1er chiffre ([InterventionFormScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/interventions/InterventionFormScreen.tsx))** :
+  - Déclenchement automatique de la recherche dès la saisie du premier chiffre ou caractère (plus besoin de cliquer sur un bouton pour chercher).
+  - Filtrage multi-critères instantané en mémoire (code alarme, titre, cause, action, type) avec tri prioritaire par correspondance exacte puis préfixe.
+  - Affichage en temps réel de la liste déroulante des codes correspondants avec prévisualisation complète du titre, de la cause et de l'action.
+- **Inscription automatique dans le diagnostic ([InterventionFormScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/interventions/InterventionFormScreen.tsx))** :
+  - Remplissage automatique et direct du champ « Diagnostic principal » dès correspondance exacte sur le code ou dès qu'un code unique est isolé.
+  - Inscription immédiate en 1 clic sur n'importe quelle suggestion ou à l'appui sur la touche Entrée.
+  - Bandeau d'information visuel confirmant l'inscription automatique du code erreur dans le formulaire.
+  - Intégration ergonomique directe dans le bloc *Diagnostics et Constatations* juste au-dessus du champ de diagnostic, évitant les allers-retours au bas de page.
+- **Amélioration du modal de recherche globale ([ErrorCodeSearchModal.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/components/common/ErrorCodeSearchModal.tsx))** :
+  - Champ de recherche désormais toujours actif et éditable pour affiner la recherche librement.
+  - Incrémentation SemVer vers `v1.14.3`.
+
 ## [1.14.2] - 2026-11-04
 
 ### Corrigé & Amélioré (Chargement des sections et tâches d'entretien pour kits V300 et VMS 2014)
