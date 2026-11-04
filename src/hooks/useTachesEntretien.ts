@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { db } from '../lib/supabase';
+import defaultTachesData from '../data/defaultTachesEntretien.json';
 
 // --- INTERFACES POUR TYPESCRIPT (Cela corrige les erreurs de types) ---
 
@@ -58,11 +59,22 @@ export function useTachesEntretien() {
   const fetchTachesByKit = useCallback(async (kitId: string): Promise<Tache[]> => {
     setLoading(true);
     try {
-      const result = await (db as any).taches_entretien.list({
+      let result = await (db as any).taches_entretien.list({
         where: { kitId },
-        limit: 200
+        limit: 300
       });
-      return (result as DbResponseList).list || [];
+      let list = (result as DbResponseList).list || [];
+      if (list.length === 0) {
+        const kit = await (db as any).maintenance_kits?.get?.(kitId);
+        if (kit && kit.kitId && kit.kitId !== kitId) {
+          result = await (db as any).taches_entretien.list({
+            where: { kitId: kit.kitId },
+            limit: 300
+          });
+          list = (result as DbResponseList).list || [];
+        }
+      }
+      return list;
     } catch (error) {
       console.error('Erreur chargement tâches:', error);
       return [];
@@ -74,15 +86,12 @@ export function useTachesEntretien() {
   const fetchSectionsByKit = useCallback(async (kitId: string) => {
     setLoading(true);
     try {
-      const result = await (db as any).taches_entretien.list({
-        where: { kitId },
-        limit: 200
-      });
-
+      const list = await fetchTachesByKit(kitId);
       const sectionsSet = new Set<string>();
-      ((result as DbResponseList).list || []).forEach((tache: Tache) => {
-        if (tache.section) {
-          sectionsSet.add(tache.section);
+      list.forEach((tache: Tache) => {
+        const sec = tache.section_title || tache.section;
+        if (sec) {
+          sectionsSet.add(sec);
         }
       });
 
@@ -96,16 +105,27 @@ export function useTachesEntretien() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [fetchTachesByKit]);
 
   const fetchTachesBySection = useCallback(async (kitId: string, section: string): Promise<Tache[]> => {
     setLoading(true);
     try {
-      const result = await (db as any).taches_entretien.list({
+      let result = await (db as any).taches_entretien.list({
         where: { kitId, section },
-        limit: 200
+        limit: 300
       });
-      return (result as DbResponseList).list || [];
+      let list = (result as DbResponseList).list || [];
+      if (list.length === 0) {
+        const kit = await (db as any).maintenance_kits?.get?.(kitId);
+        if (kit && kit.kitId && kit.kitId !== kitId) {
+          result = await (db as any).taches_entretien.list({
+            where: { kitId: kit.kitId, section },
+            limit: 300
+          });
+          list = (result as DbResponseList).list || [];
+        }
+      }
+      return list;
     } catch (error) {
       console.error('Erreur chargement tâches par section:', error);
       return [];
@@ -140,125 +160,213 @@ export function useTachesEntretien() {
   const getSectionsByKit = useCallback(async (kitId: string) => {
     console.log('🔍 [getSectionsByKit] kitId reçu:', kitId);
 
+    if (!kitId) {
+      console.warn('⚠️ [getSectionsByKit] kitId vide ou indéfini');
+      return [];
+    }
+
     setLoading(true);
     try {
       let taches: Tache[] = [];
 
       // ==========================================
-      // MÉTHODE 1 : Charger le kit et utiliser ses métadonnées
+      // RÉCUPÉRATION DU KIT DANS maintenance_kits
       // ==========================================
-      console.log('📦 [Méthode 1] Recherche du kit dans maintenance_kits...');
-
+      let kit: any = null;
       try {
-        const kitResult = await (db as any).maintenance_kits.list({
-          where: { id: kitId },  // Utiliser 'id' au lieu de '_id'
-          limit: 1
-        }) as DbResponseKitList;
+        if ((db as any).maintenance_kits?.get) {
+          kit = await (db as any).maintenance_kits.get(kitId);
+        }
 
-        const kit = kitResult.list && kitResult.list.length > 0 ? kitResult.list[0] : null;
+        if (!kit) {
+          const kitResult = await (db as any).maintenance_kits.list({
+            filter: { id: kitId },
+            limit: 1
+          }) as DbResponseKitList;
+          kit = kitResult.list && kitResult.list.length > 0 ? kitResult.list[0] : null;
+        }
 
-        if (kit) {
-          console.log('✅ Kit trouvé:', {
-            nom: kit.nom,
-            machineType: kit.machineType,
-            kitNumber: kit.kitNumber,
-            serviceNumber: kit.serviceNumber,
-            kitId: kit.kitId
-          });
-
-          // Rechercher les tâches avec les champs de la nouvelle structure
-          console.log('🔍 [Méthode 1] Recherche avec kit_id, machine_type, kit_number, service_number');
-          const result1 = await (db as any).taches_entretien.list({
-            where: {
-              kit_id: kit.kitId,
-              machine_type: kit.machineType,
-              kit_number: kit.kitNumber,
-              service_number: kit.serviceNumber
-            },
-            sort: { task_order: 1 },
-            limit: 200
-          }) as DbResponseList;
-          taches = result1.list || [];
-          console.log(`→ [Méthode 1] ${taches.length} tâches trouvées`);
-        } else {
-          console.warn('⚠️ [Méthode 1] Kit introuvable dans maintenance_kits');
+        if (!kit) {
+          const kitResultByCode = await (db as any).maintenance_kits.list({
+            filter: { kitId: kitId },
+            limit: 1
+          }) as DbResponseKitList;
+          kit = kitResultByCode.list && kitResultByCode.list.length > 0 ? kitResultByCode.list[0] : null;
         }
       } catch (error) {
-        console.warn('⚠️ [Méthode 1] Erreur:', error);
+        console.warn('⚠️ [getSectionsByKit] Erreur recherche kit:', error);
       }
 
       // ==========================================
-      // MÉTHODE 2 : Recherche directe avec l'ObjectId
+      // MÉTHODE 1 : Recherche des tâches via les infos du kit
+      // ==========================================
+      if (kit) {
+        console.log('✅ Kit trouvé:', {
+          nom: kit.nom,
+          machineType: kit.machineType,
+          kitNumber: kit.kitNumber,
+          serviceNumber: kit.serviceNumber,
+          kitId: kit.kitId,
+          id: kit.id || kit._id
+        });
+
+        // 1.a Recherche directe avec le code kit_id officiel
+        if (kit.kitId) {
+          try {
+            const res = await (db as any).taches_entretien.list({
+              where: { kitId: kit.kitId },
+              sort: { task_order: 1 },
+              limit: 300
+            }) as DbResponseList;
+            taches = res.list || [];
+            if (taches.length > 0) {
+              console.log(`→ [Méthode 1.a] ${taches.length} tâches trouvées pour kitId = "${kit.kitId}"`);
+            }
+          } catch (e) {
+            console.warn('⚠️ [Méthode 1.a] Erreur:', e);
+          }
+        }
+
+        // 1.b Recherche avec l'UUID id du kit dans la colonne kit_id
+        if (taches.length === 0 && (kit.id || kit._id)) {
+          const uuid = kit.id || kit._id;
+          try {
+            const res = await (db as any).taches_entretien.list({
+              where: { kitId: uuid },
+              sort: { task_order: 1 },
+              limit: 300
+            }) as DbResponseList;
+            taches = res.list || [];
+            if (taches.length > 0) {
+              console.log(`→ [Méthode 1.b] ${taches.length} tâches trouvées pour UUID kit = "${uuid}"`);
+            }
+          } catch (e) {
+            console.warn('⚠️ [Méthode 1.b] Erreur:', e);
+          }
+        }
+
+        // 1.c Recherche par couple machineType + serviceNumber
+        if (taches.length === 0 && kit.machineType && kit.serviceNumber) {
+          try {
+            const res = await (db as any).taches_entretien.list({
+              where: {
+                machine_type: kit.machineType,
+                service_number: kit.serviceNumber
+              },
+              sort: { task_order: 1 },
+              limit: 300
+            }) as DbResponseList;
+            taches = res.list || [];
+            if (taches.length > 0) {
+              console.log(`→ [Méthode 1.c] ${taches.length} tâches trouvées pour machineType="${kit.machineType}" et serviceNumber=${kit.serviceNumber}`);
+            }
+          } catch (e) {
+            console.warn('⚠️ [Méthode 1.c] Erreur:', e);
+          }
+        }
+      }
+
+      // ==========================================
+      // MÉTHODE 2 : Recherche directe avec le paramètre kitId brut
       // ==========================================
       if (taches.length === 0) {
-        console.log('🔍 [Méthode 2] Recherche avec ObjectId =', kitId);
+        console.log('🔍 [Méthode 2] Recherche directe avec kitId brut =', kitId);
         try {
           const result2 = await (db as any).taches_entretien.list({
             where: { kitId: kitId },
-            sort: { ordre: 1 },
-            limit: 200
+            sort: { task_order: 1 },
+            limit: 300
           }) as DbResponseList;
           taches = result2.list || [];
-          console.log(`→ [Méthode 2] ${taches.length} tâches trouvées`);
+          if (taches.length > 0) {
+            console.log(`→ [Méthode 2] ${taches.length} tâches trouvées`);
+          }
         } catch (error) {
           console.warn('⚠️ [Méthode 2] Erreur:', error);
         }
       }
 
       // ==========================================
-      // MÉTHODE 3 : Recherche partielle (fallback)
+      // MÉTHODE 3 : Recherche partielle / scan avec matching intelligent
       // ==========================================
       if (taches.length === 0) {
-        console.log('🔍 [Méthode 3] Recherche partielle...');
+        console.log('🔍 [Méthode 3] Recherche intelligente par pattern...');
         try {
-          const kitResult = await (db as any).maintenance_kits.list({
-            where: { _id: kitId },
-            limit: 1
-          }) as DbResponseKitList;
+          const allTasksResult = await (db as any).taches_entretien.list({
+            limit: 1000
+          }) as DbResponseList;
+          const allTasks = allTasksResult.list || [];
 
-          const kit = kitResult.list && kitResult.list.length > 0 ? kitResult.list[0] : null;
-
-          if (kit && kit.machineType && kit.serviceNumber) {
-            console.log('🔍 [Méthode 3] Recherche par pattern:', {
-              machineType: kit.machineType,
-              serviceNumber: kit.serviceNumber
-            });
-
-            const allTasksResult = await (db as any).taches_entretien.list({
-              limit: 1000
-            }) as DbResponseList;
-
-            const allTasks = allTasksResult.list || [];
-            console.log(`📦 [Méthode 3] ${allTasks.length} tâches au total dans la base`);
-
-            if (allTasks.length > 0) {
-              const sampleKitIds = [...new Set(allTasks.slice(0, 10).map(t => t.kitId))];
-              console.log('📋 [Méthode 3] Exemples de kitId dans la base:', sampleKitIds);
-            }
-
-            const machineTypeNormalized = kit.machineType.toLowerCase().replace(/\s+/g, '');
-            console.log('🔍 [Méthode 3] Pattern recherché:', machineTypeNormalized, '+ _' + kit.serviceNumber);
+          if (allTasks.length > 0) {
+            const targetType = kit?.machineType?.toLowerCase().replace(/\s+/g, '') || '';
+            const targetService = kit?.serviceNumber ? `_${kit.serviceNumber}` : '';
+            const targetKitIdClean = kitId.toLowerCase().replace(/[^a-z0-9]/g, '');
 
             taches = allTasks.filter((task: Tache) => {
-              if (!task.kitId) return false;
+              const taskKit = (task.kitId || task.kit_id || '').toLowerCase();
+              if (!taskKit) return false;
 
-              const taskKitIdLower = task.kitId.toLowerCase();
-              const matchMachine = taskKitIdLower.includes(machineTypeNormalized);
-              const matchService = taskKitIdLower.includes(`_${kit.serviceNumber}`);
-
-              if (matchMachine && matchService) {
-                console.log('✅ [Méthode 3] Match trouvé:', task.kitId);
+              // Match direct de sous-chaîne avec kitId
+              if (taskKit.includes(targetKitIdClean) || targetKitIdClean.includes(taskKit.replace(/[^a-z0-9]/g, ''))) {
                 return true;
               }
+
+              // Match avec machineType et serviceNumber
+              if (targetType && targetService) {
+                const normalizedTaskKit = taskKit.replace(/\s+/g, '');
+                if (normalizedTaskKit.includes(targetType) && normalizedTaskKit.includes(targetService)) {
+                  return true;
+                }
+              }
+
               return false;
             });
 
-            console.log(`→ [Méthode 3] ${taches.length} tâches trouvées par recherche partielle`);
-          } else {
-            console.warn('⚠️ [Méthode 3] Kit non trouvé ou données incomplètes');
+            console.log(`→ [Méthode 3] ${taches.length} tâches trouvées par filtrage intelligent`);
           }
         } catch (error) {
           console.warn('⚠️ [Méthode 3] Erreur:', error);
+        }
+      }
+
+      // ==========================================
+      // MÉTHODE 4 : Repli de secours sur le catalogue standard embarqué
+      // ==========================================
+      if (taches.length === 0 && defaultTachesData && defaultTachesData.length > 0) {
+        console.log('🔄 [Méthode 4] Repli sur les tâches d\'entretien standards embarquées...');
+        const targetType = (kit?.machineType || '').toLowerCase().replace(/\s+/g, '');
+        const targetService = kit?.serviceNumber ? Number(kit.serviceNumber) : null;
+        const targetKitIdClean = kitId.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+        taches = (defaultTachesData as any[]).filter((task: any) => {
+          const taskKit = (task.kit_id || task.kitId || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+          if (taskKit && (taskKit.includes(targetKitIdClean) || targetKitIdClean.includes(taskKit))) {
+            return true;
+          }
+          if (targetType && targetService) {
+            const mType = (task.machine_type || task.machineType || '').toLowerCase().replace(/\s+/g, '');
+            const sNum = Number(task.service_number || task.serviceNumber);
+            if (mType.includes(targetType) && sNum === targetService) {
+              return true;
+            }
+          }
+          return false;
+        }).map((t: any) => ({
+          ...t,
+          _id: t.id || t.taskId || t.task_id || `std_${Math.random()}`,
+          idTache: t.taskId || t.task_id || t.idTache,
+          taskId: t.taskId || t.task_id || t.idTache,
+          kitId: t.kit_id || t.kitId || kitId,
+          section: t.section_title || t.section || 'Général',
+          sectionTitle: t.section_title || t.section || 'Général',
+          description: t.task_label || t.description || '',
+          taskLabel: t.task_label || t.description || '',
+          ordre: t.task_order ?? t.ordre ?? 1,
+          taskOrder: t.task_order ?? t.ordre ?? 1
+        }));
+
+        if (taches.length > 0) {
+          console.log(`→ [Méthode 4] ${taches.length} tâches standards chargées avec succès`);
         }
       }
 

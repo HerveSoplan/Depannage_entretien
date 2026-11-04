@@ -207,15 +207,12 @@ useEffect(() => {
 
   const validerTachesDeLaSection = async (machineId: string, kitId: string, nomSection: string) => {
     try {
-      const taches = await fetchTachesBySection(kitId, nomSection);
-      console.log(`✅ Validation de ${taches.length} tâches pour "${nomSection}"`);
-      
       setSectionsData(prevData => {
         const newData = JSON.parse(JSON.stringify(prevData));
         const sections = newData[machineId] || [];
         const updatedSections = sections.map((section: any) => {
           if (section.nom === nomSection) {
-            const updatedTaches = section.taches.map((t: any) => ({ 
+            const updatedTaches = (section.taches || []).map((t: any) => ({ 
               ...t, 
               completed: true,
               completedAt: new Date().toISOString()
@@ -227,7 +224,7 @@ useEffect(() => {
         newData[machineId] = updatedSections;
         return newData;
       });
-
+      console.log(`✅ Validation des tâches pour "${nomSection}"`);
     } catch (error) {
       console.error('Erreur validation section:', error);
     }

@@ -15,6 +15,11 @@ interface Props {
 interface MachineKitSelection {
   machineId: string;
   kitId: string;
+  kitNom?: string;
+  kitNumber?: string | number;
+  serviceNumber?: number;
+  machineType?: string;
+  kit?: any;
 }
 
 export function MultiMachineKitSelectionScreen(props: Props) {
@@ -207,7 +212,18 @@ export function MultiMachineKitSelectionScreen(props: Props) {
     }
 
     const machineKitSelections: MachineKitSelection[] = Object.entries(selections).map(
-      ([machineId, kitId]) => ({ machineId, kitId })
+      ([machineId, kitId]) => {
+        const kit = filteredKits.find((k: any) => (k._id === kitId || k.id === kitId || k.kitId === kitId));
+        return {
+          machineId,
+          kitId,
+          kitNom: kit?.nom || '',
+          kitNumber: kit?.kitNumber,
+          serviceNumber: kit?.serviceNumber,
+          machineType: kit?.machineType,
+          kit: kit || null
+        };
+      }
     );
 
     console.log('✅ Sélections validées:', machineKitSelections);

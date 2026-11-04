@@ -17,6 +17,7 @@ import { useErrorCodes } from '../../hooks/useErrorCodes';
 import { useTachesEntretien } from '../../hooks/useTachesEntretien';
 import { useMachineFields } from '../../hooks/useMachineFields';
 import { useMachineFieldOptions } from '../../hooks/useMachineFieldOptions';
+import defaultTachesData from '../../data/defaultTachesEntretien.json';
 import {
   db,
   checkSupabaseConnection,
@@ -2102,6 +2103,33 @@ export function DatabaseAdminScreen({ onNavigate }: DatabaseAdminScreenProps) {
             <Plus size={18} />
             Ajouter
           </Button>
+
+          {activeTable === 'taches_entretien' && (
+            <Button
+              variant="outline"
+              onClick={async () => {
+                if (!confirm(`Voulez-vous réinitialiser/charger les 758 tâches d'entretien par défaut (V 300 & VMS 2014) ?`)) return;
+                setLoading(true);
+                try {
+                  let count = 0;
+                  for (const t of (defaultTachesData as any[])) {
+                    await (db as any).taches_entretien.create(t);
+                    count++;
+                  }
+                  alert(`✅ ${count} tâches d'entretien chargées avec succès !`);
+                  await fetchTachesEntretien();
+                } catch (e: any) {
+                  alert(`Erreur initialisation tâches: ${e?.message || 'Erreur inconnue'}`);
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              className="flex items-center gap-2 flex-1 sm:flex-none text-indigo-700 border-indigo-300 hover:bg-indigo-50"
+            >
+              <Database size={18} />
+              Recharger 758 tâches standards
+            </Button>
+          )}
         </div>
 
       </Card>

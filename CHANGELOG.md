@@ -4,6 +4,22 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.14.2] - 2026-11-04
+
+### Corrigé & Amélioré (Chargement des sections et tâches d'entretien pour kits V300 et VMS 2014)
+- **Insertion et synchronisation des 758 tâches d'entretien ([supabase.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/lib/supabase.ts) & [defaultTachesEntretien.json](file:///d:/Aplli/D%C3%A9pannage_entretien/src/data/defaultTachesEntretien.json))** :
+  - Peuplement complet de la table Supabase `taches_entretien` avec les 758 tâches réelles des kits officiels V 300 (Services 1, 2, 3, 4) et VMS 2014 (Services 1, 2, 3, 4).
+  - Intégration du catalogue standard embarqué dans `src/data/defaultTachesEntretien.json` et synchronisation dans `demoDatabase.ts` pour garantir un fonctionnement hors-ligne ou sans connexion Supabase.
+- **Résolution robuste de la recherche des tâches ([useTachesEntretien.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/hooks/useTachesEntretien.ts))** :
+  - Support de la double résolution UUID (`id`) et identifiant alphanumérique (`kit_id`, ex: `kit_v300_2150025306_1`) dans `getSectionsByKit`, `fetchTachesByKit`, `fetchSectionsByKit` et `fetchTachesBySection`.
+  - Ajout d'une méthode de repli standard de secours (Méthode 4) garantissant qu'aucune section ni tâche ne soit manquante pour un kit compatible.
+- **Fluidité de validation des sections ([MultiMachineSectionSelectionScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/interventions/MultiMachineSectionSelectionScreen.tsx))** :
+  - Validation et bascule instantanées des tâches d'une section sans latence réseau.
+  - Transmission enrichie des métadonnées des kits sélectionnés depuis `MultiMachineKitSelectionScreen`.
+- **Outil d'administration de secours ([DatabaseAdminScreen.tsx](file:///d:/Aplli/D%C3%A9pannage_entretien/src/screens/admin/DatabaseAdminScreen.tsx))** :
+  - Ajout du bouton d'administration « Recharger 758 tâches standards » dans l'onglet des tâches d'entretien pour réinitialiser ou réparer la base en 1 clic.
+  - Incrémentation SemVer vers `v1.14.2`.
+
 ## [1.14.1] - 2026-11-03
 
 ### Corrigé (Résolution de l'erreur React #310 - Respect des règles des hooks)

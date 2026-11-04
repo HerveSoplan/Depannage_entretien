@@ -3032,10 +3032,20 @@ export const db = {
         try {
           let query = supabase.from('taches_entretien').select('*');
           if (options?.where) {
-            Object.entries(options.where).forEach(([key, value]) => {
+            for (const [key, value] of Object.entries(options.where)) {
               const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+              if ((snakeKey === 'kit_id' || snakeKey === 'kitId') && typeof value === 'string') {
+                const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+                if (isUuid) {
+                  const kitRes = await supabase.from('maintenance_kits').select('kit_id').eq('id', value).maybeSingle();
+                  if (kitRes?.data?.kit_id) {
+                    query = query.or(`kit_id.eq.${value},kit_id.eq.${kitRes.data.kit_id}`);
+                    continue;
+                  }
+                }
+              }
               query = query.eq(snakeKey, value);
-            });
+            }
           }
           if (options?.sort) {
             const sortKey = Object.keys(options.sort)[0];
@@ -3044,7 +3054,7 @@ export const db = {
           }
           if (options?.limit) query = query.limit(options.limit);
           const { data, error } = await query;
-          if (!error && data) {
+          if (!error && data && data.length > 0) {
             const list = toCamelCase(data).map((t: any) => ({
               ...t,
               idTache: t.taskId || t.task_id || t.idTache || t.id,
@@ -3064,7 +3074,28 @@ export const db = {
           // Fallback démo
         }
       }
-      return { list: demoDb.getTable('tachesEntretien') };
+      let list = demoDb.getTable('tachesEntretien');
+      if (options?.where) {
+        list = list.filter((t: any) => {
+          return Object.entries(options.where).every(([key, value]) => {
+            const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+            if (snakeKey === 'kit_id' || snakeKey === 'kitId') {
+              return t.kitId === value || t.kit_id === value;
+            }
+            if (snakeKey === 'machine_type' || snakeKey === 'machineType') {
+              return (t.machineType || t.machine_type) === value;
+            }
+            if (snakeKey === 'service_number' || snakeKey === 'serviceNumber') {
+              return Number(t.serviceNumber || t.service_number) === Number(value);
+            }
+            if (snakeKey === 'section') {
+              return t.section === value || t.sectionTitle === value || t.section_title === value;
+            }
+            return t[key] === value || t[snakeKey] === value;
+          });
+        });
+      }
+      return { list };
     },
 
     create: async (taskData: any) => {
@@ -3148,17 +3179,22 @@ export const db = {
   // Kits de maintenance
   maintenance_kits: {
     list: async (options: any = {}) => {
+      const filter = options.filter || options.where || {};
       if (isLiveSupabaseActive()) {
         try {
           let query = supabase.from('maintenance_kits').select('*', { count: 'exact' });
-          if (options.filter) {
-            Object.entries(options.filter).forEach(([key, value]) => {
-              if (key === 'machineType') {
+          if (filter && Object.keys(filter).length > 0) {
+            Object.entries(filter).forEach(([key, value]) => {
+              if (key === 'machineType' || key === 'machine_type') {
                 if (value && typeof value === 'object' && '$in' in (value as any)) {
                   query = query.in('machine_type', (value as any).$in);
                 } else {
                   query = query.eq('machine_type', value);
                 }
+              } else if (key === '_id' || key === 'id') {
+                query = query.eq('id', value);
+              } else if (key === 'kitId' || key === 'kit_id') {
+                query = query.eq('kit_id', value);
               } else if (Array.isArray(value)) query = query.in(toSnakeCase(key), value);
               else query = query.eq(toSnakeCase(key), value);
             });
@@ -3177,8 +3213,34 @@ export const db = {
           // Fallback démo
         }
       }
-      const list = demoDb.getTable('maintenanceKits');
+      let list = demoDb.getTable('maintenanceKits');
+      if (filter && Object.keys(filter).length > 0) {
+        list = list.filter((item: any) => {
+          return Object.entries(filter).every(([k, v]) => {
+            if (k === 'id' || k === '_id') return item.id === v || item._id === v;
+            if (k === 'kitId' || k === 'kit_id') return item.kitId === v || item.kit_id === v;
+            if (k === 'machineType' || k === 'machine_type') return item.machineType === v || item.machine_type === v;
+            return item[k] === v || item[toSnakeCase(k)] === v;
+          });
+        });
+      }
       return { list, count: list.length };
+    },
+
+    get: async (id: string) => {
+      if (!id) return null;
+      if (isLiveSupabaseActive()) {
+        try {
+          const byId = await supabase.from('maintenance_kits').select('*').eq('id', id).maybeSingle();
+          if (byId.data) return toCamelCase(byId.data);
+          const byKitId = await supabase.from('maintenance_kits').select('*').eq('kit_id', id).maybeSingle();
+          if (byKitId.data) return toCamelCase(byKitId.data);
+        } catch (e) {
+          // Fallback démo
+        }
+      }
+      const list = demoDb.getTable('maintenanceKits');
+      return list.find((k: any) => k.id === id || k._id === id || k.kitId === id || k.kit_id === id) || null;
     },
 
     create: async (kitData: any) => {

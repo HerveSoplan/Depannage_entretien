@@ -1,6 +1,8 @@
 // src/services/demoDatabase.ts
 // Gestionnaire de stockage local autonome (aucun faux client ni fausse machine en dur)
 
+import defaultTachesData from '../data/defaultTachesEntretien.json';
+
 export interface DemoDatabaseState {
   utilisateurs: any[];
   clients: any[];
@@ -19,6 +21,121 @@ export interface DemoDatabaseState {
   clientMessages: any[];
   montages: any[];
 }
+
+export const DEFAULT_MAINTENANCE_KITS = [
+  {
+    id: '380b4d47-9d0d-4c82-9ea5-b3b276788f01',
+    _id: '380b4d47-9d0d-4c82-9ea5-b3b276788f01',
+    kitId: 'kit_v300_2150025306_1',
+    kit_id: 'kit_v300_2150025306_1',
+    machineType: 'V 300',
+    machine_type: 'V 300',
+    kitNumber: 2150025306,
+    kit_number: 2150025306,
+    serviceNumber: 1,
+    service_number: 1,
+    nom: 'Kit Entretien V 300-2150025306-Service (1)',
+    actif: true
+  },
+  {
+    id: '859e7fd6-df32-467f-860e-ae66d63b21c7',
+    _id: '859e7fd6-df32-467f-860e-ae66d63b21c7',
+    kitId: 'kit_v300_2150025307_2',
+    kit_id: 'kit_v300_2150025307_2',
+    machineType: 'V 300',
+    machine_type: 'V 300',
+    kitNumber: 2150025307,
+    kit_number: 2150025307,
+    serviceNumber: 2,
+    service_number: 2,
+    nom: 'Kit Entretien V 300-2150025307-Service (2)',
+    actif: true
+  },
+  {
+    id: 'b3237bf7-fa69-479a-b495-7552b59f2811',
+    _id: 'b3237bf7-fa69-479a-b495-7552b59f2811',
+    kitId: 'kit_v300_2150025308_3',
+    kit_id: 'kit_v300_2150025308_3',
+    machineType: 'V 300',
+    machine_type: 'V 300',
+    kitNumber: 2150025308,
+    kit_number: 2150025308,
+    serviceNumber: 3,
+    service_number: 3,
+    nom: 'Kit Entretien V 300-2150025308-Service (3)',
+    actif: true
+  },
+  {
+    id: '8cbd2966-005f-4684-8e0c-1fca19e595b2',
+    _id: '8cbd2966-005f-4684-8e0c-1fca19e595b2',
+    kitId: 'kit_v300_2150025309_4',
+    kit_id: 'kit_v300_2150025309_4',
+    machineType: 'V 300',
+    machine_type: 'V 300',
+    kitNumber: 2150025309,
+    kit_number: 2150025309,
+    serviceNumber: 4,
+    service_number: 4,
+    nom: 'Kit Entretien V 300-2150025309-Service (4)',
+    actif: true
+  },
+  {
+    id: 'd58b96d7-0d2b-4fdc-980d-99306ca0af4b',
+    _id: 'd58b96d7-0d2b-4fdc-980d-99306ca0af4b',
+    kitId: 'kit_vms_2014_88835631_1',
+    kit_id: 'kit_vms_2014_88835631_1',
+    machineType: 'VMS_2014',
+    machine_type: 'VMS_2014',
+    kitNumber: 88835631,
+    kit_number: 88835631,
+    serviceNumber: 1,
+    service_number: 1,
+    nom: 'Kit Entretien VMS_2014-88835631-Service (1)',
+    actif: true
+  },
+  {
+    id: '9ecaffc7-bbbb-4589-9910-19bdd62567eb',
+    _id: '9ecaffc7-bbbb-4589-9910-19bdd62567eb',
+    kitId: 'kit_vms_2014_88835632_2',
+    kit_id: 'kit_vms_2014_88835632_2',
+    machineType: 'VMS_2014',
+    machine_type: 'VMS_2014',
+    kitNumber: 88835632,
+    kit_number: 88835632,
+    serviceNumber: 2,
+    service_number: 2,
+    nom: 'Kit Entretien VMS_2014-88835632-Service (2)',
+    actif: true
+  },
+  {
+    id: '9996a1c4-c23f-4ad3-822b-b6624779e409',
+    _id: '9996a1c4-c23f-4ad3-822b-b6624779e409',
+    kitId: 'kit_vms_2014_88835633_3',
+    kit_id: 'kit_vms_2014_88835633_3',
+    machineType: 'VMS_2014',
+    machine_type: 'VMS_2014',
+    kitNumber: 88835633,
+    kit_number: 88835633,
+    serviceNumber: 3,
+    service_number: 3,
+    nom: 'Kit Entretien VMS_2014-88835633-Service (2)',
+    actif: true
+  },
+  {
+    id: '038d6fbe-ef49-4b97-ae85-44009e495083',
+    _id: '038d6fbe-ef49-4b97-ae85-44009e495083',
+    kitId: 'kit_vms_2014_88835634_4',
+    kit_id: 'kit_vms_2014_88835634_4',
+    machineType: 'VMS_2014',
+    machine_type: 'VMS_2014',
+    kitNumber: 88835634,
+    kit_number: 88835634,
+    serviceNumber: 4,
+    service_number: 4,
+    nom: 'Kit Entretien VMS_2014-88835634-Service (4)',
+    actif: true
+  }
+];
 
 const STORAGE_KEY = 'maintenance_database_v2';
 
@@ -56,8 +173,8 @@ const INITIAL_CLEAN_DATA: DemoDatabaseState = {
   commissioningProtocols: [],
   spareParts: [],
   errorCodes: [],
-  maintenanceKits: [],
-  tachesEntretien: [],
+  maintenanceKits: DEFAULT_MAINTENANCE_KITS,
+  tachesEntretien: defaultTachesData as any[],
   machineFields: [
     {
       id: 'mf-pump-type',
@@ -266,6 +383,14 @@ class DemoDatabaseManager {
           ...u,
           statut: u.statut || (u.actif !== false ? 'VALIDE' : 'EN_ATTENTE')
         }));
+
+        // Garantir les kits et tâches d'entretien par défaut si vides
+        if (!parsed.maintenanceKits || parsed.maintenanceKits.length === 0) {
+          parsed.maintenanceKits = DEFAULT_MAINTENANCE_KITS;
+        }
+        if (!parsed.tachesEntretien || parsed.tachesEntretien.length === 0) {
+          parsed.tachesEntretien = defaultTachesData;
+        }
 
         this.saveState(parsed);
         return parsed;
