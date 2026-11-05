@@ -4,6 +4,14 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.14.6] - 2026-11-05
+
+### Déployé & Confirmé (Alignement complet du domaine officiel Vercel & automatisation du déploiement)
+- **Officialisation de `https://depannage-entretien.vercel.app`** :
+  - Déploiement et association réussie du domaine de production `https://depannage-entretien.vercel.app` sur le projet Vercel.
+  - Mise à jour de `OFFICIAL_APP_URL` dans `src/version.ts` pour pointer sur `https://depannage-entretien.vercel.app`.
+  - Ajout du drapeau `--yes` dans le script `npm run deploy` pour garantir des déploiements pré-construits Vercel 100% automatisés sans blocage interactif.
+
 ## [1.14.5] - 2026-11-05
 
 ### Corrigé & Rétabli (Résolution erreur 404 DEPLOYMENT_NOT_FOUND Vercel & Rétablissement de l'accès public)

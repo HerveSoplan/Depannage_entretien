@@ -1,12 +1,12 @@
 // Version active de l'application
-export const APP_VERSION = '1.14.5';
+export const APP_VERSION = '1.14.6';
 export const APP_NAME = 'Dépannage_entretien';
 export const PUBLISHER_NAME = 'App à la Carte — Hervé CHAMPAGNE EI';
 export const PUBLISHER_SIREN = '132 021 098';
 export const CONTACT_EMAIL = 'contact@appalacarte.fr';
 
 // URL officielle active de production Vercel
-export const OFFICIAL_APP_URL = 'https://soplan-app-alpha.vercel.app';
+export const OFFICIAL_APP_URL = 'https://depannage-entretien.vercel.app';
 
 /**
  * Retourne l'URL de base sécurisée de l'application.
