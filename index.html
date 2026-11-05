@@ -15,15 +15,7 @@
     <script>
       (function() {
         try {
-          // 1. Redirection soplan vers domaine officiel
-          if (typeof window !== 'undefined' && window.location && window.location.hostname) {
-            if (window.location.hostname.indexOf('soplan') !== -1) {
-              var target = 'https://depannage-entretien.vercel.app' + window.location.pathname + window.location.search + window.location.hash;
-              window.location.replace(target);
-              return;
-            }
-          }
-          // 2. Nettoyage de l'éventuel marqueur temporaire _v dans l'URL après chargement complet
+          // 1. Nettoyage de l'éventuel marqueur temporaire _v dans l'URL après chargement complet
           if (window.location && window.location.search && window.location.search.indexOf('_v=') !== -1) {
             window.addEventListener('load', function() {
               setTimeout(function() {

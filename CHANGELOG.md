@@ -4,6 +4,17 @@ Toutes les modifications notables apportées à l'application **Dépannage_entre
 
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), et ce projet adhère à la spécification du [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.14.5] - 2026-11-05
+
+### Corrigé & Rétabli (Résolution erreur 404 DEPLOYMENT_NOT_FOUND Vercel & Rétablissement de l'accès public)
+- **Élimination de la redirection automatique vers le domaine inexistant `depannage-entretien.vercel.app` ([index.html](file:///d:/Aplli/D%C3%A9pannage_entretien/index.html))** :
+  - Suppression du script qui interceptait les connexions sur `soplan` et redirigeait systématiquement vers `https://depannage-entretien.vercel.app`.
+  - Comme ce nom d'hôte n'était pas associé au projet sur l'infrastructure Vercel, chaque chargement déclenchait immédiatement une erreur `404 DEPLOYMENT_NOT_FOUND`.
+- **Rétablissement de l'URL officielle active et des liens dynamiques ([version.ts](file:///d:/Aplli/D%C3%A9pannage_entretien/src/version.ts))** :
+  - Réassignation de `OFFICIAL_APP_URL` vers le domaine de production en service `https://soplan-app-alpha.vercel.app`.
+  - Simplification de `getAppBaseUrl()` et `getInviteAppBaseUrl()` : les liens d'invitations et de connexion utilisent directement le nom de domaine hôte actif (`window.location.origin`) sans forçage vers un domaine Vercel non configuré.
+  - Résolution complète des erreurs 404 lors de la navigation directe et via liens partagés.
+
 ## [1.14.4] - 2026-11-04
 
 ### Corrigé & Amélioré (Nettoyage de la base de codes erreur, recherche sur fragments 8. ou 6.10 & auto-inscription)
